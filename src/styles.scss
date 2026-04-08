@@ -1,0 +1,84 @@
+@use '@angular/material' as mat;
+
+html {
+  height: 100%;
+  @include mat.theme(
+    (
+      color: (
+        primary: mat.$blue-palette,
+        accent: mat.$green-palette,
+      ),
+      typography: Roboto,
+      density: 0,
+    )
+  );
+}
+
+@include mat.core();
+
+:root {
+  --primary: #1a1a2e;
+  --accent: #00b894;
+  --bg: #f8f9fa;
+  --surface: #ffffff;
+  --text-main: #1a1a2e;
+  --text-muted: #6c757d;
+  --border: #e9ecef;
+  --danger: #e74c3c;
+  --warning: #f39c12;
+}
+
+html,
+body {
+  height: 100%;
+  min-height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg);
+  font-family: 'Roboto', sans-serif;
+  color: var(--text-main);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+.mat-mdc-button,
+.mat-mdc-raised-button {
+  min-height: 48px;
+}
+
+.mat-mdc-form-field {
+  width: 100%;
+}
+
+.mat-mdc-button.mat-primary,
+.btn-login {
+  background: var(--accent) !important;
+  color: #ffffff !important;
+}
+
+.mat-mdc-form-field .mat-mdc-form-field-outline {
+  border-color: var(--border);
+}
+
+.mat-mdc-form-field .mat-mdc-form-field-label {
+  color: var(--text-muted);
+}

@@ -1,0 +1,1 @@
+// Ce module n'est plus nécessaire car LoginComponent est standalone // Les composants standalone sont importés directement via loadComponent dans les routes // Ce fichier est gardé pour compatibilité future si nécessaire import { NgModule } from '@angular/core'; import { CommonModule } from '@angular/common'; @NgModule({ imports: [CommonModule], }) export class AuthModule {}

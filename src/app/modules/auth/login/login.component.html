@@ -1,0 +1,56 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="logo-area">
+      <div class="app-name">SmartStock</div>
+      <div class="app-sub">Gestion commerciale mobile-first</div>
+    </div>
+
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+      <mat-form-field appearance="outline">
+        <mat-label>Email</mat-label>
+        <input matInput type="email" formControlName="email" autocomplete="email" />
+        <mat-icon matSuffix>email</mat-icon>
+        <mat-error *ngIf="loginForm.get('email')?.hasError('required')">
+          L'email est requis
+        </mat-error>
+        <mat-error *ngIf="loginForm.get('email')?.hasError('email')"> Email invalide </mat-error>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Mot de passe</mat-label>
+        <input
+          matInput
+          [type]="showPassword ? 'text' : 'password'"
+          formControlName="password"
+          autocomplete="current-password"
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          aria-label="Afficher le mot de passe"
+          (click)="showPassword = !showPassword"
+        >
+          <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+        <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
+          Le mot de passe est requis
+        </mat-error>
+        <mat-error *ngIf="loginForm.get('password')?.hasError('minlength')">
+          Minimum 6 caractères
+        </mat-error>
+      </mat-form-field>
+
+      <button
+        mat-raised-button
+        class="btn-login"
+        type="submit"
+        [disabled]="loginForm.invalid || isLoading"
+      >
+        {{ isLoading ? 'Connexion...' : 'Se connecter' }}
+      </button>
+
+      <p class="error-msg" *ngIf="errorMessage">{{ errorMessage }}</p>
+    </form>
+  </div>
+</div>
