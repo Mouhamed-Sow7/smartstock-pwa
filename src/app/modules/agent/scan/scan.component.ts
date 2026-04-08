@@ -34,7 +34,7 @@ interface BarcodeDetectorLike {
           <div class="corner br"></div>
         </div>
         <div class="camera-actions">
-          <button (click)="startCameraScan()" [disabled]="cameraActive || !cameraAvailable">
+          <button (click)="demarrerScan()" [disabled]="cameraActive || !cameraAvailable">
             Démarrer caméra
           </button>
           <button class="secondary" (click)="switchCamera()" [disabled]="!cameraActive">
@@ -248,9 +248,7 @@ export class ScanComponent implements OnDestroy {
 
     this.errorMessage = '';
     try {
-      this.mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: this.facingMode },
-      });
+      this.mediaStream = await navigator.mediaDevices.getUserMedia(this.getCameraConstraints());
       const video = this.videoRef.nativeElement;
       video.srcObject = this.mediaStream;
       await video.play();
@@ -280,8 +278,30 @@ export class ScanComponent implements OnDestroy {
         });
       }
     } catch {
-      this.errorMessage = "Impossible d'accéder à la caméra";
+      this.errorMessage = "Autorisez l'accès à la caméra dans les paramètres du navigateur";
     }
+  }
+
+  async demarrerScan(): Promise<void> {
+    if ('BarcodeDetector' in window) {
+      await this.startCameraScan();
+    } else {
+      this.utiliserZXing();
+    }
+  }
+
+  private utiliserZXing(): void {
+    this.startCameraScan();
+  }
+
+  private getCameraConstraints(): MediaStreamConstraints {
+    return {
+      video: {
+        facingMode: { ideal: this.facingMode },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    };
   }
 
   private onCameraCodeDetected(code: string): void {

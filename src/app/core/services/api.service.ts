@@ -1,12 +1,24 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../../environments/environment';
+import { catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private base = environment.apiUrl.replace(/\/+$/, '');
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    this.wakeUp();
+  }
+
+  private wakeUp() {
+    const pingUrl = this.base.replace('/api', '/ping');
+    this.http
+      .get(pingUrl)
+      .pipe(catchError(() => of(null)))
+      .subscribe();
+  }
 
   private buildUrl(path: string): string {
     const endpoint = (path || '').replace(/^\/+/, '');
