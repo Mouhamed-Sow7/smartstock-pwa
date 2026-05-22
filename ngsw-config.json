@@ -5,6 +5,7 @@
     {
       "name": "app",
       "installMode": "prefetch",
+      "updateMode": "prefetch",
       "resources": {
         "files": [
           "/favicon.ico",
@@ -22,6 +23,48 @@
       "updateMode": "prefetch",
       "resources": {
         "files": ["/**/*.(svg|cur|jpg|jpeg|png|apng|webp|avif|gif|otf|ttf|woff|woff2)"]
+      }
+    }
+  ],
+  "dataGroups": [
+    {
+      "name": "produits-cache",
+      "urls": ["/api/produits", "/api/produits/**"],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 500,
+        "maxAge": "12h",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "agents-cache",
+      "urls": ["/api/agents", "/api/agents/**"],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 100,
+        "maxAge": "12h",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "stats-cache",
+      "urls": ["/api/ventes/stats"],
+      "cacheConfig": {
+        "strategy": "freshness",
+        "maxSize": 10,
+        "maxAge": "1h",
+        "timeout": "5s"
+      }
+    },
+    {
+      "name": "ventes-network",
+      "urls": ["/api/ventes", "/api/ventes/**"],
+      "cacheConfig": {
+        "strategy": "performance",
+        "maxSize": 50,
+        "maxAge": "10m",
+        "timeout": "3s"
       }
     }
   ]

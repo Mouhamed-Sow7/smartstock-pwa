@@ -102,17 +102,19 @@ export class PanierComponent implements OnInit, OnDestroy {
     this.errorMessage = '';
     this.isSaving = true;
     this.pos
-      .validateSale()
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: () => {
-          this.isSaving = false;
+      .validateSaleAsync()
+      .then((mode) => {
+        this.isSaving = false;
+        if (mode === 'offline') {
+          this.errorMessage = '📵 Vente sauvegardée hors ligne — sera synchronisée automatiquement';
+          setTimeout(() => this.router.navigate(['/agent/ticket']), 1500);
+        } else {
           this.router.navigate(['/agent/ticket']);
-        },
-        error: (err) => {
-          this.isSaving = false;
-          this.errorMessage = err?.error?.message || 'Impossible de valider la vente';
-        },
+        }
+      })
+      .catch((err) => {
+        this.isSaving = false;
+        this.errorMessage = err?.message || 'Impossible de valider la vente';
       });
   }
 

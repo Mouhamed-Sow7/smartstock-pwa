@@ -7,6 +7,8 @@ import { RouterLink } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
+import { OfflineService } from '../../../core/services/offline.service';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -263,9 +265,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
   totalVentes = 0;
   private destroy$ = new Subject<void>();
 
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    private offlineSvc: OfflineService,
+    private auth: AuthService,
+  ) {}
 
   ngOnInit() {
+    const tenantId = (this as any).tenantId;
+
     forkJoin<any>({
       stats: this.api.get('ventes/stats').pipe(catchError(() => of(null))),
       alertes: this.api.get('produits/alerte').pipe(catchError(() => of(null))),
@@ -274,11 +282,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
       .subscribe((result: any) => {
         const { stats, alertes } = result || {};
         if (stats?.success) {
-          this.stats = {
-            ...this.stats,
-            ...stats.data,
-          };
-          this.totalVentes = this.stats.paiements?.reduce((s: number, p: any) => s + p.count, 0) || 1;
+          this.stats = { ...this.stats, ...stats.data };
+          this.totalVentes =
+            this.stats.paiements?.reduce((s: number, p: any) => s + p.count, 0) || 1;
+          // Cache les stats pour usage offline
+          this.offlineSvc.cacheStats(this.auth.getTenantId() ?? '', this.stats);
+        } else {
+          // Pas de réseau → charge depuis le cache
+          this.offlineSvc.getStats(this.auth.getTenantId() ?? '').then((cached) => {
+            if (cached) this.stats = cached;
+          });
         }
         if (alertes?.success) {
           this.alertes = alertes.data?.length || 0;

@@ -1,6 +1,10 @@
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, from, of } from 'rxjs';
+import { tap, catchError, switchMap } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
+import { OfflineService } from '../../../core/services/offline.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { SyncService } from '../../../core/services/sync.service';
 
 export interface Produit {
   _id?: string;
@@ -12,26 +16,39 @@ export interface Produit {
   seuilAlerte?: number;
 }
 
-export interface ProduitListResponse {
-  success: boolean;
-  data: Produit[];
-  message?: string;
-}
-
-export interface ProduitResponse {
-  success: boolean;
-  data: Produit;
-  message?: string;
-}
-
-@Injectable({
-  providedIn: 'root',
-})
+@Injectable({ providedIn: 'root' })
 export class ProduitService {
-  constructor(private api: ApiService) {}
+  constructor(
+    private api: ApiService,
+    private offline: OfflineService,
+    private auth: AuthService,
+    private sync: SyncService,
+  ) {}
 
   getAll(): Observable<any> {
-    return this.api.get('produits');
+    const tenantId = this.auth.getTenantId() ?? '';
+
+    if (!this.sync.estEnLigne()) {
+      // Hors ligne → retourne le cache
+      return from(this.offline.getProduits(tenantId)).pipe(
+        switchMap((cached) => of({ success: true, data: cached, fromCache: true })),
+      );
+    }
+
+    // En ligne → appel API + mise en cache
+    return this.api.get('produits').pipe(
+      tap((res: any) => {
+        if (res?.success && res?.data) {
+          const produits = res.data.map((p: any) => ({ ...p, tenantId }));
+          this.offline.cacheProduits(tenantId, produits);
+        }
+      }),
+      catchError(() =>
+        from(this.offline.getProduits(tenantId)).pipe(
+          switchMap((cached) => of({ success: true, data: cached, fromCache: true })),
+        ),
+      ),
+    );
   }
 
   getById(id: string): Observable<any> {
@@ -39,6 +56,15 @@ export class ProduitService {
   }
 
   getByBarcode(code: string): Observable<any> {
+    if (!this.sync.estEnLigne()) {
+      return from(this.offline.getProduitByBarcode(code)).pipe(
+        switchMap((p) =>
+          p
+            ? of({ success: true, data: p })
+            : of({ success: false, message: 'Produit non trouvé dans le cache' }),
+        ),
+      );
+    }
     return this.api.get(`produits/barcode/${encodeURIComponent(code)}`);
   }
 

@@ -3,6 +3,7 @@ import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { SyncService } from '../../../core/services/sync.service';
 
 export interface CartItem {
   produit: any;
@@ -16,6 +17,7 @@ export interface SaleTicket {
   items: CartItem[];
   total: number;
   modePaiement: string;
+  modeCreation?: 'online' | 'offline';
 }
 
 @Injectable({ providedIn: 'root' })
@@ -29,6 +31,7 @@ export class PosService {
   constructor(
     private api: ApiService,
     private auth: AuthService,
+    private sync: SyncService,
   ) {}
 
   get cartSnapshot(): CartItem[] {
@@ -48,11 +51,7 @@ export class PosService {
     if (idx >= 0) {
       cart[idx] = { ...cart[idx], quantite: cart[idx].quantite + 1 };
     } else {
-      cart.push({
-        produit,
-        quantite: 1,
-        prix: Number(produit?.prix || 0),
-      });
+      cart.push({ produit, quantite: 1, prix: Number(produit?.prix || 0) });
     }
     this.cartSubject.next(cart);
   }
@@ -76,6 +75,42 @@ export class PosService {
     return this.cartSnapshot.reduce((sum, item) => sum + item.prix * item.quantite, 0);
   }
 
+  // ─── Validation avec fallback offline ──────────────────────
+  async validateSaleAsync(modePaiement = 'especes'): Promise<'online' | 'offline'> {
+    const tenantId = this.auth.getTenantId() ?? '';
+    const lignes = this.cartSnapshot.map((item) => ({
+      produitId: item.produit._id,
+      nom: item.produit.nom,
+      quantite: item.quantite,
+      prixUnitaire: item.prix,
+    }));
+
+    const mode = await this.sync.creerVente({
+      tenantId,
+      lignes,
+      montantTotal: this.getTotal(),
+      modePaiement,
+    });
+
+    // Générer un ticket local dans tous les cas
+    const now = new Date().toISOString();
+    const numeroTicket =
+      mode === 'offline' ? `TK-OFF-${Date.now()}` : `TK-${now.slice(0, 10).replace(/-/g, '')}-SYNC`;
+
+    this.lastTicketSubject.next({
+      numeroTicket,
+      createdAt: now,
+      items: this.cartSnapshot,
+      total: this.getTotal(),
+      modePaiement,
+      modeCreation: mode,
+    });
+
+    this.clearCart();
+    return mode;
+  }
+
+  // Conservé pour compatibilité avec le code existant
   validateSale(modePaiement = 'especes'): Observable<any> {
     const produits = this.cartSnapshot.map((item) => ({
       produitId: item.produit._id,
@@ -98,6 +133,7 @@ export class PosService {
             items: this.cartSnapshot,
             total: vente.montantTotal ?? this.getTotal(),
             modePaiement: vente.modePaiement || modePaiement,
+            modeCreation: 'online',
           });
           this.clearCart();
         }
@@ -115,13 +151,18 @@ export class PosService {
     const itemsHtml = ticket.items
       .map(
         (item) => `
-          <tr>
-            <td>${item.produit?.nom || 'Produit'}</td>
-            <td style="text-align:center;">x${item.quantite}</td>
-            <td style="text-align:right;">${(item.prix * item.quantite).toLocaleString('fr-FR')}</td>
-          </tr>`,
+        <tr>
+          <td>${item.produit?.nom || 'Produit'}</td>
+          <td style="text-align:center;">x${item.quantite}</td>
+          <td style="text-align:right;">${(item.prix * item.quantite).toLocaleString('fr-FR')}</td>
+        </tr>`,
       )
       .join('');
+
+    const offlineBadge =
+      ticket.modeCreation === 'offline'
+        ? `<p style="color:#f59e0b;font-weight:bold;">⚠ Vente hors ligne — sera synchronisée</p>`
+        : '';
 
     printWindow.document.write(`
       <html>
@@ -142,6 +183,7 @@ export class PosService {
         <body onload="window.print(); setTimeout(() => window.close(), 150);">
           <div class="ticket">
             <h2>${shopName}</h2>
+            ${offlineBadge}
             <p>Ticket: ${ticket.numeroTicket}</p>
             <div class="meta">${new Date(ticket.createdAt).toLocaleString('fr-FR')}</div>
             <table>${itemsHtml}</table>

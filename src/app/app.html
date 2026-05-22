@@ -1,1 +1,18 @@
+<!-- Bandeau offline -->
+@if (sync.afficherBandeau()) {
+  <div class="bandeau-offline" [class.syncing]="sync.estEnSync()">
+    @if (!sync.estEnLigne()) {
+      <span>📵 Mode hors ligne</span>
+    } @else {
+      <span>📶 Connexion rétablie</span>
+    }
+    @if (sync.ventesPendingCount() > 0) {
+      <span class="badge"> {{ sync.ventesPendingCount() }} vente(s) en attente de sync </span>
+    }
+    @if (sync.estEnSync()) {
+      <span class="sync-anim">⟳ Synchronisation...</span>
+    }
+  </div>
+}
+
 <router-outlet></router-outlet>
