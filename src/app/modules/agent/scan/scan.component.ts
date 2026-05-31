@@ -33,16 +33,23 @@ interface BarcodeDetectorLike {
           <mat-icon>photo_camera</mat-icon>
           <strong>Scan caméra</strong>
         </div>
-        <video #video autoplay muted playsinline [class.hidden]="!cameraActive"></video>
-        <div class="scan-frame" *ngIf="cameraActive">
-          <div class="corner tl"></div>
-          <div class="corner tr"></div>
-          <div class="corner bl"></div>
-          <div class="corner br"></div>
+
+        <div class="video-wrapper">
+          <video #video autoplay muted playsinline [class.hidden]="!cameraActive"></video>
+          <div class="scan-frame" *ngIf="cameraActive">
+            <div class="corner tl"></div>
+            <div class="corner tr"></div>
+            <div class="corner bl"></div>
+            <div class="corner br"></div>
+          </div>
         </div>
+
         <div class="camera-actions">
-          <button (click)="demarrerScan()" [disabled]="cameraActive || !cameraAvailable">
-            Démarrer caméra
+          <button
+            (click)="demarrerScan()"
+            [disabled]="cameraActive || isStarting || !cameraAvailable"
+          >
+            {{ isStarting ? 'Démarrage...' : 'Démarrer caméra' }}
           </button>
           <button class="secondary" (click)="switchCamera()" [disabled]="!cameraActive">
             Basculer caméra
@@ -106,148 +113,301 @@ interface BarcodeDetectorLike {
   `,
   styles: [
     `
-    .page-container { max-width: 600px; margin: 0 auto; }
+      .page-container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
 
-    /* Header */
-    .scan-header { margin-bottom: 16px; }
-    .scan-title { color: var(--text-1); font-size: 22px; font-weight: 700; }
-    .scan-sub { color: var(--text-3); font-size: 13px; margin-top: 4px; }
+      /* Header */
+      .scan-header {
+        margin-bottom: 16px;
+      }
+      .scan-title {
+        color: var(--text-1);
+        font-size: 22px;
+        font-weight: 700;
+      }
+      .scan-sub {
+        color: var(--text-3);
+        font-size: 13px;
+        margin-top: 4px;
+      }
 
-    /* Camera card */
-    .camera-card {
-      background: var(--navy-card);
-      border: 1px solid var(--navy-border);
-      border-radius: 16px;
-      padding: 12px;
-      margin-bottom: 12px;
-      position: relative;
-      backdrop-filter: blur(12px);
-    }
-    .camera-head {
-      display: flex; align-items: center; gap: 8px;
-      margin-bottom: 10px;
-      color: var(--text-2); font-size: 14px; font-weight: 600;
-    }
-    .camera-head mat-icon { color: var(--accent); font-size: 20px; }
+      /* Camera card */
+      .camera-card {
+        background: var(--navy-card);
+        border: 1px solid var(--navy-border);
+        border-radius: 16px;
+        padding: 12px;
+        margin-bottom: 12px;
+        position: relative;
+        backdrop-filter: blur(12px);
+      }
+      .camera-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 10px;
+        color: var(--text-2);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .camera-head mat-icon {
+        color: var(--accent);
+        font-size: 20px;
+      }
 
-    video {
-      width: 100%; max-height: 240px;
-      border-radius: 10px;
-      background: #060e1a;
-      object-fit: cover;
-      display: block;
-    }
-    video.hidden { display: none; }
+      video {
+        width: 100%;
+        max-height: 240px;
+        border-radius: 10px;
+        background: #060e1a;
+        object-fit: cover;
+        display: block;
+      }
+      video.hidden {
+        display: none;
+      }
 
-    /* Scan frame corners */
-    .scan-frame {
-      position: absolute;
-      top: 56px; left: 24px; right: 24px; bottom: 64px;
-      pointer-events: none;
-    }
-    .corner {
-      position: absolute; width: 24px; height: 24px;
-      border: 2.5px solid var(--accent);
-    }
-    .corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-radius: 4px 0 0 0; }
-    .corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-radius: 0 4px 0 0; }
-    .corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 4px; }
-    .corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-radius: 0 0 4px 0; }
+      /* Scan frame corners */
+      .scan-frame {
+        position: absolute;
+        top: 56px;
+        left: 24px;
+        right: 24px;
+        bottom: 64px;
+        pointer-events: none;
+      }
+      .corner {
+        position: absolute;
+        width: 24px;
+        height: 24px;
+        border: 2.5px solid var(--accent);
+      }
+      .corner.tl {
+        top: 0;
+        left: 0;
+        border-right: 0;
+        border-bottom: 0;
+        border-radius: 4px 0 0 0;
+      }
+      .corner.tr {
+        top: 0;
+        right: 0;
+        border-left: 0;
+        border-bottom: 0;
+        border-radius: 0 4px 0 0;
+      }
+      .corner.bl {
+        bottom: 0;
+        left: 0;
+        border-right: 0;
+        border-top: 0;
+        border-radius: 0 0 0 4px;
+      }
+      .corner.br {
+        bottom: 0;
+        right: 0;
+        border-left: 0;
+        border-top: 0;
+        border-radius: 0 0 4px 0;
+      }
 
-    /* Camera buttons */
-    .camera-actions { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
-    .camera-actions button {
-      flex: 1; padding: 10px 8px;
-      border-radius: 10px; border: none;
-      font-size: 12px; font-weight: 600;
-      cursor: pointer; min-width: 80px;
-      display: flex; align-items: center; justify-content: center; gap: 4px;
-    }
-    .camera-actions button:first-child {
-      background: var(--accent); color: #fff;
-    }
-    .camera-actions button:first-child:disabled {
-      background: var(--accent-lite); color: var(--accent); opacity: 0.7;
-    }
-    .camera-actions button.secondary {
-      background: rgba(255,255,255,0.07);
-      border: 1px solid var(--navy-border);
-      color: var(--text-2);
-    }
-    .camera-actions button.secondary:disabled { opacity: 0.4; cursor: not-allowed; }
+      /* Camera buttons */
+      .camera-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .camera-actions button {
+        flex: 1;
+        padding: 10px 8px;
+        border-radius: 10px;
+        border: none;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        min-width: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+      }
+      .camera-actions button:first-child {
+        background: var(--accent);
+        color: #fff;
+      }
+      .camera-actions button:first-child:disabled {
+        background: var(--accent-lite);
+        color: var(--accent);
+        opacity: 0.7;
+      }
+      .camera-actions button.secondary {
+        background: rgba(255, 255, 255, 0.07);
+        border: 1px solid var(--navy-border);
+        color: var(--text-2);
+      }
+      .camera-actions button.secondary:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
 
-    .hint { color: var(--text-3); font-size: 11px; margin-top: 8px; }
+      .hint {
+        color: var(--text-3);
+        font-size: 11px;
+        margin-top: 8px;
+      }
 
-    /* Search */
-    .search-wrapper { position: relative; margin: 12px 0; }
-    .scan-form { display: flex; gap: 8px; }
-    input {
-      flex: 1;
-      background: var(--navy-card);
-      border: 1px solid var(--navy-border);
-      border-radius: 12px;
-      padding: 12px 14px;
-      color: var(--text-1);
-      font-size: 14px;
-      outline: none;
-      backdrop-filter: blur(12px);
-    }
-    input::placeholder { color: var(--text-3); }
-    input:focus { border-color: var(--accent); }
+      /* Search */
+      .search-wrapper {
+        position: relative;
+        margin: 12px 0;
+      }
+      .scan-form {
+        display: flex;
+        gap: 8px;
+      }
+      input {
+        flex: 1;
+        background: var(--navy-card);
+        border: 1px solid var(--navy-border);
+        border-radius: 12px;
+        padding: 12px 14px;
+        color: var(--text-1);
+        font-size: 14px;
+        outline: none;
+        backdrop-filter: blur(12px);
+      }
+      input::placeholder {
+        color: var(--text-3);
+      }
+      input:focus {
+        border-color: var(--accent);
+      }
 
-    .scan-form button {
-      background: var(--accent); color: #fff;
-      border: none; border-radius: 12px;
-      padding: 12px 18px;
-      font-size: 14px; font-weight: 600;
-      cursor: pointer; white-space: nowrap;
-    }
-    .scan-form button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .scan-form button {
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        padding: 12px 18px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+      }
+      .scan-form button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-    /* Suggestions */
-    .suggestions {
-      position: absolute; top: 100%; left: 0; right: 60px;
-      background: #162236;
-      border: 1px solid var(--navy-border);
-      border-radius: 0 0 12px 12px;
-      z-index: 100;
-      max-height: 240px; overflow-y: auto;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
-    }
-    .suggestion-item {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 10px 14px;
-      cursor: pointer;
-      border-bottom: 1px solid var(--navy-border);
-      transition: background 0.15s;
-    }
-    .suggestion-item:hover { background: var(--accent-lite); }
-    .suggestion-item:last-child { border-bottom: none; }
-    .sug-info { display: flex; flex-direction: column; gap: 2px; }
-    .sug-nom { color: var(--text-1); font-size: 13px; font-weight: 600; }
-    .sug-code { color: var(--text-3); font-size: 10px; font-family: monospace; }
-    .sug-right { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
-    .sug-prix { color: var(--accent); font-size: 13px; font-weight: 700; }
-    .sug-stock { color: var(--text-3); font-size: 10px; }
-    .sug-stock.bas { color: var(--danger); font-weight: 600; }
+      /* Suggestions */
+      .suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 60px;
+        background: #162236;
+        border: 1px solid var(--navy-border);
+        border-radius: 0 0 12px 12px;
+        z-index: 100;
+        max-height: 240px;
+        overflow-y: auto;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+      .suggestion-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--navy-border);
+        transition: background 0.15s;
+      }
+      .suggestion-item:hover {
+        background: var(--accent-lite);
+      }
+      .suggestion-item:last-child {
+        border-bottom: none;
+      }
+      .sug-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .sug-nom {
+        color: var(--text-1);
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .sug-code {
+        color: var(--text-3);
+        font-size: 10px;
+        font-family: monospace;
+      }
+      .sug-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+      }
+      .sug-prix {
+        color: var(--accent);
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .sug-stock {
+        color: var(--text-3);
+        font-size: 10px;
+      }
+      .sug-stock.bas {
+        color: var(--danger);
+        font-weight: 600;
+      }
 
-    /* Messages */
-    .success { color: var(--accent); font-size: 13px; margin-top: 8px; display: flex; align-items: center; gap: 6px; }
-    .error { color: var(--danger); font-size: 13px; margin-top: 8px; display: flex; align-items: center; gap: 6px; }
+      /* Messages */
+      .success {
+        color: var(--accent);
+        font-size: 13px;
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .error {
+        color: var(--danger);
+        font-size: 13px;
+        margin-top: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
 
-    /* Panier link */
-    .panier-link {
-      display: inline-flex; align-items: center; gap: 6px;
-      margin-top: 16px;
-      color: var(--accent); font-size: 14px; font-weight: 600;
-    }
-    .cart-count {
-      background: var(--danger); color: #fff;
-      border-radius: 50%; width: 20px; height: 20px;
-      font-size: 11px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-    }
-  `],
+      /* Panier link */
+      .panier-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 16px;
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .cart-count {
+        background: var(--danger);
+        color: #fff;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    `,
+  ],
 })
 export class ScanComponent implements OnInit, OnDestroy {
   @ViewChild('video') videoRef?: ElementRef<HTMLVideoElement>;
@@ -263,6 +423,7 @@ export class ScanComponent implements OnInit, OnDestroy {
   suggestions: CachedProduit[] = [];
   allProduits: CachedProduit[] = [];
   cartCount = 0;
+  isStarting = false;
 
   private detector: BarcodeDetectorLike | null = null;
   private zxingReader: BrowserMultiFormatReader | null = null;
@@ -406,6 +567,7 @@ export class ScanComponent implements OnInit, OnDestroy {
   async startCameraScan(): Promise<void> {
     if (!this.videoRef?.nativeElement) return;
 
+    this.isStarting = true;
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia(this.getCameraConstraints());
       const video = this.videoRef.nativeElement;
@@ -441,6 +603,8 @@ export class ScanComponent implements OnInit, OnDestroy {
       }
     } catch {
       this.errorMessage = "Autorisez l'accès à la caméra dans les paramètres du navigateur";
+    } finally {
+      this.isStarting = false;
     }
   }
 
