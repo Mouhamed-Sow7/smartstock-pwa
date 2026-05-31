@@ -93,56 +93,67 @@ import { CommonModule } from '@angular/common';
   styles: [
     `
       .topbar {
-        background: #1a1a2e;
-        color: white;
+        background: rgba(15, 27, 45, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--navy-border);
+        color: var(--text-1);
         position: fixed;
-        top: 0;
+        top: var(--safe-top);
         left: 0;
         right: 0;
         z-index: 100;
-        height: 56px;
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        padding: 0 8px 0 4px;
       }
       .app-title {
         font-weight: 700;
-        font-size: 18px;
-        margin-left: 8px;
-      }
-      .spacer {
+        font-size: 16px;
+        margin-left: 4px;
         flex: 1;
       }
       .tenant-name {
-        font-size: 13px;
-        opacity: 0.7;
-        margin-right: 8px;
+        background: var(--accent-lite);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid rgba(0, 184, 148, 0.25);
+        margin-right: 4px;
       }
+
       .sidenav-container {
-        margin-top: 56px;
-        height: calc(100vh - 56px);
-        overflow: hidden;
+        position: fixed;
+        top: calc(var(--safe-top) + var(--topbar-h));
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: calc(100dvh - var(--topbar-h) - var(--safe-top));
       }
+
       .sidenav {
         width: 260px;
-        background: #1a1a2e;
-        height: 100%;
+        background: var(--navy-light);
+        border-right: 1px solid var(--navy-border);
       }
-      .mat-sidenav-content,
-      .main-content {
-        height: 100%;
-        overflow-y: auto;
-      }
+
       .sidenav-header {
         display: flex;
         align-items: center;
         gap: 12px;
         padding: 24px 16px 16px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: 1px solid var(--navy-border);
       }
       .avatar {
         width: 44px;
         height: 44px;
         border-radius: 50%;
-        background: #00b894;
-        color: white;
+        background: var(--accent-glow);
+        border: 2px solid var(--accent);
+        color: var(--accent);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -150,42 +161,43 @@ import { CommonModule } from '@angular/common';
         font-size: 16px;
       }
       .user-name {
-        color: white;
+        color: var(--text-1);
         font-weight: 600;
         font-size: 15px;
       }
       .user-role {
-        color: rgba(255, 255, 255, 0.5);
+        color: var(--text-3);
         font-size: 12px;
       }
+
       mat-nav-list a {
-        color: white !important;
+        color: var(--text-2) !important;
         margin: 4px 8px;
-        border-radius: 8px;
-        font-weight: 600;
-        display: flex !important;
-        align-items: center;
+        border-radius: 10px !important;
       }
       mat-nav-list a span {
-        color: white !important;
+        color: var(--text-2) !important;
         font-size: 14px !important;
       }
+      mat-nav-list a mat-icon {
+        color: var(--text-3) !important;
+      }
       mat-nav-list a.active {
-        background: rgba(0, 184, 148, 0.3) !important;
+        background: var(--accent-lite) !important;
+        border: 1px solid rgba(0, 184, 148, 0.2) !important;
       }
       mat-nav-list a.active span {
-        color: #00ffa8 !important;
-      }
-      mat-nav-list a mat-icon {
-        color: white !important;
+        color: var(--accent) !important;
       }
       mat-nav-list a.active mat-icon {
-        color: #00ffa8 !important;
+        color: var(--accent) !important;
       }
+
       .main-content {
-        background: #f8f9fa;
+        background: var(--navy);
         min-height: 100%;
-        padding: 24px 16px;
+        padding: 20px 16px;
+        overflow-y: auto;
       }
     `,
   ],

@@ -19,19 +19,16 @@ import { AuthService } from '../../../core/services/auth.service';
     MatButtonModule,
   ],
   template: `
-    <mat-toolbar class="topbar">
+    <div class="topbar">
       <span class="app-title">SmartStock Agent</span>
-      <span class="spacer"></span>
-      <span class="tenant-name">{{ user?.boutique || 'Boutique' }}</span>
-      <button mat-icon-button (click)="logout()">
+      <span class="status-badge">{{ user?.boutique || 'Boutique' }}</span>
+      <button mat-icon-button (click)="logout()" style="color:var(--text-2)">
         <mat-icon>logout</mat-icon>
       </button>
-    </mat-toolbar>
-
+    </div>
     <main class="main-content">
       <router-outlet></router-outlet>
     </main>
-
     <nav class="bottom-nav">
       <a routerLink="/agent/dashboard" routerLinkActive="active">
         <mat-icon>home</mat-icon>
@@ -54,59 +51,89 @@ import { AuthService } from '../../../core/services/auth.service';
   styles: [
     `
       .topbar {
-        background: #1a1a2e;
-        color: #fff;
+        background: rgba(15, 27, 45, 0.85);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-bottom: 1px solid var(--navy-border);
+        color: var(--text-1);
         position: fixed;
-        top: 0;
+        top: var(--safe-top);
         left: 0;
         right: 0;
         z-index: 100;
-        height: 56px;
+        height: var(--topbar-h);
+        display: flex;
+        align-items: center;
+        padding: 0 8px 0 16px;
       }
       .app-title {
         font-weight: 700;
-      }
-      .spacer {
+        font-size: 16px;
+        letter-spacing: 0.3px;
         flex: 1;
       }
-      .tenant-name {
-        font-size: 12px;
-        opacity: 0.75;
-        margin-right: 6px;
+      .status-badge {
+        background: var(--accent-lite);
+        color: var(--accent);
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 10px;
+        border-radius: 20px;
+        border: 1px solid rgba(0, 184, 148, 0.25);
+        margin-right: 4px;
       }
+
       .main-content {
-        margin-top: 56px;
-        margin-bottom: 72px;
-        height: calc(100vh - 128px);
+        position: fixed;
+        top: calc(var(--safe-top) + var(--topbar-h));
+        bottom: calc(var(--safe-bot) + var(--nav-h));
+        left: 0;
+        right: 0;
         overflow-y: auto;
-        background: #f8f9fa;
+        -webkit-overflow-scrolling: touch;
+        background: var(--navy);
         padding: 16px;
       }
+
       .bottom-nav {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
-        height: 72px;
-        background: #fff;
-        border-top: 1px solid #e9ecef;
+        height: calc(var(--nav-h) + var(--safe-bot));
+        padding-bottom: var(--safe-bot);
+        background: rgba(15, 27, 45, 0.92);
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+        border-top: 1px solid var(--navy-border);
         display: grid;
         grid-template-columns: repeat(4, 1fr);
-        z-index: 120;
+        z-index: 100;
       }
       .bottom-nav a {
-        text-decoration: none;
-        color: #6c757d;
+        color: var(--text-3);
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 4px;
-        font-size: 11px;
+        gap: 3px;
+        font-size: 10px;
         font-weight: 500;
+        transition: color 0.2s;
+        position: relative;
       }
       .bottom-nav a.active {
-        color: #00b894;
+        color: var(--accent);
+      }
+      .bottom-nav a.active::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 20%;
+        right: 20%;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 0 0 4px 4px;
       }
       .bottom-nav mat-icon {
         font-size: 22px;

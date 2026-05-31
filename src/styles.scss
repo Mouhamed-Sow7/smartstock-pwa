@@ -5,80 +5,91 @@ html {
   @include mat.theme(
     (
       color: (
-        primary: mat.$blue-palette,
-        accent: mat.$green-palette,
+        primary: mat.$green-palette,
+        accent: mat.$cyan-palette,
       ),
       typography: Roboto,
       density: 0,
     )
   );
 }
-
 @include mat.core();
 
 :root {
-  --primary: #1a1a2e;
+  --navy: #0f1b2d;
+  --navy-light: #162236;
+  --navy-card: rgba(255, 255, 255, 0.06);
+  --navy-border: rgba(255, 255, 255, 0.1);
   --accent: #00b894;
-  --bg: #f8f9fa;
-  --surface: #ffffff;
-  --text-main: #1a1a2e;
-  --text-muted: #6c757d;
-  --border: #e9ecef;
-  --danger: #e74c3c;
+  --accent-glow: rgba(0, 184, 148, 0.2);
+  --accent-lite: rgba(0, 184, 148, 0.12);
+  --text-1: #ffffff;
+  --text-2: rgba(255, 255, 255, 0.65);
+  --text-3: rgba(255, 255, 255, 0.35);
+  --danger: #e17055;
   --warning: #f39c12;
+  --success: #00b894;
+  --topbar-h: 56px;
+  --nav-h: 64px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
 }
 
 html,
 body {
   height: 100%;
-  min-height: 100%;
   margin: 0;
   overflow: hidden;
-}
-
-body {
-  background: var(--bg);
+  background: var(--navy);
   font-family: 'Roboto', sans-serif;
-  color: var(--text-main);
+  color: var(--text-1);
+  -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
 }
-
 h1,
 h2,
 h3,
 p {
   margin: 0;
 }
-
 button,
 input,
 textarea,
 select {
   font: inherit;
 }
+a {
+  text-decoration: none;
+}
 
+/* Glass card utilitaire */
+.glass {
+  background: var(--navy-card);
+  border: 1px solid var(--navy-border);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Scrollbar discrète */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 2px;
+}
+
+/* Material overrides */
 .mat-mdc-button,
 .mat-mdc-raised-button {
   min-height: 48px;
 }
-
 .mat-mdc-form-field {
   width: 100%;
-}
-
-.mat-mdc-button.mat-primary,
-.btn-login {
-  background: var(--accent) !important;
-  color: #ffffff !important;
-}
-
-.mat-mdc-form-field .mat-mdc-form-field-outline {
-  border-color: var(--border);
-}
-
-.mat-mdc-form-field .mat-mdc-form-field-label {
-  color: var(--text-muted);
 }
