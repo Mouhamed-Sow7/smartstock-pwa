@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -6,12 +6,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import type { IScannerControls } from '@zxing/browser';
 import { Subject } from 'rxjs';
-import { finalize, takeUntil } from 'rxjs/operators';
+import { takeUntil } from 'rxjs/operators';
 import { PosService } from '../services/pos.service';
+import { OfflineService, CachedProduit } from '../../../core/services/offline.service';
+import { AuthService } from '../../../core/services/auth.service';
+import { SyncService } from '../../../core/services/sync.service';
 
 interface BarcodeDetectorLike {
   detect(source: ImageBitmapSource): Promise<Array<{ rawValue?: string }>>;
 }
+
 @Component({
   selector: 'app-scan',
   standalone: true,
@@ -19,8 +23,9 @@ interface BarcodeDetectorLike {
   template: `
     <div class="page-container">
       <h1>Scanner Produit</h1>
-      <p>Scannez via caméra ou saisissez le code-barres.</p>
+      <p>Scannez via caméra ou saisissez le nom ou code-barres.</p>
 
+      <!-- Caméra -->
       <div class="camera-card">
         <div class="camera-head">
           <mat-icon>photo_camera</mat-icon>
@@ -49,25 +54,51 @@ interface BarcodeDetectorLike {
         </p>
       </div>
 
-      <div class="scan-form">
-        <input
-          type="text"
-          [(ngModel)]="barcode"
-          (keyup.enter)="scanProduct()"
-          placeholder="Code-barres"
-          [disabled]="isLoading"
-        />
-        <button (click)="scanProduct()" [disabled]="isLoading || !barcode.trim()">
-          {{ isLoading ? 'Recherche...' : 'Ajouter' }}
-        </button>
+      <!-- Recherche manuelle avec autocomplétion -->
+      <div class="search-wrapper">
+        <div class="scan-form">
+          <input
+            type="text"
+            [(ngModel)]="barcode"
+            (ngModelChange)="onInputChange($event)"
+            (keyup.enter)="scanProduct()"
+            placeholder="Nom produit ou code-barres..."
+            [disabled]="isLoading"
+            autocomplete="off"
+          />
+          <button (click)="scanProduct()" [disabled]="isLoading || !barcode.trim()">
+            {{ isLoading ? '...' : 'Ajouter' }}
+          </button>
+        </div>
+
+        <!-- Suggestions -->
+        <div class="suggestions" *ngIf="suggestions.length > 0">
+          <div
+            class="suggestion-item"
+            *ngFor="let p of suggestions"
+            (click)="selectionnerProduit(p)"
+          >
+            <div class="sug-info">
+              <span class="sug-nom">{{ p.nom }}</span>
+              <span class="sug-code" *ngIf="p.codeBarres">{{ p.codeBarres }}</span>
+            </div>
+            <div class="sug-right">
+              <span class="sug-prix">{{ p.prix | number: '1.0-0' }} FCFA</span>
+              <span class="sug-stock" [class.bas]="p.stock <= (p.seuilAlerte || 5)">
+                Stock: {{ p.stock }}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <p class="success" *ngIf="lastProductName">Ajouté: {{ lastProductName }}</p>
+      <p class="success" *ngIf="lastProductName">✅ Ajouté: {{ lastProductName }}</p>
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
       <a routerLink="/agent/panier" class="panier-link">
         <mat-icon>shopping_cart</mat-icon>
         Aller au panier
+        <span class="cart-count" *ngIf="cartCount > 0">{{ cartCount }}</span>
       </a>
     </div>
   `,
@@ -76,6 +107,7 @@ interface BarcodeDetectorLike {
       .page-container {
         max-width: 860px;
         margin: 0 auto;
+        padding: 16px;
       }
       .camera-card {
         background: #fff;
@@ -106,6 +138,7 @@ interface BarcodeDetectorLike {
         margin-top: 10px;
         display: flex;
         gap: 8px;
+        flex-wrap: wrap;
       }
       .scan-frame {
         position: absolute;
@@ -145,17 +178,91 @@ interface BarcodeDetectorLike {
         border-left: 0;
         border-top: 0;
       }
+
+      /* Recherche */
+      .search-wrapper {
+        position: relative;
+        margin: 12px 0;
+      }
       .scan-form {
         display: flex;
         gap: 8px;
-        margin: 12px 0;
       }
       input {
         flex: 1;
         border: 1px solid #ddd;
         border-radius: 8px;
-        padding: 10px;
+        padding: 10px 12px;
+        font-size: 15px;
+        outline: none;
       }
+      input:focus {
+        border-color: #00b894;
+      }
+
+      /* Suggestions */
+      .suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 48px;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 0 0 10px 10px;
+        z-index: 100;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .suggestion-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 14px;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f3f4;
+        transition: background 0.15s;
+      }
+      .suggestion-item:hover {
+        background: #f0fdf4;
+      }
+      .suggestion-item:last-child {
+        border-bottom: none;
+      }
+      .sug-info {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .sug-nom {
+        font-weight: 600;
+        font-size: 14px;
+        color: #1a1a2e;
+      }
+      .sug-code {
+        font-size: 11px;
+        color: #aaa;
+      }
+      .sug-right {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 2px;
+      }
+      .sug-prix {
+        font-size: 13px;
+        font-weight: 700;
+        color: #00b894;
+      }
+      .sug-stock {
+        font-size: 11px;
+        color: #636e72;
+      }
+      .sug-stock.bas {
+        color: #e17055;
+        font-weight: 600;
+      }
+
       button {
         border: none;
         background: #00b894;
@@ -163,12 +270,11 @@ interface BarcodeDetectorLike {
         border-radius: 8px;
         padding: 10px 14px;
         cursor: pointer;
+        white-space: nowrap;
       }
-      .error {
-        color: #d63031;
-      }
-      .success {
-        color: #00b894;
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
       }
       .secondary {
         background: #636e72;
@@ -178,15 +284,38 @@ interface BarcodeDetectorLike {
         font-size: 12px;
         margin-top: 8px;
       }
+      .error {
+        color: #d63031;
+        margin-top: 8px;
+      }
+      .success {
+        color: #00b894;
+        margin-top: 8px;
+      }
       .panier-link {
         display: inline-flex;
         align-items: center;
         gap: 4px;
+        margin-top: 16px;
+        color: #0984e3;
+        font-weight: 500;
+        text-decoration: none;
+      }
+      .cart-count {
+        background: #e17055;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
     `,
   ],
 })
-export class ScanComponent implements OnDestroy {
+export class ScanComponent implements OnInit, OnDestroy {
   @ViewChild('video') videoRef?: ElementRef<HTMLVideoElement>;
 
   barcode = '';
@@ -197,6 +326,9 @@ export class ScanComponent implements OnDestroy {
   cameraAvailable = typeof navigator !== 'undefined' && !!navigator.mediaDevices?.getUserMedia;
   cameraSupported = typeof window !== 'undefined' && 'BarcodeDetector' in window;
   facingMode: 'environment' | 'user' = 'environment';
+  suggestions: CachedProduit[] = [];
+  allProduits: CachedProduit[] = [];
+  cartCount = 0;
 
   private detector: BarcodeDetectorLike | null = null;
   private zxingReader: BrowserMultiFormatReader | null = null;
@@ -206,51 +338,130 @@ export class ScanComponent implements OnDestroy {
   private isProcessingCameraCode = false;
   private destroy$ = new Subject<void>();
 
-  constructor(private pos: PosService) {
+  constructor(
+    private pos: PosService,
+    private offline: OfflineService,
+    private auth: AuthService,
+    private sync: SyncService,
+  ) {
     if (this.cameraSupported) {
       const DetectorClass = (window as any).BarcodeDetector;
       this.detector = new DetectorClass({
-        formats: ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e'],
+        formats: ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'],
       });
     } else {
       this.zxingReader = new BrowserMultiFormatReader();
     }
   }
 
-  scanProduct(): void {
+  async ngOnInit(): Promise<void> {
+    // Charger tous les produits en cache pour l'autocomplétion
+    const tenantId = this.auth.getTenantId() ?? '';
+    this.allProduits = await this.offline.getProduits(tenantId);
+
+    // Suivre le panier
+    this.pos.cart$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
+      this.cartCount = items.reduce((s, i) => s + i.quantite, 0);
+    });
+  }
+
+  // ─── Autocomplétion ────────────────────────────────────────
+
+  onInputChange(value: string): void {
+    const q = value.trim().toLowerCase();
+    if (q.length < 2) {
+      this.suggestions = [];
+      return;
+    }
+    this.suggestions = this.allProduits
+      .filter(
+        (p) =>
+          p.nom.toLowerCase().includes(q) ||
+          (p.codeBarres && p.codeBarres.toLowerCase().includes(q)),
+      )
+      .slice(0, 6);
+  }
+
+  selectionnerProduit(produit: CachedProduit): void {
+    this.suggestions = [];
+    this.barcode = '';
+    this.errorMessage = '';
+    this.pos.addToCart(produit);
+    this.lastProductName = produit.nom;
+    this.playSuccessSound();
+    setTimeout(() => (this.lastProductName = ''), 2000);
+  }
+
+  // ─── Scan par code-barres ───────────────────────────────────
+
+  async scanProduct(): Promise<void> {
     const code = this.barcode.trim();
     if (!code) return;
-
+    this.suggestions = [];
     this.errorMessage = '';
     this.lastProductName = '';
     this.isLoading = true;
-    this.pos
-      .searchByBarcode(code)
-      .pipe(
-        takeUntil(this.destroy$),
-        finalize(() => (this.isLoading = false)),
-      )
-      .subscribe({
-        next: (produit) => {
-          this.pos.addToCart(produit);
-          this.lastProductName = produit?.nom || 'Produit';
-          this.playSuccessSound();
-          this.barcode = '';
-        },
-        error: () => {
-          this.errorMessage = 'Produit non trouvé';
-        },
-      });
+
+    // 1. Chercher dans le cache local d'abord
+    const fromCache =
+      (await this.offline.getProduitByBarcode(code)) ||
+      this.allProduits.find((p) => p.nom.toLowerCase() === code.toLowerCase());
+
+    if (fromCache) {
+      this.pos.addToCart(fromCache);
+      this.lastProductName = fromCache.nom;
+      this.playSuccessSound();
+      this.barcode = '';
+      this.isLoading = false;
+      setTimeout(() => (this.lastProductName = ''), 2000);
+      return;
+    }
+
+    // 2. Si en ligne → appel API
+    if (this.sync.estEnLigne()) {
+      this.pos
+        .searchByBarcode(code)
+        .pipe(takeUntil(this.destroy$))
+        .subscribe({
+          next: (produit) => {
+            this.pos.addToCart(produit);
+            this.lastProductName = produit?.nom || 'Produit';
+            this.playSuccessSound();
+            this.barcode = '';
+            this.isLoading = false;
+            setTimeout(() => (this.lastProductName = ''), 2000);
+          },
+          error: () => {
+            this.errorMessage = 'Produit non trouvé';
+            this.isLoading = false;
+          },
+        });
+    } else {
+      this.errorMessage = '📵 Produit non trouvé dans le cache hors ligne';
+      this.isLoading = false;
+    }
+  }
+
+  // ─── Caméra ─────────────────────────────────────────────────
+
+  async demarrerScan(): Promise<void> {
+    if (this.cameraActive) return;
+    this.errorMessage = '';
+    await this.startCameraScan();
   }
 
   async startCameraScan(): Promise<void> {
-    if (!this.videoRef?.nativeElement || this.cameraActive) return;
+    if (!this.videoRef?.nativeElement) return;
 
-    this.errorMessage = '';
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia(this.getCameraConstraints());
       const video = this.videoRef.nativeElement;
       video.srcObject = this.mediaStream;
+
+      // Attendre que la vidéo soit prête avant de marquer actif
+      await new Promise<void>((resolve) => {
+        video.onloadedmetadata = () => resolve();
+      });
       await video.play();
       this.cameraActive = true;
 
@@ -261,9 +472,7 @@ export class ScanComponent implements OnDestroy {
             const results = await this.detector.detect(video);
             const code = results?.[0]?.rawValue?.trim();
             if (code) this.onCameraCodeDetected(code);
-          } catch {
-            // ignore frame decode errors
-          }
+          } catch {}
         }, 450);
       } else if (this.zxingReader) {
         this.zxingControls = await this.zxingReader.decodeFromVideoElement(video, (result, err) => {
@@ -282,18 +491,6 @@ export class ScanComponent implements OnDestroy {
     }
   }
 
-  async demarrerScan(): Promise<void> {
-    if ('BarcodeDetector' in window) {
-      await this.startCameraScan();
-    } else {
-      this.utiliserZXing();
-    }
-  }
-
-  private utiliserZXing(): void {
-    this.startCameraScan();
-  }
-
   private getCameraConstraints(): MediaStreamConstraints {
     return {
       video: {
@@ -309,9 +506,7 @@ export class ScanComponent implements OnDestroy {
     this.isProcessingCameraCode = true;
     this.barcode = code;
     this.scanProduct();
-    setTimeout(() => {
-      this.isProcessingCameraCode = false;
-    }, 1000);
+    setTimeout(() => (this.isProcessingCameraCode = false), 1500);
   }
 
   async switchCamera(): Promise<void> {
@@ -335,22 +530,22 @@ export class ScanComponent implements OnDestroy {
       this.zxingControls?.stop();
       this.zxingControls = null;
     }
-    if (this.videoRef?.nativeElement) {
-      this.videoRef.nativeElement.srcObject = null;
-    }
+    if (this.videoRef?.nativeElement) this.videoRef.nativeElement.srcObject = null;
   }
 
   private playSuccessSound(): void {
-    const audioContext = new AudioContext();
-    const oscillator = audioContext.createOscillator();
-    const gain = audioContext.createGain();
-    oscillator.type = 'sine';
-    oscillator.frequency.value = 880;
-    gain.gain.value = 0.05;
-    oscillator.connect(gain);
-    gain.connect(audioContext.destination);
-    oscillator.start();
-    oscillator.stop(audioContext.currentTime + 0.08);
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 880;
+      gain.gain.value = 0.05;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
+    } catch {}
   }
 
   ngOnDestroy(): void {
