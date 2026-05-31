@@ -35,6 +35,10 @@ interface BarcodeDetectorLike {
         </div>
 
         <div class="video-wrapper">
+          <div class="video-placeholder" *ngIf="!cameraActive">
+            <mat-icon>photo_camera</mat-icon>
+            <span>Appuyez sur Démarrer</span>
+          </div>
           <video #video autoplay muted playsinline [class.hidden]="!cameraActive"></video>
           <div class="scan-frame" *ngIf="cameraActive">
             <div class="corner tl"></div>
@@ -157,6 +161,33 @@ interface BarcodeDetectorLike {
         font-size: 20px;
       }
 
+      /* Video wrapper pour contenir le scan-frame */
+      .video-wrapper {
+        position: relative;
+        border-radius: 10px;
+        overflow: hidden;
+        background: #060e1a;
+        min-height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .video-placeholder {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        color: var(--text-3);
+        font-size: 12px;
+      }
+      .video-placeholder mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+        color: var(--text-3);
+      }
+
       video {
         width: 100%;
         max-height: 240px;
@@ -169,13 +200,10 @@ interface BarcodeDetectorLike {
         display: none;
       }
 
-      /* Scan frame corners */
+      /* Scan frame — relatif au video-wrapper */
       .scan-frame {
         position: absolute;
-        top: 56px;
-        left: 24px;
-        right: 24px;
-        bottom: 64px;
+        inset: 8px;
         pointer-events: none;
       }
       .corner {
