@@ -355,11 +355,30 @@ export class ScanComponent implements OnInit, OnDestroy {
   }
 
   async ngOnInit(): Promise<void> {
-    // Charger tous les produits en cache pour l'autocomplétion
     const tenantId = this.auth.getTenantId() ?? '';
+
+    // 1. Cache local d'abord
     this.allProduits = await this.offline.getProduits(tenantId);
 
-    // Suivre le panier
+    // 2. Si cache vide ET en ligne → charger depuis l'API
+    if (this.allProduits.length === 0 && this.sync.estEnLigne()) {
+      try {
+        const token = localStorage.getItem('token') ?? '';
+        const res: any = await fetch('https://smartstock-api-1zzc.onrender.com/api/produits', {
+          headers: { Authorization: `Bearer ${token}` },
+        }).then((r) => r.json());
+
+        if (res?.success && res?.data) {
+          const produits = res.data.map((p: any) => ({ ...p, tenantId }));
+          await this.offline.cacheProduits(tenantId, produits);
+          this.allProduits = produits;
+        }
+      } catch {
+        // silencieux si hors ligne
+      }
+    }
+
+    // 3. Suivre le panier
     this.pos.cart$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
       this.cartCount = items.reduce((s, i) => s + i.quantite, 0);
     });
