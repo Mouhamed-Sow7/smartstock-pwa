@@ -1,4 +1,11 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
+import {
+  Component,
+  ElementRef,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  ChangeDetectorRef,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -197,9 +204,11 @@ interface BarcodeDetectorLike {
         display: block;
       }
       video.hidden {
-        visibility: hidden;
-        height: 0;
-        min-height: 0;
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+        width: 1px !important;
+        height: 1px !important;
       }
 
       .hidden-placeholder {
@@ -594,8 +603,11 @@ export class ScanComponent implements OnInit, OnDestroy {
   // ─── Caméra ─────────────────────────────────────────────────
 
   async demarrerScan(): Promise<void> {
-    if (this.cameraActive) return;
+    if (this.cameraActive || this.isStarting) return;
+    this.isStarting = true;
     this.errorMessage = '';
+    this.cdr.detectChanges();
+    await new Promise((resolve) => setTimeout(resolve, 50));
     await this.startCameraScan();
   }
 
@@ -603,7 +615,6 @@ export class ScanComponent implements OnInit, OnDestroy {
     this.cdr.detectChanges();
     if (!this.videoRef?.nativeElement) return;
 
-    this.isStarting = true;
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia(this.getCameraConstraints());
       const video = this.videoRef.nativeElement;

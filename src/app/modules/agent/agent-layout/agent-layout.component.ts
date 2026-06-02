@@ -116,7 +116,8 @@ import { AuthService } from '../../../core/services/auth.service';
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 3px;
+        gap: 2px;
+        line-height: 1;
         font-size: 10px;
         font-weight: 500;
         transition: color 0.2s;
@@ -139,6 +140,8 @@ import { AuthService } from '../../../core/services/auth.service';
         font-size: 22px;
         width: 22px;
         height: 22px;
+        line-height: 1;
+        display: block;
       }
     `,
   ],
