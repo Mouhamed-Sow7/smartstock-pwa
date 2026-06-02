@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -472,6 +472,7 @@ export class ScanComponent implements OnInit, OnDestroy {
     private offline: OfflineService,
     private auth: AuthService,
     private sync: SyncService,
+    private cdr: ChangeDetectorRef,
   ) {
     if (this.cameraSupported) {
       const DetectorClass = (window as any).BarcodeDetector;
@@ -599,6 +600,7 @@ export class ScanComponent implements OnInit, OnDestroy {
   }
 
   async startCameraScan(): Promise<void> {
+    this.cdr.detectChanges();
     if (!this.videoRef?.nativeElement) return;
 
     this.isStarting = true;
