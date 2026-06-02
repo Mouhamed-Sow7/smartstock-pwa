@@ -35,7 +35,7 @@ interface BarcodeDetectorLike {
         </div>
 
         <div class="video-wrapper">
-          <div class="video-placeholder" *ngIf="!cameraActive">
+          <div class="video-placeholder" [class.hidden-placeholder]="cameraActive">
             <mat-icon>photo_camera</mat-icon>
             <span>Appuyez sur Démarrer</span>
           </div>
@@ -197,6 +197,12 @@ interface BarcodeDetectorLike {
         display: block;
       }
       video.hidden {
+        visibility: hidden;
+        height: 0;
+        min-height: 0;
+      }
+
+      .hidden-placeholder {
         display: none;
       }
 
