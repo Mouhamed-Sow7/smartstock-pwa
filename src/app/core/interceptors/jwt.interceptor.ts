@@ -14,19 +14,21 @@ export const jwtInterceptor: HttpInterceptorFn = (
   next: HttpHandlerFn,
 ): Observable<HttpEvent<any>> => {
   const router = inject(Router);
-  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+  // Clé alignée avec AuthService ('ss_token')
+  const token = typeof localStorage !== 'undefined' ? localStorage.getItem('ss_token') : null;
   let authReq = req;
   if (token) {
     authReq = req.clone({ setHeaders: { Authorization: `Bearer ${token}` } });
   }
   return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {
-      if (error.status === 401) {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+      // Rediriger vers /login uniquement si on n'est PAS déjà sur /login
+      // et que le token n'existe pas (vraie session expirée, pas une race condition)
+      if (error.status === 401 && !router.url.startsWith('/login')) {
+        const hasToken = typeof localStorage !== 'undefined' && !!localStorage.getItem('ss_token');
+        if (!hasToken) {
+          router.navigate(['/login']);
         }
-        router.navigate(['/login']);
       }
       return throwError(() => error);
     }),

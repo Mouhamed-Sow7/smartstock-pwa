@@ -76,6 +76,10 @@ export class ProduitService {
     return this.api.put(`produits/${id}`, produit);
   }
 
+  updateStock(id: string, quantite: number, type: 'entree' | 'sortie'): Observable<any> {
+    return this.api.patch(`produits/${id}/stock`, { quantite, type });
+  }
+
   delete(id: string): Observable<any> {
     return this.api.delete(`produits/${id}`);
   }

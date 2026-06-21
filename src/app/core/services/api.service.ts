@@ -36,6 +36,9 @@ export class ApiService {
   put(path: string, body: any) {
     return this.http.put(this.buildUrl(path), body);
   }
+  patch(path: string, body: any) {
+    return this.http.patch(this.buildUrl(path), body);
+  }
   delete(path: string) {
     return this.http.delete(this.buildUrl(path));
   }

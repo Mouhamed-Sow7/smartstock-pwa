@@ -23,6 +23,13 @@ const routes: Routes = [
           import('./produits/produits.component').then((m) => m.ProduitsComponent),
       },
       {
+        path: 'produits/scanner',
+        loadComponent: () =>
+          import('./produits/scan-ajout/scan-ajout.component').then(
+            (m) => m.ScanAjoutComponent,
+          ),
+      },
+      {
         path: 'produits/new',
         loadComponent: () =>
           import('./produits/produit-form.component').then((m) => m.ProduitFormComponent),

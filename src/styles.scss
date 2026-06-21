@@ -93,3 +93,31 @@ a {
 .mat-mdc-form-field {
   width: 100%;
 }
+
+/* Fix iOS : Safari applique son propre rendu natif aux inputs si on ne force pas
+   explicitement le fond et la couleur du texte (color-scheme + autofill compris). */
+.mat-mdc-form-field .mat-mdc-text-field-wrapper {
+  background-color: var(--navy-card) !important;
+}
+.mat-mdc-form-field input,
+.mat-mdc-form-field textarea {
+  background-color: transparent !important;
+  color: var(--text-1) !important;
+  -webkit-text-fill-color: var(--text-1) !important;
+  caret-color: var(--text-1);
+}
+.mat-mdc-form-field input:-webkit-autofill,
+.mat-mdc-form-field input:-webkit-autofill:focus,
+.mat-mdc-form-field input:-webkit-autofill:hover {
+  -webkit-box-shadow: 0 0 0 1000px var(--navy-card) inset !important;
+  -webkit-text-fill-color: var(--text-1) !important;
+  caret-color: var(--text-1);
+  transition: background-color 9999s ease-in-out 0s;
+}
+.mat-mdc-form-field mat-label,
+.mat-mdc-form-field .mat-mdc-floating-label {
+  color: var(--text-2) !important;
+}
+.mat-mdc-form-field .mat-mdc-form-field-icon-suffix mat-icon {
+  color: var(--text-2) !important;
+}

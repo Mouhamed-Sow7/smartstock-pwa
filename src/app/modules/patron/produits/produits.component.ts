@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,6 +19,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     MatDialogModule,
     MatCardModule,
     MatButtonModule,
@@ -30,14 +32,19 @@ import { ProduitDialogComponent } from './produit-dialog.component';
     <div class="produits-page">
       <div class="page-header">
         <h1>Produits</h1>
-        <button
-          mat-raised-button
-          color="primary"
-          (click)="openAddDialog()"
-          [class.attention-animate]="isEmpty()"
-        >
-          <mat-icon>add</mat-icon> Ajouter
-        </button>
+        <div class="header-actions">
+          <button mat-stroked-button color="primary" routerLink="/patron/produits/scanner">
+            <mat-icon>qr_code_scanner</mat-icon> Scanner
+          </button>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="openAddDialog()"
+            [class.attention-animate]="isEmpty()"
+          >
+            <mat-icon>add</mat-icon> Ajouter
+          </button>
+        </div>
       </div>
 
       <div class="loading-center" *ngIf="isLoading()">
@@ -109,11 +116,15 @@ import { ProduitDialogComponent } from './produit-dialog.component';
         align-items: center;
         margin-bottom: 20px;
       }
+      .header-actions {
+        display: flex;
+        gap: 8px;
+      }
       .page-header h1 {
         font-size: 22px;
         font-weight: 700;
         margin: 0;
-        color: #1a1a2e;
+        color: var(--text-1);
       }
       .loading-center {
         display: flex;
@@ -123,7 +134,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
       .empty-state {
         text-align: center;
         padding: 60px 20px;
-        color: #6c757d;
+        color: var(--text-2);
       }
       .empty-state mat-icon {
         font-size: 48px;
@@ -133,7 +144,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
       }
       .empty-hint {
         font-size: 13px;
-        color: #8a93a0;
+        color: var(--text-3);
         margin-top: 10px;
       }
       .attention-animate {
