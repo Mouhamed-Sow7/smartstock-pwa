@@ -278,7 +278,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     forkJoin({
       stats: this.api.get('ventes/stats').pipe(catchError(() => of(null))),
       alertes: this.api.get('produits/alerte').pipe(catchError(() => of({ data: [] }))),
-    }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes }) => {
+    }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes }: any) => {
       if (stats?.success) this.stats = stats.data;
       this.alertes = alertes?.data?.length ?? 0;
     });
