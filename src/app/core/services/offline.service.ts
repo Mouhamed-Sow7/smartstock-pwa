@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import Dexie, { Table } from 'dexie';
 
-// ─── Interfaces ───────────────────────────────────────────────
 export interface CachedProduit {
   _id: string;
   tenantId: string;
@@ -24,14 +23,14 @@ export interface CachedAgent {
 }
 
 export interface CachedStats {
-  id: string; // "stats_<tenantId>"
+  id: string;
   tenantId: string;
   data: any;
-  cachedAt: number; // timestamp
+  cachedAt: number;
 }
 
 export interface VentePending {
-  id?: number; // auto-increment Dexie
+  id?: number;
   tenantId: string;
   lignes: { produitId: string; nom: string; quantite: number; prixUnitaire: number }[];
   montantTotal: number;
@@ -41,97 +40,97 @@ export interface VentePending {
   errorMessage?: string;
 }
 
-// ─── Base Dexie ───────────────────────────────────────────────
+export interface CachedVente {
+  _id: string;
+  tenantId: string;
+  numeroTicket: string;
+  agentNom: string;
+  produits: any[];
+  montantTotal: number;
+  modePaiement: string;
+  statut: string;
+  createdAt: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OfflineService extends Dexie {
   produits!: Table<CachedProduit, string>;
   agents!: Table<CachedAgent, string>;
   stats!: Table<CachedStats, string>;
   ventesPending!: Table<VentePending, number>;
+  ventes!: Table<CachedVente, string>;
 
   constructor() {
     super('SmartStockDB');
-
-    this.version(1).stores({
+    this.version(2).stores({
       produits: '_id, tenantId, nom, codeBarres',
       agents: '_id, tenantId, nom',
       stats: 'id, tenantId',
       ventesPending: '++id, tenantId, statut, createdAt',
+      ventes: '_id, tenantId, createdAt, numeroTicket',
     });
   }
 
   // ─── Produits ───────────────────────────────────────────────
-
   async cacheProduits(tenantId: string, produits: CachedProduit[]): Promise<void> {
     await this.produits.where('tenantId').equals(tenantId).delete();
     await this.produits.bulkPut(produits);
   }
-
   async getProduits(tenantId: string): Promise<CachedProduit[]> {
     return this.produits.where('tenantId').equals(tenantId).toArray();
   }
-
   async getProduitByBarcode(codeBarres: string): Promise<CachedProduit | undefined> {
     return this.produits.where('codeBarres').equals(codeBarres).first();
   }
 
   // ─── Agents ─────────────────────────────────────────────────
-
   async cacheAgents(tenantId: string, agents: CachedAgent[]): Promise<void> {
     await this.agents.where('tenantId').equals(tenantId).delete();
     await this.agents.bulkPut(agents);
   }
-
   async getAgents(tenantId: string): Promise<CachedAgent[]> {
     return this.agents.where('tenantId').equals(tenantId).toArray();
   }
 
   // ─── Stats ──────────────────────────────────────────────────
-
   async cacheStats(tenantId: string, data: any): Promise<void> {
-    await this.stats.put({
-      id: `stats_${tenantId}`,
-      tenantId,
-      data,
-      cachedAt: Date.now(),
-    });
+    await this.stats.put({ id: `stats_${tenantId}`, tenantId, data, cachedAt: Date.now() });
   }
-
   async getStats(tenantId: string): Promise<any | null> {
     const entry = await this.stats.get(`stats_${tenantId}`);
     return entry ? entry.data : null;
   }
 
-  // ─── Ventes pending ─────────────────────────────────────────
-
-  async ajouterVentePending(vente: Omit<VentePending, 'id'>): Promise<number> {
-    return this.ventesPending.add(vente);
+  // ─── Ventes cache (pour rapports offline) ───────────────────
+  async cacheVentes(tenantId: string, ventes: CachedVente[]): Promise<void> {
+    await this.ventes.where('tenantId').equals(tenantId).delete();
+    await this.ventes.bulkPut(ventes.map(v => ({ ...v, tenantId })));
   }
-
-  async getVentesPending(tenantId: string): Promise<VentePending[]> {
-    return this.ventesPending
-      .where('statut')
-      .equals('pending')
-      .and((v) => v.tenantId === tenantId)
+  async getVentesCachees(tenantId: string, debut: string, fin: string): Promise<CachedVente[]> {
+    return this.ventes
+      .where('tenantId').equals(tenantId)
+      .and(v => v.createdAt >= debut && v.createdAt <= fin)
       .toArray();
   }
 
+  // ─── Ventes pending ─────────────────────────────────────────
+  async ajouterVentePending(vente: Omit<VentePending, 'id'>): Promise<number> {
+    return this.ventesPending.add(vente);
+  }
+  async getVentesPending(tenantId: string): Promise<VentePending[]> {
+    return this.ventesPending.where('statut').equals('pending')
+      .and(v => v.tenantId === tenantId).toArray();
+  }
   async marquerVenteSynced(id: number): Promise<void> {
     await this.ventesPending.update(id, { statut: 'synced' });
   }
-
   async marquerVenteError(id: number, message: string): Promise<void> {
     await this.ventesPending.update(id, { statut: 'error', errorMessage: message });
   }
-
   async compterVentesPending(tenantId: string): Promise<number> {
-    return this.ventesPending
-      .where('statut')
-      .equals('pending')
-      .and((v) => v.tenantId === tenantId)
-      .count();
+    return this.ventesPending.where('statut').equals('pending')
+      .and(v => v.tenantId === tenantId).count();
   }
-
   async nettoyerVentesSynced(): Promise<void> {
     await this.ventesPending.where('statut').equals('synced').delete();
   }
