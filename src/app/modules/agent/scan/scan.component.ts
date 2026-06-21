@@ -46,7 +46,7 @@ interface BarcodeDetectorLike {
             <mat-icon>photo_camera</mat-icon>
             <span>Appuyez sur Démarrer</span>
           </div>
-          <video #video autoplay muted playsinline [class.hidden]="!cameraActive"></video>
+          <video #video muted playsinline [class.hidden]="!cameraActive"></video>
           <div class="scan-frame" *ngIf="cameraActive">
             <div class="corner tl"></div>
             <div class="corner tr"></div>
@@ -502,7 +502,7 @@ export class ScanComponent implements OnInit, OnDestroy {
     // 2. Si cache vide ET en ligne → charger depuis l'API
     if (this.allProduits.length === 0 && this.sync.estEnLigne()) {
       try {
-        const token = localStorage.getItem('token') ?? '';
+        const token = localStorage.getItem('ss_token') ?? '';
         const res: any = await fetch('https://smartstock-api-1zzc.onrender.com/api/produits', {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => r.json());
@@ -623,9 +623,17 @@ export class ScanComponent implements OnInit, OnDestroy {
       // Attendre que la vidéo soit prête avant de marquer actif
       await new Promise<void>((resolve) => {
         video.onloadedmetadata = () => resolve();
+        setTimeout(() => resolve(), 3000); // sécurité si l'event ne se déclenche pas
       });
-      await video.play();
+      try {
+        await video.play();
+      } catch (playErr: any) {
+        // AbortError bénigne (ex: play() interrompu par un nouveau load) — on continue,
+        // le flux est déjà attaché via srcObject et jouera de toute façon.
+        if (playErr?.name !== 'AbortError') throw playErr;
+      }
       this.cameraActive = true;
+      this.cdr.detectChanges();
 
       if (this.detector) {
         this.scanInterval = setInterval(async () => {

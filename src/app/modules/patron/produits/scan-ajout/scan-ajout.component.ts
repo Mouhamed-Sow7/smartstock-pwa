@@ -55,7 +55,7 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
             Le navigateur ne peut pas streamer vers un element invisible/sans hauteur.
             On superpose le placeholder PAR-DESSUS en position absolute.
           -->
-          <video #video autoplay muted playsinline></video>
+          <video #video muted playsinline></video>
 
           <!-- Placeholder superpose, retire des que la camera est active -->
           <div class="video-placeholder" *ngIf="!cameraActive">
@@ -438,7 +438,11 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
         setTimeout(() => resolve(), 3000); // timeout securite
       });
 
-      await video.play();
+      await video.play().catch((playErr: any) => {
+        // AbortError bénigne (play() interrompu par un nouveau load) — on continue,
+        // le flux est déjà attaché via srcObject et jouera de toute façon.
+        if (playErr?.name !== 'AbortError') throw playErr;
+      });
       this.cameraActive = true;
       this.cdr.detectChanges();
 
