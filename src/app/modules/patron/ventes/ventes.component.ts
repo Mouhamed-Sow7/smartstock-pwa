@@ -61,6 +61,10 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
           <div class="kpi-val">{{ panierMoyen() | number:'1.0-0' }} F</div>
           <div class="kpi-lbl">Panier moyen</div>
         </div>
+        <div class="kpi kpi-marge">
+          <div class="kpi-val">{{ totalMarge() | number:'1.0-0' }} F</div>
+          <div class="kpi-lbl">Marge brute</div>
+        </div>
       </div>
 
       <!-- Export -->
@@ -159,9 +163,12 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
 
     .kpi-row {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 10px;
       margin-bottom: 12px;
+    }
+    @media (max-width: 480px) {
+      .kpi-row { grid-template-columns: repeat(2, 1fr); }
     }
     .kpi {
       background: var(--navy-card);
@@ -267,6 +274,7 @@ export class VentesComponent implements OnInit, OnDestroy {
   ];
 
   totalCA = () => this.ventes().reduce((s, v) => s + v.montantTotal, 0);
+  totalMarge = () => this.ventes().reduce((s, v) => s + (v.margeTotale || 0), 0);
   panierMoyen = () => this.ventes().length ? Math.round(this.totalCA() / this.ventes().length) : 0;
 
   ngOnInit() { this.charger(); }

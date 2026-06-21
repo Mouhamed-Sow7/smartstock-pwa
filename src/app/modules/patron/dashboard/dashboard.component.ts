@@ -40,6 +40,18 @@ import { AuthService } from '../../../core/services/auth.service';
           </div>
         </div>
 
+        <div class="kpi-card" style="--glow: #00cec9; --glow2: #55efc4;">
+          <div class="kpi-icon-wrap">
+            <mat-icon>trending_up</mat-icon>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value">{{ stats?.mois?.marge | number:'1.0-0' }}</div>
+            <div class="kpi-unit">FCFA</div>
+            <div class="kpi-label">Marge du mois</div>
+            <div class="kpi-sub">{{ margePctMois }}% de marge</div>
+          </div>
+        </div>
+
         <div class="kpi-card" style="--glow: #0984e3; --glow2: #74b9ff;">
           <div class="kpi-icon-wrap">
             <mat-icon>date_range</mat-icon>
@@ -285,6 +297,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
+
+  get margePctMois(): number {
+    const total = this.stats?.mois?.total || 0;
+    const marge = this.stats?.mois?.marge || 0;
+    if (!total) return 0;
+    return Math.round((marge / total) * 100);
+  }
 
   getPourcentage(count: number): number {
     const max = Math.max(...(this.stats?.paiements?.map((p: any) => p.count) ?? [1]));

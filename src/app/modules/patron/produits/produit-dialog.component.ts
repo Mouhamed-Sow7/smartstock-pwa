@@ -42,12 +42,25 @@ export interface ProduitDialogData {
         </mat-form-field>
         <div class="row">
           <mat-form-field appearance="fill">
-            <mat-label>Prix (FCFA)</mat-label>
-            <input matInput type="number" formControlName="prix" placeholder="Prix" />
+            <mat-label>Prix de vente (FCFA)</mat-label>
+            <input matInput type="number" formControlName="prix" placeholder="Prix de vente" />
             <mat-error *ngIf="form.get('prix')?.hasError('required')">
               Le prix est requis
             </mat-error>
           </mat-form-field>
+          <mat-form-field appearance="fill">
+            <mat-label>Prix d'achat (FCFA)</mat-label>
+            <input matInput type="number" formControlName="prixAchat" placeholder="Coût d'achat" />
+            <mat-hint>Pour calculer la marge — laisser 0 si inconnu</mat-hint>
+          </mat-form-field>
+        </div>
+        <div class="marge-preview" *ngIf="form.get('prixAchat')?.value > 0">
+          <mat-icon>trending_up</mat-icon>
+          <span>Marge unitaire : <strong>{{ margeUnitaire | number: '1.0-0' }} FCFA</strong>
+            <span class="marge-pct">({{ margePourcent }}%)</span>
+          </span>
+        </div>
+        <div class="row">
           <mat-form-field appearance="fill">
             <mat-label>Stock</mat-label>
             <input matInput type="number" formControlName="stock" placeholder="Quantité" />
@@ -110,6 +123,27 @@ export interface ProduitDialogData {
         flex: 1;
         min-width: 150px;
       }
+      .marge-preview {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--accent-lite);
+        border: 1px solid rgba(0, 184, 148, 0.25);
+        border-radius: 10px;
+        padding: 8px 12px;
+        font-size: 13px;
+        color: var(--accent);
+        margin: -4px 0 4px;
+      }
+      .marge-preview mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+      .marge-pct {
+        opacity: 0.8;
+        font-size: 12px;
+      }
       mat-dialog-actions {
         margin-top: 16px;
       }
@@ -140,6 +174,7 @@ export class ProduitDialogComponent implements OnInit {
     this.form = this.fb.group({
       nom: ['', Validators.required],
       prix: [0, [Validators.required, Validators.min(0)]],
+      prixAchat: [0, [Validators.min(0)]],
       stock: [0, [Validators.required, Validators.min(0)]],
       categorie: ['', Validators.required],
       codeBarres: [''],
@@ -150,6 +185,18 @@ export class ProduitDialogComponent implements OnInit {
       this.form.patchValue(this.data.produit);
       this.cdr.detectChanges();
     }
+  }
+
+  get margeUnitaire(): number {
+    const prix = this.form.get('prix')?.value || 0;
+    const prixAchat = this.form.get('prixAchat')?.value || 0;
+    return prix - prixAchat;
+  }
+
+  get margePourcent(): number {
+    const prix = this.form.get('prix')?.value || 0;
+    if (!prix) return 0;
+    return Math.round((this.margeUnitaire / prix) * 100);
   }
   onCancel(): void {
     this.dialogRef.close(null);

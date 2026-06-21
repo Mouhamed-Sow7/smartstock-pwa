@@ -56,9 +56,16 @@ import { Produit, ProduitService } from './produit.service';
 
           <div class="field-row">
             <mat-form-field appearance="fill" class="field-half">
-              <mat-label>Prix (FCFA)</mat-label>
+              <mat-label>Prix de vente (FCFA)</mat-label>
               <input matInput type="number" formControlName="prix" placeholder="Prix" />
             </mat-form-field>
+            <mat-form-field appearance="fill" class="field-half">
+              <mat-label>Prix d'achat (FCFA)</mat-label>
+              <input matInput type="number" formControlName="prixAchat" placeholder="Coût d'achat" />
+            </mat-form-field>
+          </div>
+
+          <div class="field-row">
             <mat-form-field appearance="fill" class="field-half">
               <mat-label>Stock</mat-label>
               <input matInput type="number" formControlName="stock" placeholder="Quantité" />
@@ -168,6 +175,7 @@ export class ProduitFormComponent implements OnInit {
     this.form = this.fb.group({
       nom: ['', Validators.required],
       prix: [0, [Validators.required, Validators.min(0)]],
+      prixAchat: [0, [Validators.min(0)]],
       stock: [0, [Validators.required, Validators.min(0)]],
       categorie: ['', Validators.required],
       codeBarres: [''],

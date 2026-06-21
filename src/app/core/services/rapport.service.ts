@@ -9,6 +9,7 @@ export interface Vente {
   agentNom: string;
   produits: { nom: string; quantite: number; prixUnitaire: number; sousTotal: number }[];
   montantTotal: number;
+  margeTotale?: number;
   modePaiement: string;
   statut: string;
   createdAt: string;

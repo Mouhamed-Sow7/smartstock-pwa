@@ -69,6 +69,10 @@ import { ProduitDialogComponent } from './produit-dialog.component';
             <span class="badge-alerte" *ngIf="p.stock <= p.seuilAlerte">Stock bas</span>
           </div>
           <div class="produit-prix">{{ p.prix | number: '1.0-0' }} FCFA</div>
+          <div class="produit-marge" *ngIf="p.prixAchat">
+            Marge : {{ p.prix - p.prixAchat | number: '1.0-0' }} FCFA
+            <span class="marge-pct">({{ getMargePct(p) }}%)</span>
+          </div>
           <div class="produit-stock">Stock : {{ p.stock }} unités</div>
           <div class="produit-categorie">{{ p.categorie }}</div>
           <div class="produit-code" *ngIf="p.codeBarres">
@@ -220,6 +224,15 @@ import { ProduitDialogComponent } from './produit-dialog.component';
         color: #00b894;
         margin-bottom: 4px;
       }
+      .produit-marge {
+        font-size: 12px;
+        color: #8892a4;
+        margin-bottom: 4px;
+      }
+      .produit-marge .marge-pct {
+        color: #00b894;
+        font-weight: 600;
+      }
       .produit-stock {
         font-size: 13px;
         color: #6c757d;
@@ -269,6 +282,11 @@ export class ProduitsComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.chargerProduits();
+  }
+
+  getMargePct(p: any): number {
+    if (!p.prix || !p.prixAchat) return 0;
+    return Math.round(((p.prix - p.prixAchat) / p.prix) * 100);
   }
 
   ngOnDestroy() {
