@@ -1,20 +1,22 @@
 .login-page {
   min-height: 100vh;
-  background: var(--bg);
+  background: var(--navy);
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  padding-top: calc(24px + var(--safe-top));
+  padding-bottom: calc(24px + var(--safe-bot));
 }
 
 .login-card {
-  background: var(--surface);
+  background: var(--navy-light);
   border-radius: 16px;
   padding: 40px 32px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--navy-border);
 }
 
 .logo-area {
@@ -25,13 +27,13 @@
 .logo-area .app-name {
   font-size: 28px;
   font-weight: 700;
-  color: var(--primary);
+  color: var(--text-1);
   letter-spacing: -0.5px;
 }
 
 .logo-area .app-sub {
   font-size: 14px;
-  color: var(--text-muted);
+  color: var(--text-2);
   margin-top: 4px;
 }
 

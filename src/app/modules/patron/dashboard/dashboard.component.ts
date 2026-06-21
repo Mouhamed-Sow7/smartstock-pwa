@@ -105,10 +105,10 @@ import { AuthService } from '../../../core/services/auth.service';
         font-size: 22px;
         font-weight: 700;
         margin: 0 0 4px;
-        color: #1a1a2e;
+        color: var(--text-1);
       }
       .page-header p {
-        color: #6c757d;
+        color: var(--text-2);
         font-size: 13px;
         margin: 0 0 24px;
       }
@@ -165,7 +165,7 @@ import { AuthService } from '../../../core/services/auth.service';
         font-size: 16px;
         font-weight: 600;
         margin: 0 0 12px;
-        color: #1a1a2e;
+        color: var(--text-1);
       }
       .shortcut-grid {
         display: grid;

@@ -113,7 +113,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
         font-size: 22px;
         font-weight: 700;
         margin: 0;
-        color: #1a1a2e;
+        color: var(--text-1);
       }
       .loading-center {
         display: flex;
@@ -123,7 +123,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
       .empty-state {
         text-align: center;
         padding: 60px 20px;
-        color: #6c757d;
+        color: var(--text-2);
       }
       .empty-state mat-icon {
         font-size: 48px;
@@ -133,7 +133,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
       }
       .empty-hint {
         font-size: 13px;
-        color: #8a93a0;
+        color: var(--text-3);
         margin-top: 10px;
       }
       .attention-animate {
