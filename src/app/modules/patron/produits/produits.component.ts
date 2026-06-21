@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,6 +19,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
   standalone: true,
   imports: [
     CommonModule,
+    RouterLink,
     MatDialogModule,
     MatCardModule,
     MatButtonModule,
@@ -30,14 +32,19 @@ import { ProduitDialogComponent } from './produit-dialog.component';
     <div class="produits-page">
       <div class="page-header">
         <h1>Produits</h1>
-        <button
-          mat-raised-button
-          color="primary"
-          (click)="openAddDialog()"
-          [class.attention-animate]="isEmpty()"
-        >
-          <mat-icon>add</mat-icon> Ajouter
-        </button>
+        <div class="header-actions">
+          <button mat-stroked-button color="primary" routerLink="/patron/produits/scanner">
+            <mat-icon>qr_code_scanner</mat-icon> Scanner
+          </button>
+          <button
+            mat-raised-button
+            color="primary"
+            (click)="openAddDialog()"
+            [class.attention-animate]="isEmpty()"
+          >
+            <mat-icon>add</mat-icon> Ajouter
+          </button>
+        </div>
       </div>
 
       <div class="loading-center" *ngIf="isLoading()">
@@ -108,6 +115,10 @@ import { ProduitDialogComponent } from './produit-dialog.component';
         justify-content: space-between;
         align-items: center;
         margin-bottom: 20px;
+      }
+      .header-actions {
+        display: flex;
+        gap: 8px;
       }
       .page-header h1 {
         font-size: 22px;
