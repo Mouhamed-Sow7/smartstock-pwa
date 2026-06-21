@@ -3,6 +3,7 @@ import {
   ElementRef,
   OnDestroy,
   OnInit,
+  AfterViewInit,
   ViewChild,
   ChangeDetectorRef,
 } from '@angular/core';
@@ -440,7 +441,7 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
     `,
   ],
 })
-export class ScanAjoutComponent implements OnInit, OnDestroy {
+export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('video') videoRef?: ElementRef<HTMLVideoElement>;
 
   cameraActive = false;
@@ -481,10 +482,11 @@ export class ScanAjoutComponent implements OnInit, OnDestroy {
     }
   }
 
-  ngOnInit(): void {
-    // Démarrer la caméra automatiquement dès l'arrivée sur la page
-    // Petit délai pour laisser le DOM se stabiliser (ViewChild disponible)
-    setTimeout(() => this.demarrerScan(), 300);
+  ngOnInit(): void {}
+
+  ngAfterViewInit(): void {
+    // ViewChild est garanti disponible ici — on peut démarrer la caméra
+    this.demarrerScan();
   }
 
   // ─── Caméra (même logique éprouvée que le scan caisse agent) ──
