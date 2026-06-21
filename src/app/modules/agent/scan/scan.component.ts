@@ -14,7 +14,7 @@ import { BrowserMultiFormatReader } from '@zxing/browser';
 import type { IScannerControls } from '@zxing/browser';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { PosService } from '../services/pos.service';
+import { PosService, CartItem } from '../services/pos.service';
 import { OfflineService, CachedProduit } from '../../../core/services/offline.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
@@ -52,6 +52,7 @@ interface BarcodeDetectorLike {
             <div class="corner tr"></div>
             <div class="corner bl"></div>
             <div class="corner br"></div>
+            <div class="scan-line"></div>
           </div>
         </div>
 
@@ -115,11 +116,32 @@ interface BarcodeDetectorLike {
       <p class="success" *ngIf="lastProductName">✅ Ajouté: {{ lastProductName }}</p>
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
-      <a routerLink="/agent/panier" class="panier-link">
-        <mat-icon>shopping_cart</mat-icon>
-        Aller au panier
-        <span class="cart-count" *ngIf="cartCount > 0">{{ cartCount }}</span>
-      </a>
+      <div class="panier-row">
+        <a routerLink="/agent/panier" class="panier-link">
+          <mat-icon>shopping_cart</mat-icon>
+          Aller au panier
+          <span class="cart-count" *ngIf="cartCount > 0">{{ cartCount }}</span>
+        </a>
+        <button
+          class="panier-toggle"
+          *ngIf="cartItems.length > 0"
+          (click)="showCartPreview = !showCartPreview"
+          [class.open]="showCartPreview"
+        >
+          <mat-icon>{{ showCartPreview ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
+      </div>
+
+      <div class="cart-preview" *ngIf="showCartPreview && cartItems.length > 0">
+        <div class="cart-preview-item" *ngFor="let item of cartItems">
+          <span class="cpi-nom">{{ item.produit?.nom || 'Produit' }} <span class="cpi-qte">x{{ item.quantite }}</span></span>
+          <span class="cpi-prix">{{ item.prix * item.quantite | number: '1.0-0' }} FCFA</span>
+        </div>
+        <div class="cart-preview-total">
+          <span>Total</span>
+          <span>{{ cartTotal | number: '1.0-0' }} FCFA</span>
+        </div>
+      </div>
     </div>
   `,
   styles: [
@@ -254,6 +276,21 @@ interface BarcodeDetectorLike {
         border-left: 0;
         border-top: 0;
         border-radius: 0 0 4px 0;
+      }
+      .scan-line {
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        height: 2px;
+        background: var(--accent);
+        box-shadow: 0 0 8px 1px var(--accent);
+        opacity: 0.8;
+        top: 10%;
+        animation: scanMove 2s ease-in-out infinite;
+      }
+      @keyframes scanMove {
+        0%, 100% { top: 8%; }
+        50% { top: 92%; }
       }
 
       /* Camera buttons */
@@ -428,14 +465,40 @@ interface BarcodeDetectorLike {
       }
 
       /* Panier link */
+      .panier-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 16px;
+      }
       .panier-link {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        margin-top: 16px;
         color: var(--accent);
         font-size: 14px;
         font-weight: 600;
+      }
+      .panier-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        border: none;
+        background: transparent;
+        color: var(--accent);
+        cursor: pointer;
+        padding: 0;
+      }
+      .panier-toggle mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+      .panier-toggle.open {
+        background: var(--accent-lite);
       }
       .cart-count {
         background: var(--danger);
@@ -448,6 +511,64 @@ interface BarcodeDetectorLike {
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      /* Aperçu panier — lecture seule */
+      .cart-preview {
+        margin-top: 8px;
+        background: var(--navy-card);
+        border: 1px solid var(--navy-border);
+        border-radius: 12px;
+        padding: 10px 12px;
+        backdrop-filter: blur(12px);
+        animation: previewIn 0.15s ease-out;
+      }
+      @keyframes previewIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      .cart-preview-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 0;
+        border-bottom: 1px solid var(--navy-border);
+        font-size: 13px;
+      }
+      .cart-preview-item:last-of-type {
+        border-bottom: none;
+      }
+      .cpi-nom {
+        color: var(--text-1);
+        display: flex;
+        align-items: baseline;
+        gap: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .cpi-qte {
+        color: var(--text-3);
+        font-size: 11px;
+        flex-shrink: 0;
+      }
+      .cpi-prix {
+        color: var(--text-2);
+        font-size: 13px;
+        font-weight: 600;
+        flex-shrink: 0;
+        margin-left: 8px;
+      }
+      .cart-preview-total {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-top: 6px;
+        padding-top: 8px;
+        border-top: 1px solid var(--navy-border);
+        color: var(--accent);
+        font-size: 14px;
+        font-weight: 700;
       }
     `,
   ],
@@ -466,6 +587,9 @@ export class ScanComponent implements OnInit, OnDestroy {
   suggestions: CachedProduit[] = [];
   allProduits: CachedProduit[] = [];
   cartCount = 0;
+  cartItems: CartItem[] = [];
+  cartTotal = 0;
+  showCartPreview = false;
   isStarting = false;
 
   private detector: BarcodeDetectorLike | null = null;
@@ -520,6 +644,9 @@ export class ScanComponent implements OnInit, OnDestroy {
     // 3. Suivre le panier
     this.pos.cart$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
       this.cartCount = items.reduce((s, i) => s + i.quantite, 0);
+      this.cartItems = items;
+      this.cartTotal = items.reduce((s, i) => s + i.prix * i.quantite, 0);
+      if (items.length === 0) this.showCartPreview = false;
     });
   }
 
@@ -650,10 +777,9 @@ export class ScanComponent implements OnInit, OnDestroy {
             this.onCameraCodeDetected(result.getText());
             return;
           }
-          const message = String((err as any)?.message || '');
-          if (err && !message.toLowerCase().includes('notfoundexception')) {
-            this.errorMessage = 'Erreur de lecture caméra';
-          }
+          // Toutes les exceptions de décodage (NotFound/Checksum/Format) sont normales :
+          // elles signifient juste "pas de code-barres lisible dans cette image", pas une
+          // vraie erreur caméra. On ne les affiche jamais à l'utilisateur.
         });
       }
     } catch {
