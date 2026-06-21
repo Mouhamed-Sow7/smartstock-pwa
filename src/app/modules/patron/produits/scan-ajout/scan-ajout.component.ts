@@ -207,11 +207,12 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         border-radius: 10px;
         object-fit: cover;
         display: block;
+        /* Toujours dans le DOM et dimensionné — sinon le flux caméra ne s'affiche pas */
       }
       video.hidden {
-        visibility: hidden;
-        height: 0;
-        min-height: 0;
+        opacity: 0;
+        position: absolute;
+        pointer-events: none;
       }
       .hidden-placeholder {
         display: none;
@@ -480,7 +481,11 @@ export class ScanAjoutComponent implements OnInit, OnDestroy {
     }
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    // Démarrer la caméra automatiquement dès l'arrivée sur la page
+    // Petit délai pour laisser le DOM se stabiliser (ViewChild disponible)
+    setTimeout(() => this.demarrerScan(), 300);
+  }
 
   // ─── Caméra (même logique éprouvée que le scan caisse agent) ──
 

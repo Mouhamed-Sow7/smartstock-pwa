@@ -33,7 +33,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
       <div class="page-header">
         <h1>Produits</h1>
         <div class="header-actions">
-          <button mat-stroked-button color="primary" routerLink="/patron/produits/scanner">
+          <button mat-stroked-button color="primary" routerLink="/patron/produits/scanner" class="btn-scanner">
             <mat-icon>qr_code_scanner</mat-icon> Scanner
           </button>
           <button
@@ -41,6 +41,7 @@ import { ProduitDialogComponent } from './produit-dialog.component';
             color="primary"
             (click)="openAddDialog()"
             [class.attention-animate]="isEmpty()"
+            class="btn-ajouter"
           >
             <mat-icon>add</mat-icon> Ajouter
           </button>
@@ -112,13 +113,19 @@ import { ProduitDialogComponent } from './produit-dialog.component';
       }
       .page-header {
         display: flex;
-        justify-content: space-between;
-        align-items: center;
+        flex-direction: column;
+        gap: 12px;
         margin-bottom: 20px;
       }
       .header-actions {
         display: flex;
-        gap: 8px;
+        gap: 10px;
+      }
+      .btn-scanner {
+        flex: 1;
+      }
+      .btn-ajouter {
+        flex: 1;
       }
       .page-header h1 {
         font-size: 22px;
