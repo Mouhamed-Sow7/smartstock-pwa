@@ -1,310 +1,293 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
-import { MatButtonModule } from '@angular/material/button';
 import { RouterLink } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
 import { catchError, takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
-import { OfflineService } from '../../../core/services/offline.service';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, MatCardModule, MatIconModule, MatButtonModule, RouterLink],
+  imports: [CommonModule, MatIconModule, RouterLink],
   template: `
     <div class="dashboard">
-      <div class="page-header">
-        <h1>Tableau de bord</h1>
-        <p>{{ today }}</p>
+
+      <!-- Greeting -->
+      <div class="greeting-block">
+        <div class="greeting-row">
+          <span class="hand">👋</span>
+          <div>
+            <div class="greeting-sub">Bonjour,</div>
+            <div class="greeting-name">{{ nomPatron }}</div>
+          </div>
+        </div>
+        <div class="greeting-date">{{ today }}</div>
       </div>
 
-      <!-- KPIs revenus -->
+      <!-- KPI Cards glass -->
       <div class="kpi-grid">
-        <div class="kpi-card green">
-          <div class="kpi-icon"><mat-icon>today</mat-icon></div>
-          <div class="kpi-content">
-            <div class="kpi-value">{{ stats?.jour?.total | number: '1.0-0' }} FCFA</div>
+        <div class="kpi-card" style="--glow: #00b894; --glow2: #00cec9;">
+          <div class="kpi-icon-wrap">
+            <mat-icon>today</mat-icon>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value">{{ stats?.jour?.total | number:'1.0-0' }}</div>
+            <div class="kpi-unit">FCFA</div>
             <div class="kpi-label">Aujourd'hui</div>
-            <div class="kpi-sub">{{ stats?.jour?.ventes }} vente(s)</div>
+            <div class="kpi-sub">{{ stats?.jour?.ventes ?? 0 }} vente(s)</div>
           </div>
         </div>
-        <div class="kpi-card blue">
-          <div class="kpi-icon"><mat-icon>date_range</mat-icon></div>
-          <div class="kpi-content">
-            <div class="kpi-value">{{ stats?.semaine?.total | number: '1.0-0' }} FCFA</div>
+
+        <div class="kpi-card" style="--glow: #0984e3; --glow2: #74b9ff;">
+          <div class="kpi-icon-wrap">
+            <mat-icon>date_range</mat-icon>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value">{{ stats?.semaine?.total | number:'1.0-0' }}</div>
+            <div class="kpi-unit">FCFA</div>
             <div class="kpi-label">Cette semaine</div>
-            <div class="kpi-sub">{{ stats?.semaine?.ventes }} vente(s)</div>
+            <div class="kpi-sub">{{ stats?.semaine?.ventes ?? 0 }} vente(s)</div>
           </div>
         </div>
-        <div class="kpi-card purple">
-          <div class="kpi-icon"><mat-icon>calendar_month</mat-icon></div>
-          <div class="kpi-content">
-            <div class="kpi-value">{{ stats?.mois?.total | number: '1.0-0' }} FCFA</div>
+
+        <div class="kpi-card" style="--glow: #6c5ce7; --glow2: #a29bfe;">
+          <div class="kpi-icon-wrap">
+            <mat-icon>calendar_month</mat-icon>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value">{{ stats?.mois?.total | number:'1.0-0' }}</div>
+            <div class="kpi-unit">FCFA</div>
             <div class="kpi-label">Ce mois</div>
-            <div class="kpi-sub">{{ stats?.mois?.ventes }} vente(s)</div>
+            <div class="kpi-sub">{{ stats?.mois?.ventes ?? 0 }} vente(s)</div>
           </div>
         </div>
-        <div class="kpi-card orange">
-          <div class="kpi-icon"><mat-icon>bar_chart</mat-icon></div>
-          <div class="kpi-content">
-            <div class="kpi-value">{{ stats?.annee?.total | number: '1.0-0' }} FCFA</div>
+
+        <div class="kpi-card" style="--glow: #e17055; --glow2: #fd79a8;">
+          <div class="kpi-icon-wrap">
+            <mat-icon>bar_chart</mat-icon>
+          </div>
+          <div class="kpi-body">
+            <div class="kpi-value">{{ stats?.annee?.total | number:'1.0-0' }}</div>
+            <div class="kpi-unit">FCFA</div>
             <div class="kpi-label">Cette année</div>
-            <div class="kpi-sub">{{ stats?.annee?.ventes }} vente(s)</div>
+            <div class="kpi-sub">{{ stats?.annee?.ventes ?? 0 }} vente(s)</div>
           </div>
         </div>
       </div>
 
-      <!-- Raccourcis -->
-      <div class="shortcuts">
-        <h2>Accès rapide</h2>
-        <div class="shortcut-grid">
-          <a class="shortcut-card" routerLink="/patron/produits">
+      <!-- Accès rapide -->
+      <div class="section-title">Accès rapide</div>
+      <div class="shortcut-grid">
+        <a class="shortcut-card" routerLink="/patron/produits">
+          <div class="sc-icon" style="--sc: #00b894;">
             <mat-icon>inventory_2</mat-icon>
-            <span>Produits</span>
-          </a>
-          <a class="shortcut-card" routerLink="/patron/agents">
+          </div>
+          <span>Produits</span>
+        </a>
+        <a class="shortcut-card" routerLink="/patron/agents">
+          <div class="sc-icon" style="--sc: #0984e3;">
             <mat-icon>badge</mat-icon>
-            <span>Agents</span>
-          </a>
-          <a class="shortcut-card" routerLink="/patron/ventes">
+          </div>
+          <span>Agents</span>
+        </a>
+        <a class="shortcut-card" routerLink="/patron/ventes">
+          <div class="sc-icon" style="--sc: #6c5ce7;">
             <mat-icon>receipt_long</mat-icon>
-            <span>Ventes</span>
-          </a>
-          <a class="shortcut-card alert" routerLink="/patron/produits">
-            <mat-icon>warning</mat-icon>
-            <span>Stock bas ({{ alertes }})</span>
-          </a>
-        </div>
+          </div>
+          <span>Ventes</span>
+        </a>
+        <a class="shortcut-card" routerLink="/patron/produits" [class.has-alert]="alertes > 0">
+          <div class="sc-icon" style="--sc: #e17055;">
+            <mat-icon>{{ alertes > 0 ? 'warning' : 'inventory' }}</mat-icon>
+          </div>
+          <span>Stock bas <span class="badge" *ngIf="alertes > 0">{{ alertes }}</span></span>
+        </a>
       </div>
 
       <!-- Méthodes paiement -->
-      <div class="paiements-section" *ngIf="stats.paiements?.length">
-        <h2>Méthodes de paiement</h2>
+      <div *ngIf="stats?.paiements?.length">
+        <div class="section-title">Paiements du mois</div>
         <div class="paiement-list">
           <div class="paiement-item" *ngFor="let p of stats.paiements">
-            <div class="paiement-name">{{ p._id | titlecase }}</div>
+            <span class="paiement-name">{{ p._id | titlecase }}</span>
             <div class="paiement-bar-wrap">
               <div class="paiement-bar" [style.width.%]="getPourcentage(p.count)"></div>
             </div>
-            <div class="paiement-count">{{ p.count }}</div>
+            <span class="paiement-count">{{ p.count }}</span>
           </div>
         </div>
       </div>
+
     </div>
   `,
-  styles: [
-    `
-      .dashboard {
-        max-width: 800px;
-        margin: 0 auto;
-      }
-      .page-header h1 {
-        font-size: 22px;
-        font-weight: 700;
-        margin: 0 0 4px;
-        color: var(--text-1);
-      }
-      .page-header p {
-        color: var(--text-2);
-        font-size: 13px;
-        margin: 0 0 24px;
-      }
+  styles: [`
+    .dashboard { max-width: 800px; margin: 0 auto; padding-bottom: 32px; }
 
-      .kpi-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-        margin-bottom: 24px;
-      }
-      .kpi-card {
-        border-radius: 12px;
-        padding: 16px;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        color: white;
-      }
-      .kpi-card.green {
-        background: #00b894;
-      }
-      .kpi-card.blue {
-        background: #0984e3;
-      }
-      .kpi-card.purple {
-        background: #6c5ce7;
-      }
-      .kpi-card.orange {
-        background: #e17055;
-      }
-      .kpi-icon mat-icon {
-        font-size: 28px;
-        width: 28px;
-        height: 28px;
-        opacity: 0.85;
-      }
-      .kpi-value {
-        font-size: 15px;
-        font-weight: 700;
-        line-height: 1.2;
-      }
-      .kpi-label {
-        font-size: 11px;
-        opacity: 0.85;
-        margin-top: 2px;
-      }
-      .kpi-sub {
-        font-size: 11px;
-        opacity: 0.7;
-      }
+    /* ── Greeting ── */
+    .greeting-block { margin-bottom: 24px; }
+    .greeting-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .hand { font-size: 32px; line-height: 1; }
+    .greeting-sub { color: var(--text-3); font-size: 13px; }
+    .greeting-name { color: var(--text-1); font-size: 26px; font-weight: 800; line-height: 1.1; }
+    .greeting-date { color: var(--text-3); font-size: 13px; margin-top: 4px; margin-left: 2px; }
 
-      .shortcuts h2,
-      .paiements-section h2 {
-        font-size: 16px;
-        font-weight: 600;
-        margin: 0 0 12px;
-        color: var(--text-1);
-      }
-      .shortcut-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 10px;
-        margin-bottom: 24px;
-      }
-      .shortcut-card {
-        background: white;
-        border-radius: 12px;
-        padding: 16px 8px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        text-decoration: none;
-        color: #1a1a2e;
-        font-size: 12px;
-        font-weight: 500;
-        border: 1px solid #e9ecef;
-        transition: box-shadow 0.2s;
-      }
-      .shortcut-card mat-icon {
-        color: #00b894;
-        font-size: 24px;
-      }
-      .shortcut-card.alert mat-icon {
-        color: #e17055;
-      }
-      .shortcut-card:hover {
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-      }
+    /* ── KPI grid glass ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+    .kpi-card {
+      position: relative;
+      border-radius: 18px;
+      padding: 16px;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+      transition: transform .2s, box-shadow .2s;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at top left, color-mix(in srgb, var(--glow) 18%, transparent), transparent 65%);
+      pointer-events: none;
+    }
+    .kpi-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.25); }
+    .kpi-icon-wrap {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--glow) 20%, transparent);
+      border: 1px solid color-mix(in srgb, var(--glow) 35%, transparent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .kpi-icon-wrap mat-icon {
+      color: var(--glow);
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+    }
+    .kpi-body { flex: 1; min-width: 0; }
+    .kpi-value {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text-1);
+      line-height: 1;
+    }
+    .kpi-unit { font-size: 10px; color: var(--glow); font-weight: 700; margin: 1px 0 4px; letter-spacing: .5px; }
+    .kpi-label { font-size: 11px; color: var(--text-2); font-weight: 600; }
+    .kpi-sub { font-size: 10px; color: var(--text-3); margin-top: 2px; }
 
-      .paiement-list {
-        background: white;
-        border-radius: 12px;
-        padding: 16px;
-        border: 1px solid #e9ecef;
-      }
-      .paiement-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 12px;
-      }
-      .paiement-item:last-child {
-        margin-bottom: 0;
-      }
-      .paiement-name {
-        width: 100px;
-        font-size: 13px;
-        font-weight: 500;
-        color: #1a1a2e;
-      }
-      .paiement-bar-wrap {
-        flex: 1;
-        background: #f1f3f4;
-        border-radius: 4px;
-        height: 8px;
-      }
-      .paiement-bar {
-        background: #00b894;
-        height: 8px;
-        border-radius: 4px;
-        min-width: 4px;
-        transition: width 0.5s;
-      }
-      .paiement-count {
-        font-size: 13px;
-        color: #6c757d;
-        width: 30px;
-        text-align: right;
-      }
+    /* ── Sections ── */
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-3);
+      letter-spacing: .8px;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
 
-      @media (max-width: 480px) {
-        .shortcut-grid {
-          grid-template-columns: repeat(2, 1fr);
-        }
-      }
-    `,
-  ],
+    /* ── Shortcut grid ── */
+    .shortcut-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin-bottom: 28px;
+    }
+    @media (max-width: 400px) {
+      .shortcut-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .shortcut-card {
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.07);
+      border-radius: 14px;
+      padding: 16px 8px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      color: var(--text-2);
+      font-size: 11px;
+      font-weight: 600;
+      transition: background .15s, border-color .15s, transform .15s;
+    }
+    .shortcut-card:hover { background: rgba(255,255,255,.07); transform: translateY(-1px); }
+    .shortcut-card.has-alert { border-color: rgba(225,112,85,.3); }
+    .sc-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--sc) 15%, transparent);
+      border: 1px solid color-mix(in srgb, var(--sc) 30%, transparent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .sc-icon mat-icon { color: var(--sc); font-size: 22px; width: 22px; height: 22px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: #e17055;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      margin-left: 3px;
+    }
+
+    /* ── Paiements ── */
+    .paiement-list { display: flex; flex-direction: column; gap: 8px; }
+    .paiement-item { display: flex; align-items: center; gap: 10px; }
+    .paiement-name { color: var(--text-2); font-size: 12px; min-width: 70px; }
+    .paiement-bar-wrap { flex: 1; background: rgba(255,255,255,.06); border-radius: 4px; height: 6px; overflow: hidden; }
+    .paiement-bar { height: 100%; background: var(--accent); border-radius: 4px; transition: width .4s; }
+    .paiement-count { color: var(--text-3); font-size: 12px; min-width: 24px; text-align: right; }
+  `]
 })
 export class DashboardComponent implements OnInit, OnDestroy {
-  today = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
-  stats: any = {
-    jour: { total: 0, ventes: 0 },
-    semaine: { total: 0, ventes: 0 },
-    mois: { total: 0, ventes: 0 },
-    annee: { total: 0, ventes: 0 },
-    paiements: [],
-  };
+  stats: any = null;
   alertes = 0;
-  totalVentes = 0;
+  nomPatron = 'Patron';
+  today = '';
   private destroy$ = new Subject<void>();
 
-  constructor(
-    private api: ApiService,
-    private offlineSvc: OfflineService,
-    private auth: AuthService,
-  ) {}
+  constructor(private api: ApiService, private auth: AuthService) {}
 
-  ngOnInit() {
-    const tenantId = (this as any).tenantId;
+  ngOnInit(): void {
+    const user = this.auth.getUser();
+    this.nomPatron = user?.nom || user?.prenom || 'Patron';
+    const now = new Date();
+    this.today = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
-    forkJoin<any>({
+    forkJoin({
       stats: this.api.get('ventes/stats').pipe(catchError(() => of(null))),
-      alertes: this.api.get('produits/alerte').pipe(catchError(() => of(null))),
-    })
-      .pipe(takeUntil(this.destroy$))
-      .subscribe((result: any) => {
-        const { stats, alertes } = result || {};
-        if (stats?.success) {
-          this.stats = { ...this.stats, ...stats.data };
-          this.totalVentes =
-            this.stats.paiements?.reduce((s: number, p: any) => s + p.count, 0) || 1;
-          // Cache les stats pour usage offline
-          this.offlineSvc.cacheStats(this.auth.getTenantId() ?? '', this.stats);
-        } else {
-          // Pas de réseau → charge depuis le cache
-          this.offlineSvc.getStats(this.auth.getTenantId() ?? '').then((cached) => {
-            if (cached) this.stats = cached;
-          });
-        }
-        if (alertes?.success) {
-          this.alertes = alertes.data?.length || 0;
-        }
-      });
+      alertes: this.api.get('produits/alerte').pipe(catchError(() => of({ data: [] }))),
+    }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes }) => {
+      if (stats?.success) this.stats = stats.data;
+      this.alertes = alertes?.data?.length ?? 0;
+    });
   }
+
+  ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
   getPourcentage(count: number): number {
-    return Math.round((count / this.totalVentes) * 100);
-  }
-
-  ngOnDestroy(): void {
-    this.destroy$.next();
-    this.destroy$.complete();
+    const max = Math.max(...(this.stats?.paiements?.map((p: any) => p.count) ?? [1]));
+    return max ? Math.round((count / max) * 100) : 0;
   }
 }

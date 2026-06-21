@@ -345,7 +345,11 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const user = this.auth.getUser();
+    // L'agent est loggué via QR code — son nom vient du token JWT
+    // On prend le premier mot du nom complet comme prénom
     if (user?.nom) this.prenom = user.nom.split(' ')[0];
+    else if (user?.prenom) this.prenom = user.prenom;
+    else this.prenom = user?.email?.split('@')[0] || 'Agent';
 
     forkJoin({
       stats: this.api.get('ventes/stats').pipe(catchError(() => of(null))),
