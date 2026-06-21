@@ -15,6 +15,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import type { IScannerControls } from '@zxing/browser';
+import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 import { ProduitDialogComponent } from '../produit-dialog.component';
 import { ProduitService, Produit } from '../produit.service';
 
@@ -387,8 +388,22 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
         formats: ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e'],
       });
     } else {
-      this.zxingReader = new BrowserMultiFormatReader();
+      this.zxingReader = new BrowserMultiFormatReader(ScanAjoutComponent.buildZxingHints());
     }
+  }
+
+  private static buildZxingHints(): Map<DecodeHintType, unknown> {
+    const hints = new Map<DecodeHintType, unknown>();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+    ]);
+    return hints;
   }
 
   ngOnInit(): void {}

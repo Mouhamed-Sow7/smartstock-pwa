@@ -12,6 +12,7 @@ import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import type { IScannerControls } from '@zxing/browser';
+import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { PosService, CartItem } from '../services/pos.service';
@@ -613,8 +614,23 @@ export class ScanComponent implements OnInit, OnDestroy {
         formats: ['code_128', 'ean_13', 'ean_8', 'upc_a', 'upc_e', 'qr_code'],
       });
     } else {
-      this.zxingReader = new BrowserMultiFormatReader();
+      this.zxingReader = new BrowserMultiFormatReader(ScanComponent.buildZxingHints());
     }
+  }
+
+  private static buildZxingHints(): Map<DecodeHintType, unknown> {
+    const hints = new Map<DecodeHintType, unknown>();
+    hints.set(DecodeHintType.TRY_HARDER, true);
+    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+      BarcodeFormat.EAN_13,
+      BarcodeFormat.EAN_8,
+      BarcodeFormat.UPC_A,
+      BarcodeFormat.UPC_E,
+      BarcodeFormat.CODE_128,
+      BarcodeFormat.CODE_39,
+      BarcodeFormat.QR_CODE,
+    ]);
+    return hints;
   }
 
   async ngOnInit(): Promise<void> {
