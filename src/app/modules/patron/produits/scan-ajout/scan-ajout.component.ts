@@ -43,24 +43,36 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         </a>
         <div>
           <div class="scan-title">Scanner pour indexer</div>
-          <div class="scan-sub">Étiquette déjà imprimée sur le produit</div>
+          <div class="scan-sub">Etiquette deja imprimee sur le produit</div>
         </div>
       </div>
 
-      <!-- Caméra -->
+      <!-- Camera -->
       <div class="camera-card">
         <div class="video-wrapper">
-          <div class="video-placeholder" [class.hidden-placeholder]="cameraActive">
-            <mat-icon>photo_camera</mat-icon>
-            <span>Appuyez sur Démarrer</span>
+          <!--
+            La video est TOUJOURS dans le DOM avec dimensions fixes.
+            Le navigateur ne peut pas streamer vers un element invisible/sans hauteur.
+            On superpose le placeholder PAR-DESSUS en position absolute.
+          -->
+          <video #video autoplay muted playsinline></video>
+
+          <!-- Placeholder superpose, retire des que la camera est active -->
+          <div class="video-placeholder" *ngIf="!cameraActive">
+            <mat-icon>{{ isStarting ? 'hourglass_empty' : 'photo_camera' }}</mat-icon>
+            <span>{{ isStarting ? 'Demarrage...' : 'Appuyez sur Demarrer' }}</span>
           </div>
-          <video #video autoplay muted playsinline [class.hidden]="!cameraActive"></video>
+
+          <!-- Cadre de scan -->
           <div class="scan-frame" *ngIf="cameraActive">
             <div class="corner tl"></div>
             <div class="corner tr"></div>
             <div class="corner bl"></div>
             <div class="corner br"></div>
+            <div class="scan-line"></div>
           </div>
+
+          <!-- Overlay resultat -->
           <div class="pause-overlay" *ngIf="resultat !== 'idle'">
             <mat-icon>{{ resultat === 'trouve' ? 'check_circle' : 'new_releases' }}</mat-icon>
           </div>
@@ -71,13 +83,13 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
             (click)="demarrerScan()"
             [disabled]="cameraActive || isStarting || !cameraAvailable"
           >
-            {{ isStarting ? 'Démarrage...' : 'Démarrer caméra' }}
+            {{ cameraActive ? 'Camera active' : isStarting ? 'Demarrage...' : 'Demarrer' }}
           </button>
           <button class="secondary" (click)="switchCamera()" [disabled]="!cameraActive">
-            Basculer caméra
+            Basculer
           </button>
           <button class="secondary" (click)="stopCameraScan()" [disabled]="!cameraActive">
-            Arrêter
+            Arreter
           </button>
         </div>
       </div>
@@ -92,25 +104,25 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
           autocomplete="off"
         />
         <button (click)="traiterCode(manualCode)" [disabled]="!manualCode.trim() || isLoading">
-          Vérifier
+          Verifier
         </button>
       </div>
 
-      <!-- Résultat : produit déjà existant -->
+      <!-- Resultat : produit deja existant -->
       <div class="result-card found" *ngIf="resultat === 'trouve' && produitTrouve">
         <div class="result-head">
           <mat-icon>check_circle</mat-icon>
-          <span>Code déjà associé</span>
+          <span>Code deja associe</span>
         </div>
         <div class="produit-info">
           <div class="produit-nom">{{ produitTrouve.nom }}</div>
           <div class="produit-meta">
-            {{ produitTrouve.prix | number: '1.0-0' }} FCFA · Stock actuel :
+            {{ produitTrouve.prix | number: '1.0-0' }} FCFA &middot; Stock actuel :
             {{ produitTrouve.stock }}
           </div>
         </div>
         <div class="stock-entry">
-          <label>Quantité reçue (réassort)</label>
+          <label>Quantite recue (reassort)</label>
           <div class="stock-row">
             <input type="number" min="1" [(ngModel)]="quantiteEntree" />
             <button class="primary" (click)="confirmerEntreeStock()" [disabled]="isLoading">
@@ -119,12 +131,12 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
           </div>
         </div>
         <div class="result-actions">
-          <button class="secondary" (click)="ouvrirEdition()">Modifier le produit</button>
-          <button class="secondary" (click)="reprendreScan()">Scanner un autre code</button>
+          <button class="secondary" (click)="ouvrirEdition()">Modifier</button>
+          <button class="secondary" (click)="reprendreScan()">Scanner autre</button>
         </div>
       </div>
 
-      <!-- Résultat : code-barres inconnu -->
+      <!-- Resultat : code inconnu -->
       <div class="result-card new" *ngIf="resultat === 'nouveau'">
         <div class="result-head">
           <mat-icon>new_releases</mat-icon>
@@ -133,7 +145,7 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         <p>{{ dernierCode }}</p>
         <p class="hint">Ce produit n'existe pas encore dans votre catalogue.</p>
         <div class="result-actions">
-          <button class="primary" (click)="ouvrirCreation()">Créer le produit</button>
+          <button class="primary" (click)="ouvrirCreation()">Creer le produit</button>
           <button class="secondary" (click)="reprendreScan()">Annuler</button>
         </div>
       </div>
@@ -141,7 +153,7 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
       <div class="session-count" *ngIf="produitsIndexesSession > 0">
-        {{ produitsIndexesSession }} produit(s) indexé(s) durant cette session
+        {{ produitsIndexesSession }} produit(s) indexes durant cette session
       </div>
     </div>
   `,
@@ -160,6 +172,7 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
       .back-link {
         display: flex;
         color: var(--text-2);
+        text-decoration: none;
       }
       .scan-title {
         color: var(--text-1);
@@ -177,51 +190,47 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         border-radius: 16px;
         padding: 12px;
         margin-bottom: 12px;
-        backdrop-filter: blur(12px);
       }
       .video-wrapper {
         position: relative;
         border-radius: 10px;
         overflow: hidden;
         background: #060e1a;
-        min-height: 200px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        /* Hauteur fixe obligatoire — le stream ne peut pas aller vers 0px */
+        height: 240px;
+      }
+      video {
+        /* Toujours pleine taille, toujours visible */
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
       }
       .video-placeholder {
+        position: absolute;
+        inset: 0;
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 8px;
         color: var(--text-3);
         font-size: 12px;
+        background: #060e1a;
+        z-index: 2;
       }
       .video-placeholder mat-icon {
         font-size: 36px;
         width: 36px;
         height: 36px;
       }
-      video {
-        width: 100%;
-        max-height: 260px;
-        border-radius: 10px;
-        object-fit: cover;
-        display: block;
-        /* Toujours dans le DOM et dimensionné — sinon le flux caméra ne s'affiche pas */
-      }
-      video.hidden {
-        opacity: 0;
-        position: absolute;
-        pointer-events: none;
-      }
-      .hidden-placeholder {
-        display: none;
-      }
       .scan-frame {
         position: absolute;
-        inset: 8px;
+        inset: 12px;
         pointer-events: none;
+        z-index: 3;
       }
       .corner {
         position: absolute;
@@ -229,53 +238,43 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         height: 24px;
         border: 2.5px solid var(--accent);
       }
-      .corner.tl {
-        top: 0;
-        left: 0;
-        border-right: 0;
-        border-bottom: 0;
-        border-radius: 4px 0 0 0;
+      .corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; border-radius: 4px 0 0 0; }
+      .corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; border-radius: 0 4px 0 0; }
+      .corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 4px; }
+      .corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; border-radius: 0 0 4px 0; }
+      .scan-line {
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        height: 2px;
+        background: var(--accent);
+        opacity: 0.7;
+        top: 50%;
+        animation: scanMove 2s ease-in-out infinite;
       }
-      .corner.tr {
-        top: 0;
-        right: 0;
-        border-left: 0;
-        border-bottom: 0;
-        border-radius: 0 4px 0 0;
-      }
-      .corner.bl {
-        bottom: 0;
-        left: 0;
-        border-right: 0;
-        border-top: 0;
-        border-radius: 0 0 0 4px;
-      }
-      .corner.br {
-        bottom: 0;
-        right: 0;
-        border-left: 0;
-        border-top: 0;
-        border-radius: 0 0 4px 0;
+      @keyframes scanMove {
+        0%, 100% { top: 10%; }
+        50% { top: 90%; }
       }
       .pause-overlay {
         position: absolute;
         inset: 0;
-        background: rgba(15, 27, 45, 0.55);
+        background: rgba(15, 27, 45, 0.6);
         display: flex;
         align-items: center;
         justify-content: center;
+        z-index: 4;
       }
       .pause-overlay mat-icon {
-        font-size: 56px;
-        width: 56px;
-        height: 56px;
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
         color: var(--accent);
       }
       .camera-actions {
         margin-top: 10px;
         display: flex;
         gap: 8px;
-        flex-wrap: wrap;
       }
       .camera-actions button {
         flex: 1;
@@ -285,7 +284,6 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         font-size: 12px;
         font-weight: 600;
         cursor: pointer;
-        min-width: 80px;
         background: var(--accent);
         color: #04241c;
       }
@@ -312,132 +310,43 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         color: var(--text-1);
         font-size: 14px;
       }
-      .manual-wrapper input::placeholder {
-        color: var(--text-3);
-      }
+      .manual-wrapper input::placeholder { color: var(--text-3); }
       .manual-wrapper button {
         padding: 0 16px;
         border-radius: 10px;
-        border: none;
+        border: 1px solid var(--navy-border);
         background: var(--navy-light);
         color: var(--text-2);
-        border: 1px solid var(--navy-border);
         font-weight: 600;
         font-size: 13px;
+        cursor: pointer;
       }
-      .manual-wrapper button:disabled {
-        opacity: 0.4;
-      }
+      .manual-wrapper button:disabled { opacity: 0.4; }
       .result-card {
         border-radius: 16px;
         padding: 16px;
         margin-bottom: 12px;
         border: 1px solid var(--navy-border);
       }
-      .result-card.found {
-        background: var(--accent-lite);
-        border-color: rgba(0, 184, 148, 0.3);
-      }
-      .result-card.new {
-        background: rgba(243, 156, 18, 0.1);
-        border-color: rgba(243, 156, 18, 0.3);
-      }
-      .result-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 700;
-        font-size: 14px;
-        margin-bottom: 10px;
-        color: var(--text-1);
-      }
-      .result-card.found .result-head mat-icon {
-        color: var(--accent);
-      }
-      .result-card.new .result-head mat-icon {
-        color: var(--warning);
-      }
-      .produit-nom {
-        font-size: 16px;
-        font-weight: 700;
-        color: var(--text-1);
-      }
-      .produit-meta {
-        font-size: 13px;
-        color: var(--text-2);
-        margin-top: 2px;
-      }
-      .stock-entry {
-        margin-top: 14px;
-      }
-      .stock-entry label {
-        font-size: 12px;
-        color: var(--text-2);
-        display: block;
-        margin-bottom: 6px;
-      }
-      .stock-row {
-        display: flex;
-        gap: 8px;
-      }
-      .stock-row input {
-        width: 90px;
-        background: var(--navy);
-        border: 1px solid var(--navy-border);
-        border-radius: 8px;
-        padding: 10px;
-        color: var(--text-1);
-        font-size: 14px;
-      }
-      .result-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 14px;
-        flex-wrap: wrap;
-      }
-      .result-actions button,
-      .stock-row button {
-        flex: 1;
-        padding: 10px;
-        border-radius: 10px;
-        border: none;
-        font-weight: 600;
-        font-size: 13px;
-        cursor: pointer;
-        min-width: 120px;
-      }
-      button.primary {
-        background: var(--accent);
-        color: #04241c;
-      }
-      button.secondary {
-        background: var(--navy-light);
-        color: var(--text-2);
-        border: 1px solid var(--navy-border);
-      }
-      .result-card.new p {
-        color: var(--text-1);
-        font-weight: 600;
-        font-size: 15px;
-        margin: 0 0 4px;
-      }
-      .result-card.new p.hint {
-        color: var(--text-2);
-        font-weight: 400;
-        font-size: 13px;
-      }
-      .error {
-        color: var(--danger);
-        font-size: 13px;
-        text-align: center;
-        margin-top: 8px;
-      }
-      .session-count {
-        text-align: center;
-        color: var(--text-3);
-        font-size: 12px;
-        margin-top: 16px;
-      }
+      .result-card.found { background: var(--accent-lite); border-color: rgba(0,184,148,.3); }
+      .result-card.new { background: rgba(243,156,18,.1); border-color: rgba(243,156,18,.3); }
+      .result-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; margin-bottom: 10px; color: var(--text-1); }
+      .result-card.found .result-head mat-icon { color: var(--accent); }
+      .result-card.new .result-head mat-icon { color: var(--warning); }
+      .produit-nom { font-size: 16px; font-weight: 700; color: var(--text-1); }
+      .produit-meta { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+      .stock-entry { margin-top: 14px; }
+      .stock-entry label { font-size: 12px; color: var(--text-2); display: block; margin-bottom: 6px; }
+      .stock-row { display: flex; gap: 8px; }
+      .stock-row input { width: 90px; background: var(--navy); border: 1px solid var(--navy-border); border-radius: 8px; padding: 10px; color: var(--text-1); font-size: 14px; }
+      .result-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+      .result-actions button, .stock-row button { flex: 1; padding: 10px; border-radius: 10px; border: none; font-weight: 600; font-size: 13px; cursor: pointer; min-width: 100px; }
+      button.primary { background: var(--accent); color: #04241c; }
+      button.secondary { background: var(--navy-light); color: var(--text-2); border: 1px solid var(--navy-border); }
+      .result-card.new p { color: var(--text-1); font-weight: 600; font-size: 15px; margin: 0 0 4px; }
+      .result-card.new p.hint { color: var(--text-2); font-weight: 400; font-size: 13px; }
+      .error { color: var(--danger); font-size: 13px; text-align: center; margin-top: 8px; }
+      .session-count { text-align: center; color: var(--text-3); font-size: 12px; margin-top: 16px; }
     `,
   ],
 })
@@ -485,33 +394,53 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {}
 
   ngAfterViewInit(): void {
-    // ViewChild est garanti disponible ici — on peut démarrer la caméra
-    this.demarrerScan();
+    // ViewChild garanti ici. On demarre la camera automatiquement.
+    // Sur iOS/Chrome, getUserMedia necessite que la page soit visible et chargee.
+    // requestAnimationFrame garantit qu'on est apres le premier paint.
+    requestAnimationFrame(() => {
+      this.demarrerScan();
+    });
   }
 
-  // ─── Caméra (même logique éprouvée que le scan caisse agent) ──
+  // Camera
 
   async demarrerScan(): Promise<void> {
-    if (this.cameraActive) return;
+    if (this.cameraActive || this.isStarting) return;
     this.errorMessage = '';
     await this.startCameraScan();
   }
 
   async startCameraScan(): Promise<void> {
-    this.cdr.detectChanges();
-    if (!this.videoRef?.nativeElement) return;
+    // Double-check que l'element video existe bien dans le DOM et a des dimensions
+    if (!this.videoRef?.nativeElement) {
+      this.errorMessage = 'Element video non disponible';
+      return;
+    }
+
+    const video = this.videoRef.nativeElement;
+
+    // S'assurer que l'element a des dimensions (requis pour le stream)
+    if (video.offsetWidth === 0 || video.offsetHeight === 0) {
+      // Attendre le prochain frame si l'element n'a pas encore de dimensions
+      await new Promise(r => setTimeout(r, 100));
+    }
 
     this.isStarting = true;
+    this.cdr.detectChanges();
+
     try {
       this.mediaStream = await navigator.mediaDevices.getUserMedia(this.getCameraConstraints());
-      const video = this.videoRef.nativeElement;
       video.srcObject = this.mediaStream;
 
-      await new Promise<void>((resolve) => {
+      await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error('Erreur chargement video'));
+        setTimeout(() => resolve(), 3000); // timeout securite
       });
+
       await video.play();
       this.cameraActive = true;
+      this.cdr.detectChanges();
 
       if (this.detector) {
         this.scanInterval = setInterval(async () => {
@@ -530,14 +459,21 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
           }
           const message = String((err as any)?.message || '');
           if (err && !message.toLowerCase().includes('notfoundexception')) {
-            this.errorMessage = 'Erreur de lecture caméra';
+            // Ne pas afficher l'erreur "NotFoundException" qui est normale (pas de code dans le champ)
           }
         });
       }
-    } catch {
-      this.errorMessage = "Autorisez l'accès à la caméra dans les paramètres du navigateur";
+    } catch (err: any) {
+      const msg = err?.name === 'NotAllowedError'
+        ? 'Autorisez l\'acces a la camera dans les parametres du navigateur'
+        : err?.name === 'NotFoundError'
+        ? 'Aucune camera trouvee sur cet appareil'
+        : 'Erreur camera : ' + (err?.message || 'inconnue');
+      this.errorMessage = msg;
+      this.cdr.detectChanges();
     } finally {
       this.isStarting = false;
+      this.cdr.detectChanges();
     }
   }
 
@@ -555,13 +491,14 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.isProcessingCameraCode || this.resultat !== 'idle') return;
     this.isProcessingCameraCode = true;
     this.traiterCode(code);
-    setTimeout(() => (this.isProcessingCameraCode = false), 1000);
+    setTimeout(() => (this.isProcessingCameraCode = false), 1500);
   }
 
   async switchCamera(): Promise<void> {
     this.facingMode = this.facingMode === 'environment' ? 'user' : 'environment';
     if (!this.cameraActive) return;
     this.stopCameraScan();
+    await new Promise(r => setTimeout(r, 200));
     await this.startCameraScan();
   }
 
@@ -572,17 +509,20 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
       this.scanInterval = null;
     }
     if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((t) => t.stop());
+      this.mediaStream.getTracks().forEach(t => t.stop());
       this.mediaStream = null;
     }
     if (this.zxingReader) {
       this.zxingControls?.stop();
       this.zxingControls = null;
     }
-    if (this.videoRef?.nativeElement) this.videoRef.nativeElement.srcObject = null;
+    if (this.videoRef?.nativeElement) {
+      this.videoRef.nativeElement.srcObject = null;
+    }
+    this.cdr.detectChanges();
   }
 
-  // ─── Traitement du code scanné ou saisi ────────────────────────
+  // Traitement du code
 
   traiterCode(code: string): void {
     const c = (code || '').trim();
@@ -610,7 +550,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
         if (err?.status === 404) {
           this.afficherNouveau();
         } else {
-          this.errorMessage = 'Erreur réseau, réessayez';
+          this.errorMessage = 'Erreur reseau, reessayez';
         }
         this.manualCode = '';
         this.cdr.detectChanges();
@@ -631,62 +571,46 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.errorMessage = '';
   }
 
-  // ─── Actions sur produit déjà existant ──────────────────────────
-
   confirmerEntreeStock(): void {
     if (!this.produitTrouve?._id || this.quantiteEntree <= 0) return;
     this.isLoading = true;
-    this.produitService
-      .updateStock(this.produitTrouve._id, this.quantiteEntree, 'entree')
-      .subscribe({
-        next: (res) => {
-          this.isLoading = false;
-          if (res?.success) {
-            this.snackBar.open(
-              `Stock mis à jour : ${res.data.stock} unités`,
-              'Fermer',
-              { duration: 2500 },
-            );
-            this.produitsIndexesSession++;
-            this.reprendreScan();
-          } else {
-            this.errorMessage = res?.message || 'Erreur lors de la mise à jour du stock';
-          }
-          this.cdr.detectChanges();
-        },
-        error: () => {
-          this.isLoading = false;
-          this.errorMessage = 'Erreur réseau lors de la mise à jour du stock';
-          this.cdr.detectChanges();
-        },
-      });
+    this.produitService.updateStock(this.produitTrouve._id, this.quantiteEntree, 'entree').subscribe({
+      next: (res) => {
+        this.isLoading = false;
+        if (res?.success) {
+          this.snackBar.open(`Stock mis a jour : ${res.data.stock} unites`, 'Fermer', { duration: 2500 });
+          this.produitsIndexesSession++;
+          this.reprendreScan();
+        } else {
+          this.errorMessage = res?.message || 'Erreur mise a jour stock';
+        }
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.isLoading = false;
+        this.errorMessage = 'Erreur reseau';
+        this.cdr.detectChanges();
+      },
+    });
   }
 
   ouvrirEdition(): void {
     if (!this.produitTrouve) return;
-    const ref = this.dialog.open(ProduitDialogComponent, {
+    this.dialog.open(ProduitDialogComponent, {
       width: '500px',
       data: { produit: this.produitTrouve, isEdit: true },
-    });
-    ref.afterClosed().subscribe((result) => {
-      if (result) {
-        this.produitsIndexesSession++;
-      }
+    }).afterClosed().subscribe(result => {
+      if (result) this.produitsIndexesSession++;
       this.reprendreScan();
     });
   }
 
-  // ─── Création d'un nouveau produit depuis le code scanné ────────
-
   ouvrirCreation(): void {
-    const ref = this.dialog.open(ProduitDialogComponent, {
+    this.dialog.open(ProduitDialogComponent, {
       width: '500px',
       data: { produit: { codeBarres: this.dernierCode } as Produit, isEdit: false },
-    });
-    ref.afterClosed().subscribe((result) => {
-      if (result) {
-        this.produitsIndexesSession++;
-      }
+    }).afterClosed().subscribe(result => {
+      if (result) this.produitsIndexesSession++;
       this.reprendreScan();
     });
   }
