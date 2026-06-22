@@ -8,6 +8,7 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { environment } from '../../../../environments/environment';
 import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { BrowserMultiFormatReader } from '@zxing/browser';
@@ -690,7 +691,7 @@ export class ScanComponent implements OnInit, OnDestroy {
     if (this.allProduits.length === 0 && this.sync.estEnLigne()) {
       try {
         const token = localStorage.getItem('ss_token') ?? '';
-        const res: any = await fetch('https://smartstock-nhmt.onrender.com/api/produits', {
+        const res: any = await fetch(`${environment.apiUrl}/produits`, {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => r.json());
 

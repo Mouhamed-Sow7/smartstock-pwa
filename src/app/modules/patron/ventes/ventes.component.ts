@@ -112,7 +112,7 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
     </div>
   `,
   styles: [`
-    .ventes-page { max-width: 800px; }
+    .ventes-page { max-width: 800px; margin: 0 auto; width: 100%; }
     .page-header { margin-bottom: 16px; }
     h1 { font-size: 22px; font-weight: 700; color: var(--text-1); }
 
@@ -160,6 +160,36 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
       flex: 1;
     }
     .date-range span { color: var(--text-3); }
+
+    /* Tablette : un peu plus d'air, boutons plus confortables au doigt */
+    @media (min-width: 768px) {
+      .filtres-card { padding: 16px 18px; }
+      .periode-tabs { gap: 10px; }
+      .tab-btn { padding: 9px 20px; font-size: 13.5px; }
+      .date-range { margin-top: 14px; gap: 10px; max-width: 360px; }
+      .date-range input { padding: 10px 12px; font-size: 14px; }
+    }
+
+    /* Desktop : page plus large, filtres alignés sur une ligne, boutons à taille normale (pas minuscules) */
+    @media (min-width: 1024px) {
+      .ventes-page { max-width: 1100px; }
+      h1 { font-size: 26px; }
+      .filtres-card {
+        padding: 18px 22px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+      .periode-tabs { gap: 10px; flex: 1; }
+      .tab-btn {
+        padding: 10px 22px;
+        font-size: 14px;
+        border-radius: 22px;
+      }
+      .date-range { margin-top: 0; }
+    }
 
     .kpi-row {
       display: grid;
