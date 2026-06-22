@@ -122,7 +122,7 @@ interface BarcodeDetectorLike {
         </div>
       </div>
 
-      <p class="success" *ngIf="lastProductName">✅ Ajouté: {{ lastProductName }}</p>
+      <p class="success" *ngIf="lastProductName">Ajouté : {{ lastProductName }}</p>
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
 
       <div class="panier-row">
@@ -710,6 +710,7 @@ export class ScanComponent implements OnInit, OnDestroy {
       this.cartItems = items;
       this.cartTotal = items.reduce((s, i) => s + i.prix * i.quantite, 0);
       if (items.length === 0) this.showCartPreview = false;
+      this.cdr.detectChanges();
     });
   }
 

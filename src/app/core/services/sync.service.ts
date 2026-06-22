@@ -96,11 +96,20 @@ export class SyncService {
     };
 
     if (this.estEnLigne()) {
-      try {
-        await firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete));
-        return 'online';
-      } catch {
-        // Échec réseau → bascule offline
+      // Retry x2 avec timeout 8s — évite le faux offline sur cold-start Render
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const timeout$ = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 8000),
+          );
+          await Promise.race([
+            firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete)),
+            timeout$,
+          ]);
+          return 'online';
+        } catch {
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
+        }
       }
     }
 
