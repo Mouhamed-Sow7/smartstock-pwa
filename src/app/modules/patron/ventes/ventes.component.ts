@@ -172,23 +172,23 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
 
     /* Desktop : page plus large, filtres alignés sur une ligne, boutons à taille normale (pas minuscules) */
     @media (min-width: 1024px) {
-      .ventes-page { max-width: 1100px; }
+      .ventes-page { max-width: 1200px; margin: 0 auto; }
       h1 { font-size: 26px; }
       .filtres-card {
-        padding: 18px 22px;
+        padding: 18px 24px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        flex-wrap: wrap;
         gap: 16px;
+        flex-wrap: nowrap;
       }
-      .periode-tabs { gap: 10px; flex: 1; }
+      .periode-tabs { gap: 8px; flex: 1; flex-wrap: nowrap; }
       .tab-btn {
         padding: 10px 22px;
         font-size: 14px;
         border-radius: 22px;
+        white-space: nowrap;
       }
-      .date-range { margin-top: 0; }
+      .date-range { margin-top: 0; flex-shrink: 0; }
     }
 
     .kpi-row {

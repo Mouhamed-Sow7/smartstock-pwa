@@ -6,6 +6,8 @@ import { ScanComponent } from './scan/scan.component';
 import { PanierComponent } from './panier/panier.component';
 import { TicketComponent } from './ticket/ticket.component';
 import { AgentDashboardComponent } from './dashboard/agent-dashboard.component';
+import { AgentHistoriqueComponent } from './historique/agent-historique.component';
+
 const routes: Routes = [
   {
     path: '',
@@ -15,10 +17,12 @@ const routes: Routes = [
       { path: 'scan', component: ScanComponent },
       { path: 'panier', component: PanierComponent },
       { path: 'ticket', component: TicketComponent },
+      { path: 'historique', component: AgentHistoriqueComponent },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },
 ];
+
 @NgModule({
   imports: [
     CommonModule,
@@ -28,6 +32,7 @@ const routes: Routes = [
     ScanComponent,
     PanierComponent,
     TicketComponent,
+    AgentHistoriqueComponent,
   ],
 })
 export class AgentModule {}

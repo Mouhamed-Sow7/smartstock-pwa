@@ -46,6 +46,10 @@ import { AuthService } from '../../../core/services/auth.service';
         <mat-icon>receipt_long</mat-icon>
         <span>Ticket</span>
       </a>
+      <a routerLink="/agent/historique" routerLinkActive="active">
+        <mat-icon>history</mat-icon>
+        <span>Historique</span>
+      </a>
     </nav>
   `,
   styles: [
@@ -107,7 +111,7 @@ import { AuthService } from '../../../core/services/auth.service';
         -webkit-backdrop-filter: blur(16px);
         border-top: 1px solid var(--navy-border);
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(5, 1fr);
         z-index: 100;
       }
       .bottom-nav a {
