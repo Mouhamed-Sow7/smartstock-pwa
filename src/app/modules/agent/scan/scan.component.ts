@@ -53,7 +53,14 @@ interface BarcodeDetectorLike {
             <div class="corner tr"></div>
             <div class="corner bl"></div>
             <div class="corner br"></div>
-            <div class="scan-line"></div>
+            <div class="scan-line" [class.paused]="scanPaused"></div>
+          </div>
+          <!-- Overlay succès après détection -->
+          <div class="scan-success-overlay" *ngIf="scanPaused">
+            <div class="scan-success-inner">
+              <mat-icon>check_circle</mat-icon>
+              <span>{{ lastProductName }}</span>
+            </div>
           </div>
         </div>
 
@@ -71,9 +78,10 @@ interface BarcodeDetectorLike {
             Arrêter
           </button>
         </div>
-        <p class="hint" *ngIf="!cameraSupported">
-          BarcodeDetector non supporté: fallback ZXing activé.
-        </p>
+        <!-- message fallback masqué : ZXing actif en silence -->
+        <!-- <p class="hint" *ngIf="!cameraSupported"> -->
+        <!--   BarcodeDetector non supporté: fallback ZXing activé. -->
+        <!-- </p> -->
       </div>
 
       <!-- Recherche manuelle avec autocomplétion -->
@@ -289,9 +297,47 @@ interface BarcodeDetectorLike {
         top: 10%;
         animation: scanMove 2s ease-in-out infinite;
       }
+      .scan-line.paused {
+        animation-play-state: paused;
+        opacity: 0;
+      }
       @keyframes scanMove {
         0%, 100% { top: 8%; }
         50% { top: 92%; }
+      }
+
+      /* Overlay succès */
+      .scan-success-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 184, 148, 0.18);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        animation: overlayIn 0.2s ease-out;
+        z-index: 10;
+      }
+      @keyframes overlayIn {
+        from { opacity: 0; transform: scale(0.95); }
+        to   { opacity: 1; transform: scale(1); }
+      }
+      .scan-success-inner {
+        background: rgba(0, 184, 148, 0.92);
+        border-radius: 12px;
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: #fff;
+        font-weight: 700;
+        font-size: 15px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      }
+      .scan-success-inner mat-icon {
+        font-size: 22px;
+        width: 22px;
+        height: 22px;
       }
 
       /* Camera buttons */
@@ -591,6 +637,7 @@ export class ScanComponent implements OnInit, OnDestroy {
   cartItems: CartItem[] = [];
   cartTotal = 0;
   showCartPreview = false;
+  scanPaused = false;
   isStarting = false;
 
   private detector: BarcodeDetectorLike | null = null;
@@ -788,25 +835,25 @@ export class ScanComponent implements OnInit, OnDestroy {
           } catch {}
         }, 450);
       } else if (this.zxingReader) {
-        // On gère la boucle canvas nous-mêmes pour éviter le bug de ZXing :
-        // decodeFromVideoElement appelle playVideoOnLoadAsync qui vérifie currentTime>0,
-        // ce qui échoue juste après play() -> scan() n'est jamais appelé -> aucun décodage.
+        // Boucle canvas manuelle : contourne le bug de decodeFromVideoElement
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
         let stopLoop = false;
         this.zxingControls = { stop: () => { stopLoop = true; } } as any;
         const loop = () => {
           if (stopLoop || !this.cameraActive) return;
-          try {
-            if (video.readyState >= 2 && video.videoWidth > 0) {
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              ctx.drawImage(video, 0, 0);
+          if (!this.scanPaused && video.readyState >= 2 && video.videoWidth > 0) {
+            try {
+              // Réduire à 640px max pour accélérer ZXing (1280px = 4x plus de pixels à analyser)
+              const scale = Math.min(1, 640 / video.videoWidth);
+              canvas.width  = Math.round(video.videoWidth  * scale);
+              canvas.height = Math.round(video.videoHeight * scale);
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               const result = this.zxingReader!.decodeFromCanvas(canvas);
               if (result?.getText()) this.onCameraCodeDetected(result.getText());
-            }
-          } catch { /* NotFound/Checksum/Format sont normales */ }
-          if (!stopLoop) setTimeout(loop, 300);
+            } catch { /* NotFound/Checksum/Format sont normales */ }
+          }
+          if (!stopLoop) setTimeout(loop, 120);
         };
         loop();
       }
@@ -828,11 +875,18 @@ export class ScanComponent implements OnInit, OnDestroy {
   }
 
   private onCameraCodeDetected(code: string): void {
-    if (this.isProcessingCameraCode) return;
+    if (this.isProcessingCameraCode || this.scanPaused) return;
     this.isProcessingCameraCode = true;
+    this.scanPaused = true;
     this.barcode = code;
+    this.cdr.detectChanges();
     this.scanProduct();
-    setTimeout(() => (this.isProcessingCameraCode = false), 1500);
+    // Pause 2.5s : overlay visible, ligne de scan arrêtée, anti-doublon
+    setTimeout(() => {
+      this.scanPaused = false;
+      this.isProcessingCameraCode = false;
+      this.cdr.detectChanges();
+    }, 2500);
   }
 
   async switchCamera(): Promise<void> {
@@ -844,6 +898,8 @@ export class ScanComponent implements OnInit, OnDestroy {
 
   stopCameraScan(): void {
     this.cameraActive = false;
+    this.scanPaused = false;
+    this.isProcessingCameraCode = false;
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
       this.scanInterval = null;
