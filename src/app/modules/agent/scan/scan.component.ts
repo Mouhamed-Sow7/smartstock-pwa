@@ -643,7 +643,7 @@ export class ScanComponent implements OnInit, OnDestroy {
     if (this.allProduits.length === 0 && this.sync.estEnLigne()) {
       try {
         const token = localStorage.getItem('ss_token') ?? '';
-        const res: any = await fetch('https://smartstock-api-1zzc.onrender.com/api/produits', {
+        const res: any = await fetch('https://smartstock-nhmt.onrender.com/api/produits', {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => r.json());
 
@@ -788,15 +788,27 @@ export class ScanComponent implements OnInit, OnDestroy {
           } catch {}
         }, 450);
       } else if (this.zxingReader) {
-        this.zxingControls = await this.zxingReader.decodeFromVideoElement(video, (result, err) => {
-          if (result) {
-            this.onCameraCodeDetected(result.getText());
-            return;
-          }
-          // Toutes les exceptions de décodage (NotFound/Checksum/Format) sont normales :
-          // elles signifient juste "pas de code-barres lisible dans cette image", pas une
-          // vraie erreur caméra. On ne les affiche jamais à l'utilisateur.
-        });
+        // On gère la boucle canvas nous-mêmes pour éviter le bug de ZXing :
+        // decodeFromVideoElement appelle playVideoOnLoadAsync qui vérifie currentTime>0,
+        // ce qui échoue juste après play() -> scan() n'est jamais appelé -> aucun décodage.
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+        let stopLoop = false;
+        this.zxingControls = { stop: () => { stopLoop = true; } } as any;
+        const loop = () => {
+          if (stopLoop || !this.cameraActive) return;
+          try {
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              ctx.drawImage(video, 0, 0);
+              const result = this.zxingReader!.decodeFromCanvas(canvas);
+              if (result?.getText()) this.onCameraCodeDetected(result.getText());
+            }
+          } catch { /* NotFound/Checksum/Format sont normales */ }
+          if (!stopLoop) setTimeout(loop, 300);
+        };
+        loop();
       }
     } catch {
       this.errorMessage = "Autorisez l'accès à la caméra dans les paramètres du navigateur";

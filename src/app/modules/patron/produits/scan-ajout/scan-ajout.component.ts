@@ -471,16 +471,27 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
           } catch {}
         }, 450);
       } else if (this.zxingReader) {
-        this.zxingControls = await this.zxingReader.decodeFromVideoElement(video, (result, err) => {
-          if (result) {
-            this.onCameraCodeDetected(result.getText());
-            return;
-          }
-          const message = String((err as any)?.message || '');
-          if (err && !message.toLowerCase().includes('notfoundexception')) {
-            // Ne pas afficher l'erreur "NotFoundException" qui est normale (pas de code dans le champ)
-          }
-        });
+        // Boucle canvas manuelle : contourne le bug de decodeFromVideoElement
+        // (playVideoOnLoadAsync vérifie currentTime>0 qui vaut 0 juste après play()
+        //  -> timeout -> scan() jamais appelé -> 0 décodage)
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+        let stopLoop = false;
+        this.zxingControls = { stop: () => { stopLoop = true; } } as any;
+        const loop = () => {
+          if (stopLoop || !this.cameraActive) return;
+          try {
+            if (video.readyState >= 2 && video.videoWidth > 0) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              ctx.drawImage(video, 0, 0);
+              const result = this.zxingReader!.decodeFromCanvas(canvas);
+              if (result?.getText()) this.onCameraCodeDetected(result.getText());
+            }
+          } catch { /* NotFound/Checksum/Format sont normales */ }
+          if (!stopLoop) setTimeout(loop, 300);
+        };
+        loop();
       }
     } catch (err: any) {
       const msg = err?.name === 'NotAllowedError'
