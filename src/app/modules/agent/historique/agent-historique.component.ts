@@ -107,8 +107,8 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
     const userId = this.auth.getUser()?.id;
     const path = userId ? `ventes?agentId=${userId}` : 'ventes';
     this.api.get(path).pipe(
-      timeout(10000),
-      retry({ count: 2, delay: 3000 }),
+      timeout(15000),
+      retry({ count: 3, delay: 4000 }),
       catchError(err => {
         console.error('Historique agent:', err?.status, err?.error?.message);
         return of({ success: false, data: [] });

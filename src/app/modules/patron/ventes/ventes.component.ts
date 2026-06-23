@@ -320,8 +320,8 @@ export class VentesComponent implements OnInit, OnDestroy {
     if (!debut || !fin) return;
     this.isLoading.set(true);
     this.rapport.getVentes(debut, fin).pipe(
-      timeout(10000),
-      retry({ count: 2, delay: 3000 }),
+      timeout(15000),
+      retry({ count: 3, delay: 4000 }),
       takeUntil(this.destroy$),
     ).subscribe({
       next: (res: any) => {

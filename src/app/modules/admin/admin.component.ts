@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
-import { catchError, of } from 'rxjs';
+import { catchError, of, timeout, retry } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 interface PatronUser {
@@ -37,7 +37,9 @@ interface PatronUser {
             (keyup.enter)="connect()"
           />
           <div class="error" *ngIf="authError">{{ authError }}</div>
-          <button class="btn-primary" (click)="connect()">Se connecter</button>
+          <button class="btn-primary" (click)="connect()" [disabled]="connecting">
+            {{ connecting ? 'Connexion... (réveil serveur possible)' : 'Se connecter' }}
+          </button>
         </div>
       </div>
 
@@ -411,6 +413,7 @@ export class AdminComponent implements OnInit {
   adminKey: string | null = null;
   keyInput = '';
   authError = '';
+  connecting = false;
 
   stats: { totalPatrons: number; actifs: number; inactifs: number } | null = null;
   users: PatronUser[] = [];
@@ -452,17 +455,23 @@ export class AdminComponent implements OnInit {
   connect(): void {
     if (!this.keyInput.trim()) return;
     this.authError = '';
+    this.connecting = true;
     const testKey = this.keyInput.trim();
     this.http
       .get(`${this.base}/stats`, { headers: new HttpHeaders({ 'x-admin-key': testKey }) })
-      .pipe(catchError(() => of(null)))
+      .pipe(
+        timeout(15000),
+        retry({ count: 3, delay: 4000 }),
+        catchError(() => of(null)),
+      )
       .subscribe((res: any) => {
+        this.connecting = false;
         if (res?.success) {
           this.adminKey = testKey;
           sessionStorage.setItem('ss_admin_key', testKey);
           this.loadAll();
         } else {
-          this.authError = 'Clé admin invalide';
+          this.authError = 'Clé admin invalide (ou serveur indisponible — réessayez)';
         }
       });
   }
@@ -476,11 +485,19 @@ export class AdminComponent implements OnInit {
   loadAll(): void {
     this.loading = true;
     this.http.get(`${this.base}/stats`, { headers: this.headers() })
-      .pipe(catchError(() => of(null)))
+      .pipe(
+        timeout(15000),
+        retry({ count: 3, delay: 4000 }),
+        catchError(() => of(null)),
+      )
       .subscribe((res: any) => { if (res?.success) this.stats = res.data; });
 
     this.http.get(`${this.base}/users`, { headers: this.headers() })
-      .pipe(catchError(() => of(null)))
+      .pipe(
+        timeout(15000),
+        retry({ count: 3, delay: 4000 }),
+        catchError(() => of(null)),
+      )
       .subscribe((res: any) => {
         this.loading = false;
         if (res?.success) this.users = res.data;

@@ -353,16 +353,16 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
 
     forkJoin({
       stats: this.api.get('ventes/stats').pipe(
-        timeout(10000),
-        retry({ count: 2, delay: 3000 }),
+        timeout(15000),
+        retry({ count: 3, delay: 4000 }),
         catchError((err) => {
           console.error('Erreur chargement stats dashboard agent:', err?.status, err?.error?.message || err?.message);
           return of(null);
         }),
       ),
       alertes: this.api.get('produits/alerte').pipe(
-        timeout(10000),
-        retry({ count: 2, delay: 3000 }),
+        timeout(15000),
+        retry({ count: 3, delay: 4000 }),
         catchError(() => of(null)),
       ),
     })
