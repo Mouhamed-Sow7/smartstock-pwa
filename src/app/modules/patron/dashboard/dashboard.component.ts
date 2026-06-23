@@ -288,7 +288,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.today = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
     forkJoin({
-      stats: this.api.get('ventes/stats').pipe(catchError(() => of(null))),
+      stats: this.api.get('ventes/stats').pipe(catchError((err) => {
+        console.error('Erreur chargement stats dashboard patron:', err?.status, err?.error?.message || err?.message);
+        return of(null);
+      })),
       alertes: this.api.get('produits/alerte').pipe(catchError(() => of({ data: [] }))),
     }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes }: any) => {
       if (stats?.success) this.stats = stats.data;
