@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
@@ -341,6 +341,7 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
     private api: ApiService,
     private pos: PosService,
     private auth: AuthService,
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -351,18 +352,27 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
     else if (user?.prenom) this.prenom = user.prenom;
     else this.prenom = user?.email?.split('@')[0] || 'Agent';
 
+    this.chargerStats();
+
+    this.pos.cart$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
+      this.cartCount = items.reduce((sum, i) => sum + i.quantite, 0);
+      this.cdr.detectChanges();
+    });
+  }
+
+  chargerStats(): void {
     forkJoin({
       stats: this.api.get('ventes/stats').pipe(
         timeout(15000),
         retry({ count: 3, delay: 4000 }),
         catchError((err) => {
-          console.error('Erreur chargement stats dashboard agent:', err?.status, err?.error?.message || err?.message);
+          console.error('Stats agent:', err?.status, err?.error?.message || err?.message);
           return of(null);
         }),
       ),
       alertes: this.api.get('produits/alerte').pipe(
         timeout(15000),
-        retry({ count: 3, delay: 4000 }),
+        retry({ count: 2, delay: 3000 }),
         catchError(() => of(null)),
       ),
     })
@@ -373,11 +383,8 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
           this.stockBas = result.alertes.data || [];
           this.alertes = this.stockBas.length;
         }
+        this.cdr.detectChanges(); // Force le rendu même hors zone Angular
       });
-
-    this.pos.cart$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
-      this.cartCount = items.reduce((sum, i) => sum + i.quantite, 0);
-    });
   }
 
   ngOnDestroy(): void {

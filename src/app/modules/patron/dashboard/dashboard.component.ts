@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
@@ -22,6 +22,9 @@ import { AuthService } from '../../../core/services/auth.service';
             <div class="greeting-sub">Bonjour,</div>
             <div class="greeting-name">{{ nomPatron }}</div>
           </div>
+          <button class="reload-btn" (click)="chargerStats()" [class.spinning]="loading" title="Actualiser">
+            <mat-icon>refresh</mat-icon>
+          </button>
         </div>
         <div class="greeting-date">{{ today }}</div>
       </div>
@@ -142,8 +145,19 @@ import { AuthService } from '../../../core/services/auth.service';
     .greeting-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
     .hand { font-size: 32px; line-height: 1; }
     .greeting-sub { color: var(--text-3); font-size: 13px; }
-    .greeting-name { color: var(--text-1); font-size: 26px; font-weight: 800; line-height: 1.1; }
+    .greeting-name { color: var(--text-1); font-size: 26px; font-weight: 800; line-height: 1.1; flex: 1; }
     .greeting-date { color: var(--text-3); font-size: 13px; margin-top: 4px; margin-left: 2px; }
+    .reload-btn {
+      width: 36px; height: 36px; border-radius: 10px; border: none;
+      background: rgba(255,255,255,.06); color: var(--text-2);
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .15s;
+      margin-left: auto;
+    }
+    .reload-btn:hover { background: rgba(255,255,255,.12); color: var(--accent); }
+    .reload-btn mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .reload-btn.spinning mat-icon { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── KPI grid glass ── */
     .kpi-grid {
@@ -277,33 +291,47 @@ export class DashboardComponent implements OnInit, OnDestroy {
   alertes = 0;
   nomPatron = 'Patron';
   today = '';
+  loading = false;
   private destroy$ = new Subject<void>();
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  constructor(
+    private api: ApiService,
+    private auth: AuthService,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
     const user = this.auth.getUser();
     this.nomPatron = user?.nom || user?.prenom || 'Patron';
     const now = new Date();
     this.today = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    this.chargerStats();
+  }
+
+  chargerStats(): void {
+    if (this.loading) return;
+    this.loading = true;
+    this.cdr.detectChanges();
 
     forkJoin({
       stats: this.api.get('ventes/stats').pipe(
         timeout(15000),
         retry({ count: 3, delay: 4000 }),
         catchError((err) => {
-          console.error('Erreur chargement stats dashboard patron:', err?.status, err?.error?.message || err?.message);
+          console.error('Stats dashboard:', err?.status, err?.error?.message || err?.message);
           return of(null);
         }),
       ),
       alertes: this.api.get('produits/alerte').pipe(
         timeout(15000),
-        retry({ count: 3, delay: 4000 }),
+        retry({ count: 2, delay: 3000 }),
         catchError(() => of({ data: [] })),
       ),
     }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes }: any) => {
       if (stats?.success) this.stats = stats.data;
       this.alertes = alertes?.data?.length ?? 0;
+      this.loading = false;
+      this.cdr.detectChanges(); // Force le rendu même hors zone Angular
     });
   }
 
