@@ -10,7 +10,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, timeout, retry } from 'rxjs/operators';
 import { RapportService, Vente } from '../../../core/services/rapport.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -319,7 +319,11 @@ export class VentesComponent implements OnInit, OnDestroy {
     const { debut, fin } = this.getRange();
     if (!debut || !fin) return;
     this.isLoading.set(true);
-    this.rapport.getVentes(debut, fin).pipe(takeUntil(this.destroy$)).subscribe({
+    this.rapport.getVentes(debut, fin).pipe(
+      timeout(10000),
+      retry({ count: 2, delay: 3000 }),
+      takeUntil(this.destroy$),
+    ).subscribe({
       next: (res: any) => {
         this.ventes.set(res.data ?? []);
         this.isLoading.set(false);

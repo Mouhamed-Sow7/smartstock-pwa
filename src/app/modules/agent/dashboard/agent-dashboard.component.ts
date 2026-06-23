@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, takeUntil } from 'rxjs/operators';
+import { catchError, takeUntil, timeout, retry } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { PosService } from '../services/pos.service';
 import { AuthService } from '../../../core/services/auth.service';
@@ -352,11 +352,19 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
     else this.prenom = user?.email?.split('@')[0] || 'Agent';
 
     forkJoin({
-      stats: this.api.get('ventes/stats').pipe(catchError((err) => {
-        console.error('Erreur chargement stats dashboard agent:', err?.status, err?.error?.message || err?.message);
-        return of(null);
-      })),
-      alertes: this.api.get('produits/alerte').pipe(catchError(() => of(null))),
+      stats: this.api.get('ventes/stats').pipe(
+        timeout(10000),
+        retry({ count: 2, delay: 3000 }),
+        catchError((err) => {
+          console.error('Erreur chargement stats dashboard agent:', err?.status, err?.error?.message || err?.message);
+          return of(null);
+        }),
+      ),
+      alertes: this.api.get('produits/alerte').pipe(
+        timeout(10000),
+        retry({ count: 2, delay: 3000 }),
+        catchError(() => of(null)),
+      ),
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe((result: any) => {

@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
-import { Subject, takeUntil, catchError, of } from 'rxjs';
+import { Subject, takeUntil, catchError, of, timeout, retry } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -107,6 +107,8 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
     const userId = this.auth.getUser()?.id;
     const path = userId ? `ventes?agentId=${userId}` : 'ventes';
     this.api.get(path).pipe(
+      timeout(10000),
+      retry({ count: 2, delay: 3000 }),
       catchError(err => {
         console.error('Historique agent:', err?.status, err?.error?.message);
         return of({ success: false, data: [] });

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { RouterLink } from '@angular/router';
 import { Subject, forkJoin, of } from 'rxjs';
-import { catchError, takeUntil } from 'rxjs/operators';
+import { catchError, takeUntil, timeout, retry } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -288,11 +288,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.today = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
 
     forkJoin({
-      stats: this.api.get('ventes/stats').pipe(catchError((err) => {
-        console.error('Erreur chargement stats dashboard patron:', err?.status, err?.error?.message || err?.message);
-        return of(null);
-      })),
-      alertes: this.api.get('produits/alerte').pipe(catchError(() => of({ data: [] }))),
+      stats: this.api.get('ventes/stats').pipe(
+        timeout(10000),
+        retry({ count: 2, delay: 3000 }),
+        catchError((err) => {
+          console.error('Erreur chargement stats dashboard patron:', err?.status, err?.error?.message || err?.message);
+          return of(null);
+        }),
+      ),
+      alertes: this.api.get('produits/alerte').pipe(
+        timeout(10000),
+        retry({ count: 2, delay: 3000 }),
+        catchError(() => of({ data: [] })),
+      ),
     }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes }: any) => {
       if (stats?.success) this.stats = stats.data;
       this.alertes = alertes?.data?.length ?? 0;
