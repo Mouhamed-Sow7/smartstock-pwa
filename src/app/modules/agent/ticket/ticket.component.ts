@@ -60,8 +60,28 @@ import { AuthService } from '../../../core/services/auth.service';
         </div>
 
         <div class="ticket-payment">
-          <mat-icon>payments</mat-icon>
-          {{ ticket.modePaiement | titlecase }}
+          <div class="payment-row">
+            <mat-icon>payments</mat-icon>
+            <span *ngIf="!editingMode">{{ ticket.modePaiement | titlecase }}</span>
+            <button class="edit-mode-btn" *ngIf="!editingMode" (click)="editingMode = true" title="Corriger">
+              <mat-icon>edit</mat-icon>
+            </button>
+          </div>
+          <!-- Sélecteur inline si correction -->
+          <div class="mode-selector" *ngIf="editingMode">
+            <div class="mode-mini-grid">
+              <button
+                *ngFor="let m of modesPaiement"
+                class="mode-mini"
+                [class.selected]="ticket.modePaiement === m.value"
+                (click)="changerMode(m.value)"
+              >
+                <span>{{ m.icon }}</span>
+                <span>{{ m.label }}</span>
+              </button>
+            </div>
+            <button class="close-edit" (click)="editingMode = false">Fermer</button>
+          </div>
         </div>
 
         <div class="divider"></div>
@@ -107,7 +127,30 @@ import { AuthService } from '../../../core/services/auth.service';
     .ticket-total { display: flex; justify-content: space-between; align-items: center; }
     .ticket-total span { color: var(--text-2); font-size: 14px; font-weight: 600; }
     .total-amount { color: var(--accent) !important; font-size: 22px !important; font-weight: 700 !important; }
-    .ticket-payment { display: flex; align-items: center; gap: 6px; color: var(--text-3); font-size: 12px; }
+    .ticket-payment { color: var(--text-3); font-size: 12px; }
+    .payment-row { display: flex; align-items: center; gap: 6px; }
+    .payment-row mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .edit-mode-btn {
+      margin-left: 4px; width: 22px; height: 22px; border: none;
+      background: rgba(255,255,255,.06); border-radius: 6px;
+      color: var(--text-3); cursor: pointer; padding: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .edit-mode-btn mat-icon { font-size: 12px; width: 12px; height: 12px; }
+    .edit-mode-btn:hover { background: var(--accent-lite); color: var(--accent); }
+    .mode-selector { margin-top: 8px; }
+    .mode-mini-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+    .mode-mini {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 8px 4px; border-radius: 8px; border: 1px solid var(--navy-border);
+      background: rgba(255,255,255,.03); color: var(--text-2); cursor: pointer; font-size: 10px;
+    }
+    .mode-mini span:first-child { font-size: 18px; }
+    .mode-mini.selected { border-color: var(--accent); background: var(--accent-lite); color: var(--accent); }
+    .close-edit {
+      width: 100%; padding: 6px; border-radius: 8px; border: 1px solid var(--navy-border);
+      background: transparent; color: var(--text-3); font-size: 12px; cursor: pointer;
+    }
     .print-actions { display: flex; gap: 10px; }
     .print-btn { flex: 1; padding: 12px; background: var(--accent-lite); border: 1px solid rgba(0,184,148,.3); border-radius: 10px; color: var(--accent); font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; }
     .new-sale-btn { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 14px; background: rgba(255,255,255,.05); border: 1px solid var(--navy-border); border-radius: 12px; color: var(--text-2); font-size: 14px; font-weight: 600; text-decoration: none; }
@@ -116,13 +159,28 @@ import { AuthService } from '../../../core/services/auth.service';
 export class TicketComponent implements OnInit, OnDestroy {
   ticket: SaleTicket | null = null;
   shopName = 'SmartStock';
+  editingMode = false;
   private destroy$ = new Subject<void>();
+
+  readonly modesPaiement = [
+    { value: 'especes',      label: 'Espèces',  icon: '💵' },
+    { value: 'wave',         label: 'Wave',     icon: '🌊' },
+    { value: 'orange_money', label: 'Orange',   icon: '🟠' },
+    { value: 'free_money',   label: 'Free',     icon: '🟢' },
+  ];
 
   constructor(private pos: PosService, private auth: AuthService) {}
 
   ngOnInit(): void {
     this.shopName = this.auth.getUser()?.boutique || 'SmartStock';
     this.pos.lastTicket$.pipe(takeUntil(this.destroy$)).subscribe(t => this.ticket = t);
+  }
+
+  changerMode(mode: string): void {
+    if (!this.ticket) return;
+    this.ticket = { ...this.ticket, modePaiement: mode };
+    this.pos.updateLastTicketMode(mode);
+    this.editingMode = false;
   }
 
   print(width: '58mm' | '80mm'): void {

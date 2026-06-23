@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { Subject, takeUntil, catchError, of, timeout, retry } from 'rxjs';
@@ -101,10 +101,16 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
   _ventes: VenteHisto[] = [];
   _isLoading = true;
 
-  constructor(private api: ApiService, private auth: AuthService) {}
+  constructor(
+    private api: ApiService,
+    private auth: AuthService,
+    private cdr: ChangeDetectorRef,
+  ) {}
 
   ngOnInit(): void {
-    const userId = this.auth.getUser()?.id;
+    const user = this.auth.getUser();
+    // Le backend stocke _id (MongoDB) mais le JWT expose id — on accepte les deux
+    const userId = user?._id || user?.id;
     const path = userId ? `ventes?agentId=${userId}` : 'ventes';
     this.api.get(path).pipe(
       timeout(15000),
@@ -117,6 +123,7 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
     ).subscribe((res: any) => {
       this._ventes = res?.data ?? [];
       this._isLoading = false;
+      this.cdr.detectChanges();
     });
   }
 

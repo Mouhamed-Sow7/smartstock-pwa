@@ -141,6 +141,12 @@ export class PosService {
     );
   }
 
+  /** Correction du mode de paiement après impression (ticket déjà généré) */
+  updateLastTicketMode(mode: string): void {
+    const t = this.lastTicketSubject.value;
+    if (t) this.lastTicketSubject.next({ ...t, modePaiement: mode });
+  }
+
   printTicket(width: '58mm' | '80mm' = '58mm', shopName = 'SmartStock'): void {
     const ticket = this.lastTicketSubject.value;
     if (!ticket) return;
