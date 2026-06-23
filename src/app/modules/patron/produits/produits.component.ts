@@ -13,6 +13,7 @@ import { takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { ProduitDialogComponent } from './produit-dialog.component';
+import { ProduitService } from './produit.service';
 
 @Component({
   selector: 'app-produits',
@@ -76,32 +77,40 @@ import { ProduitDialogComponent } from './produit-dialog.component';
           <div class="produit-stock">Stock : {{ p.stock }} unités</div>
           <div class="produit-categorie">{{ p.categorie }}</div>
           <div class="produit-code" *ngIf="p.codeBarres">
-            <mat-icon>qr_code</mat-icon>
-            {{ p.codeBarres }}
+            <mat-icon>qr_code</mat-icon> {{ p.codeBarres }}
           </div>
+
+          <!-- Panel rentrée stock inline -->
+          <div class="reappro-panel" *ngIf="reapproId === p._id">
+            <div class="reappro-row">
+              <button class="qty-btn" (click)="reapproQty = reapproQty > 1 ? reapproQty - 1 : 1">
+                <mat-icon>remove</mat-icon>
+              </button>
+              <span class="qty-val">+{{ reapproQty }}</span>
+              <button class="qty-btn" (click)="reapproQty = reapproQty + 1">
+                <mat-icon>add</mat-icon>
+              </button>
+            </div>
+            <div class="reappro-btns">
+              <button class="reappro-cancel" (click)="reapproId = null">Annuler</button>
+              <button class="reappro-confirm" (click)="confirmerReappro(p)" [disabled]="reapproSaving">
+                <mat-icon>{{ reapproSaving ? 'hourglass_empty' : 'add_box' }}</mat-icon>
+                Confirmer
+              </button>
+            </div>
+          </div>
+
           <div class="produit-actions">
-            <button
-              mat-icon-button
-              color="primary"
-              matTooltip="Modifier"
-              (click)="openEditDialog(p)"
-            >
+            <button mat-icon-button (click)="ouvrirReappro(p)" matTooltip="Rentrée de stock" class="btn-reappro">
+              <mat-icon>add_circle</mat-icon>
+            </button>
+            <button mat-icon-button color="primary" matTooltip="Modifier" (click)="openEditDialog(p)">
               <mat-icon>edit</mat-icon>
             </button>
-            <button
-              mat-icon-button
-              color="accent"
-              matTooltip="Imprimer étiquette"
-              (click)="printBarcode(p)"
-            >
+            <button mat-icon-button color="accent" matTooltip="Imprimer étiquette" (click)="printBarcode(p)">
               <mat-icon>print</mat-icon>
             </button>
-            <button
-              mat-icon-button
-              color="warn"
-              matTooltip="Supprimer"
-              (click)="openDeleteDialog(p)"
-            >
+            <button mat-icon-button color="warn" matTooltip="Supprimer" (click)="openDeleteDialog(p)">
               <mat-icon>delete</mat-icon>
             </button>
           </div>
@@ -263,10 +272,46 @@ import { ProduitDialogComponent } from './produit-dialog.component';
         margin-top: auto;
         padding-top: 8px;
       }
+      .btn-reappro { color: var(--accent) !important; }
+
+      /* Panel rentrée stock inline */
+      .reappro-panel {
+        margin: 8px 0 4px;
+        background: var(--accent-lite);
+        border: 1px solid rgba(0,184,148,.25);
+        border-radius: 10px;
+        padding: 10px 12px;
+        animation: slideIn .15s ease-out;
+      }
+      @keyframes slideIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
+      .reappro-row {
+        display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 8px;
+      }
+      .qty-btn {
+        width: 30px; height: 30px; border-radius: 8px; border: none;
+        background: rgba(0,184,148,.2); color: var(--accent);
+        display: flex; align-items: center; justify-content: center; cursor: pointer;
+      }
+      .qty-btn mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      .qty-val { font-size: 18px; font-weight: 700; color: var(--accent); min-width: 36px; text-align: center; }
+      .reappro-btns { display: flex; gap: 8px; }
+      .reappro-cancel {
+        flex: 1; padding: 7px; border-radius: 8px; border: 1px solid var(--navy-border);
+        background: transparent; color: var(--text-3); cursor: pointer; font-size: 13px;
+      }
+      .reappro-confirm {
+        flex: 2; padding: 7px; border-radius: 8px; border: none;
+        background: var(--accent); color: #fff; cursor: pointer; font-size: 13px; font-weight: 700;
+        display: flex; align-items: center; justify-content: center; gap: 4px;
+      }
+      .reappro-confirm:disabled { opacity: .6; cursor: not-allowed; }
+      .reappro-confirm mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
       @media (max-width: 480px) {
-        .produits-grid {
-          grid-template-columns: 1fr;
-        }
+        .produits-grid { grid-template-columns: 1fr; }
       }
     `,
   ],
@@ -279,6 +324,39 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private dialog = inject(MatDialog);
   private api = inject(ApiService);
   private snack = inject(MatSnackBar);
+  private produitService = inject(ProduitService);
+
+  // Rentrée de stock inline
+  reapproId: string | null = null;
+  reapproQty = 1;
+  reapproSaving = false;
+
+  ouvrirReappro(p: any): void {
+    this.reapproId = this.reapproId === p._id ? null : p._id;
+    this.reapproQty = 1;
+  }
+
+  confirmerReappro(p: any): void {
+    if (this.reapproSaving) return;
+    this.reapproSaving = true;
+    this.produitService.updateStock(p._id, this.reapproQty, 'entree').subscribe({
+      next: () => {
+        this.produits.update(list =>
+          list.map(item => item._id === p._id
+            ? { ...item, stock: item.stock + this.reapproQty }
+            : item
+          )
+        );
+        this.reapproId = null;
+        this.reapproSaving = false;
+        this.snack.open(`+${this.reapproQty} unité(s) ajoutée(s) au stock`, '✓', { duration: 2500 });
+      },
+      error: () => {
+        this.reapproSaving = false;
+        this.snack.open('Erreur lors du réapprovisionnement', 'X', { duration: 2500 });
+      }
+    });
+  }
 
   ngOnInit() {
     this.chargerProduits();
