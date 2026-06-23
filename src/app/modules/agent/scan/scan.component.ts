@@ -106,7 +106,8 @@ interface BarcodeDetectorLike {
         <div class="suggestions" *ngIf="suggestions.length > 0">
           <div
             class="suggestion-item"
-            *ngFor="let p of suggestions"
+            *ngFor="let p of suggestions; let i = index"
+            [class.first]="i === 0"
             (click)="selectionnerProduit(p)"
           >
             <div class="sug-info">
@@ -125,6 +126,7 @@ interface BarcodeDetectorLike {
 
       <p class="success" *ngIf="lastProductName">Ajouté : {{ lastProductName }}</p>
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
+      <p class="hint-enter" *ngIf="suggestions.length > 0">↵ Entrée ajoute "{{ suggestions[0].nom }}"</p>
 
       <div class="panier-row">
         <a routerLink="/agent/panier" class="panier-link">
@@ -494,6 +496,11 @@ interface BarcodeDetectorLike {
         font-weight: 600;
       }
 
+      .suggestion-item.first {
+        background: var(--accent-lite);
+        border-left: 3px solid var(--accent);
+      }
+
       /* Messages */
       .success {
         color: var(--accent);
@@ -510,6 +517,11 @@ interface BarcodeDetectorLike {
         display: flex;
         align-items: center;
         gap: 6px;
+      }
+      .hint-enter {
+        color: var(--text-3);
+        font-size: 11px;
+        margin-top: 6px;
       }
 
       /* Panier link */
@@ -747,6 +759,16 @@ export class ScanComponent implements OnInit, OnDestroy {
   async scanProduct(): Promise<void> {
     const code = this.barcode.trim();
     if (!code) return;
+
+    // Si des suggestions sont affichées (recherche par nom partielle), Entrée
+    // valide la premiere suggestion au lieu de tenter une recherche exacte
+    // (cache + API barcode) qui echoue quasi systematiquement sur une saisie
+    // partielle -> c'etait la cause du "barcode/er 404" en tapant un debut de nom.
+    if (this.suggestions.length > 0) {
+      this.selectionnerProduit(this.suggestions[0]);
+      return;
+    }
+
     this.suggestions = [];
     this.errorMessage = '';
     this.lastProductName = '';
