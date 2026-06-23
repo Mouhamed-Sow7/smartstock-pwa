@@ -13,6 +13,7 @@ interface PatronUser {
   boutique?: string;
   tenantId: string;
   actif: boolean;
+  role?: string;
   createdAt?: string;
 }
 
@@ -120,6 +121,12 @@ interface PatronUser {
                 <div class="user-tenant">tenantId: {{ u.tenantId }}</div>
               </div>
               <div class="user-actions">
+                <button class="icon-btn" title="Voir l'équipe (boutique)" (click)="openTeam(u)">
+                  <mat-icon>groups</mat-icon>
+                </button>
+                <button class="icon-btn" title="Modifier nom/email" (click)="openEdit(u)">
+                  <mat-icon>edit</mat-icon>
+                </button>
                 <button class="icon-btn" title="Activer/désactiver" (click)="toggle(u)">
                   <mat-icon>{{ u.actif ? 'toggle_on' : 'toggle_off' }}</mat-icon>
                 </button>
@@ -144,6 +151,60 @@ interface PatronUser {
             <div class="form-actions">
               <button class="btn-ghost" (click)="resetTarget = null">Annuler</button>
               <button class="btn-primary" (click)="confirmReset()">Confirmer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Edit modal (nom / email / boutique) -->
+        <div class="modal-overlay" *ngIf="editTarget" (click)="editTarget = null">
+          <div class="modal-card" (click)="$event.stopPropagation()">
+            <h3>Modifier le compte</h3>
+            <p class="modal-sub">tenantId: {{ editTarget.tenantId }}</p>
+            <input class="field" placeholder="Nom" [(ngModel)]="editForm.nom" />
+            <input class="field" placeholder="Email" type="email" [(ngModel)]="editForm.email" />
+            <input class="field" placeholder="Boutique" [(ngModel)]="editForm.boutique" />
+            <div class="error" *ngIf="editError">{{ editError }}</div>
+            <div class="form-actions">
+              <button class="btn-ghost" (click)="editTarget = null">Annuler</button>
+              <button class="btn-primary" (click)="confirmEdit()">Enregistrer</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team modal (patron + agents d'une boutique) -->
+        <div class="modal-overlay" *ngIf="teamTarget" (click)="closeTeam()">
+          <div class="modal-card team-card" (click)="$event.stopPropagation()">
+            <h3>Équipe — {{ teamTarget.boutique || teamTarget.nom }}</h3>
+            <p class="modal-sub">tenantId: {{ teamTarget.tenantId }}</p>
+            <div class="loading" *ngIf="teamLoading">Chargement...</div>
+            <div class="team-list" *ngIf="!teamLoading">
+              <div class="team-row" *ngFor="let m of team">
+                <div class="team-avatar" [class.inactive]="!m.actif">{{ initiale(m.nom) }}</div>
+                <div class="team-info">
+                  <div class="team-name">
+                    {{ m.nom }}
+                    <span class="role-badge" [class.patron]="m.role === 'patron'">{{ m.role }}</span>
+                  </div>
+                  <div class="team-email">{{ m.email }}</div>
+                </div>
+                <div class="team-actions">
+                  <button class="icon-btn" title="Modifier" (click)="openEdit(m)">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button class="icon-btn" title="Activer/désactiver" (click)="toggle(m)">
+                    <mat-icon>{{ m.actif ? 'toggle_on' : 'toggle_off' }}</mat-icon>
+                  </button>
+                  <button class="icon-btn" title="Réinitialiser mot de passe" (click)="openReset(m)">
+                    <mat-icon>key</mat-icon>
+                  </button>
+                  <button class="icon-btn danger" title="Supprimer" *ngIf="m.role !== 'patron'" (click)="removeFromTeam(m)">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="form-actions">
+              <button class="btn-ghost" (click)="closeTeam()">Fermer</button>
             </div>
           </div>
         </div>
@@ -318,6 +379,32 @@ interface PatronUser {
     }
     .modal-card h3 { margin: 0 0 4px; font-size: 15px; }
     .modal-sub { color: var(--text-3); font-size: 12px; margin-bottom: 14px; }
+
+    /* Team modal */
+    .team-card { max-width: 480px; }
+    .team-list { display: flex; flex-direction: column; gap: 8px; max-height: 50vh; overflow-y: auto; margin-bottom: 14px; }
+    .team-row {
+      background: var(--navy-light); border: 1px solid var(--navy-border);
+      border-radius: 12px; padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px;
+    }
+    .team-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--accent-lite); border: 2px solid var(--accent); color: var(--accent);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; flex-shrink: 0;
+    }
+    .team-avatar.inactive { border-color: var(--text-3); color: var(--text-3); background: rgba(255,255,255,.04); }
+    .team-info { flex: 1; min-width: 0; }
+    .team-name { font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .team-email { color: var(--text-3); font-size: 11px; margin-top: 1px; }
+    .role-badge {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      padding: 2px 7px; border-radius: 20px;
+      background: rgba(255,255,255,.06); color: var(--text-3);
+    }
+    .role-badge.patron { background: var(--accent-lite); color: var(--accent); }
+    .team-actions { display: flex; gap: 2px; flex-shrink: 0; }
   `]
 })
 export class AdminComponent implements OnInit {
@@ -337,6 +424,14 @@ export class AdminComponent implements OnInit {
   resetTarget: PatronUser | null = null;
   newPassword = '';
   resetError = '';
+
+  editTarget: PatronUser | null = null;
+  editForm = { nom: '', email: '', boutique: '' };
+  editError = '';
+
+  teamTarget: PatronUser | null = null;
+  team: PatronUser[] = [];
+  teamLoading = false;
 
   private base = environment.apiUrl.replace(/\/+$/, '').replace(/\/api$/, '') + '/api/admin';
 
@@ -421,7 +516,7 @@ export class AdminComponent implements OnInit {
     this.http.patch(`${this.base}/users/${u._id}/toggle`, {}, { headers: this.headers() })
       .pipe(catchError(() => of(null)))
       .subscribe((res: any) => {
-        if (res?.success) u.actif = res.data.actif;
+        if (res?.success) this.patchLocal(u._id, { actif: res.data.actif });
       });
   }
 
@@ -447,6 +542,64 @@ export class AdminComponent implements OnInit {
           this.resetError = res?.message || 'Erreur';
         }
       });
+  }
+
+  openEdit(u: PatronUser): void {
+    this.editTarget = u;
+    this.editForm = { nom: u.nom, email: u.email, boutique: u.boutique || '' };
+    this.editError = '';
+  }
+
+  confirmEdit(): void {
+    if (!this.editTarget) return;
+    if (!this.editForm.nom || !this.editForm.email) {
+      this.editError = 'Nom et email requis';
+      return;
+    }
+    this.http.patch(`${this.base}/users/${this.editTarget._id}`, this.editForm, { headers: this.headers() })
+      .pipe(catchError((err) => of({ success: false, message: err?.error?.message })))
+      .subscribe((res: any) => {
+        if (res?.success) {
+          this.patchLocal(this.editTarget!._id, res.data);
+          this.editTarget = null;
+        } else {
+          this.editError = res?.message || 'Erreur';
+        }
+      });
+  }
+
+  openTeam(u: PatronUser): void {
+    this.teamTarget = u;
+    this.team = [];
+    this.teamLoading = true;
+    this.http.get(`${this.base}/tenants/${u.tenantId}/team`, { headers: this.headers() })
+      .pipe(catchError(() => of(null)))
+      .subscribe((res: any) => {
+        this.teamLoading = false;
+        if (res?.success) this.team = res.data;
+      });
+  }
+
+  closeTeam(): void {
+    this.teamTarget = null;
+    this.team = [];
+  }
+
+  removeFromTeam(m: PatronUser): void {
+    if (!confirm(`Supprimer le compte de ${m.nom} ?`)) return;
+    this.http.delete(`${this.base}/users/${m._id}`, { headers: this.headers() })
+      .pipe(catchError(() => of(null)))
+      .subscribe((res: any) => {
+        if (res?.success) this.team = this.team.filter(x => x._id !== m._id);
+      });
+  }
+
+  /** Met à jour l'objet correspondant dans this.users ET this.team (l'un des deux peut etre absent) */
+  private patchLocal(id: string, patch: Partial<PatronUser>): void {
+    const u1 = this.users.find(x => x._id === id);
+    if (u1) Object.assign(u1, patch);
+    const u2 = this.team.find(x => x._id === id);
+    if (u2) Object.assign(u2, patch);
   }
 
   remove(u: PatronUser): void {
