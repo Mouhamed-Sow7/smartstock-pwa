@@ -712,11 +712,12 @@ export class ScanComponent implements OnInit, OnDestroy {
   async ngOnInit(): Promise<void> {
     const tenantId = this.auth.getTenantId() ?? '';
 
-    // 1. Cache local d'abord
+    // 1. Cache local d'abord → affichage immédiat même hors ligne
     this.allProduits = await this.offline.getProduits(tenantId);
 
-    // 2. Si cache vide ET en ligne → charger depuis l'API
-    if (this.allProduits.length === 0 && this.sync.estEnLigne()) {
+    // 2. TOUJOURS rafraîchir depuis l'API si en ligne
+    //    (même si le cache n'est pas vide — le stock évolue côté patron)
+    if (this.sync.estEnLigne()) {
       try {
         const token = localStorage.getItem('ss_token') ?? '';
         const res: any = await fetch(`${environment.apiUrl}/produits`, {
@@ -726,10 +727,11 @@ export class ScanComponent implements OnInit, OnDestroy {
         if (res?.success && res?.data) {
           const produits = res.data.map((p: any) => ({ ...p, tenantId }));
           await this.offline.cacheProduits(tenantId, produits);
-          this.allProduits = produits;
+          this.allProduits = produits; // mise à jour avec les stocks à jour
+          this.cdr.detectChanges();
         }
       } catch {
-        // silencieux si hors ligne
+        // silencieux si hors ligne ou erreur réseau — on garde le cache
       }
     }
 

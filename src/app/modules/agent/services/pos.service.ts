@@ -4,6 +4,7 @@ import { catchError, map, tap } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
+import { OfflineService } from '../../../core/services/offline.service';
 
 export interface CartItem {
   produit: any;
@@ -32,6 +33,7 @@ export class PosService {
     private api: ApiService,
     private auth: AuthService,
     private sync: SyncService,
+    private offline: OfflineService,
   ) {}
 
   get cartSnapshot(): CartItem[] {
@@ -78,7 +80,8 @@ export class PosService {
   // ─── Validation avec fallback offline ──────────────────────
   async validateSaleAsync(modePaiement = 'especes'): Promise<'online' | 'offline'> {
     const tenantId = this.auth.getTenantId() ?? '';
-    const lignes = this.cartSnapshot.map((item) => ({
+    const snapshot = this.cartSnapshot; // capture avant clearCart()
+    const lignes = snapshot.map((item) => ({
       produitId: item.produit._id,
       nom: item.produit.nom,
       quantite: item.quantite,
@@ -92,6 +95,21 @@ export class PosService {
       modePaiement,
     });
 
+    // Décrémenter le stock dans le cache Dexie local après chaque vente
+    // → l'agent voit un stock à jour immédiatement (même en offline)
+    try {
+      for (const item of snapshot) {
+        const cached = await this.offline.getProduitByBarcode(item.produit.codeBarres ?? '');
+        const produit = cached ?? (await this.offline.getProduits(tenantId)).find(
+          (p) => p._id === item.produit._id
+        );
+        if (produit) {
+          const nouveauStock = Math.max(0, (produit.stock ?? 0) - item.quantite);
+          await this.offline.updateProduitStock(tenantId, item.produit._id, nouveauStock);
+        }
+      }
+    } catch { /* silencieux — le vrai stock sera rechargé depuis l'API au prochain ngOnInit */ }
+
     // Générer un ticket local dans tous les cas
     const now = new Date().toISOString();
     const numeroTicket =
@@ -100,7 +118,7 @@ export class PosService {
     this.lastTicketSubject.next({
       numeroTicket,
       createdAt: now,
-      items: this.cartSnapshot,
+      items: snapshot,
       total: this.getTotal(),
       modePaiement,
       modeCreation: mode,
