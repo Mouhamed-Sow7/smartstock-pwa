@@ -151,9 +151,6 @@ export class PosService {
     const ticket = this.lastTicketSubject.value;
     if (!ticket) return;
 
-    const printWindow = window.open('', '_blank', 'width=420,height=700');
-    if (!printWindow) return;
-
     const itemsHtml = ticket.items
       .map(
         (item) => `
@@ -170,7 +167,7 @@ export class PosService {
         ? `<p style="color:#f59e0b;font-weight:bold;">⚠ Vente hors ligne — sera synchronisée</p>`
         : '';
 
-    printWindow.document.write(`
+    const html = `
       <html>
         <head>
           <title>Ticket ${ticket.numeroTicket}</title>
@@ -186,7 +183,7 @@ export class PosService {
             .footer { margin-top: 8px; text-align: center; font-size: 11px; }
           </style>
         </head>
-        <body onload="window.print(); setTimeout(() => window.close(), 150);">
+        <body>
           <div class="ticket">
             <h2>${shopName}</h2>
             ${offlineBadge}
@@ -198,7 +195,47 @@ export class PosService {
           </div>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    // Stratégie anti-blocage Android :
+    // window.open est bloqué par Chrome mobile si ce n'est pas déclenché
+    // directement dans un handler de clic synchrone (ce qui est le cas ici).
+    // On tente d'abord window.open, et on replie sur un iframe caché si
+    // la popup est bloquée (printWindow === null).
+    const printWindow = window.open('', '_blank', 'width=420,height=700');
+
+    if (printWindow) {
+      printWindow.document.write(html);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+        setTimeout(() => printWindow.close(), 300);
+      }, 250);
+    } else {
+      // Fallback : iframe caché injecté dans la page courante
+      // Contourne le blocage popup des navigateurs mobiles
+      const existingIframe = document.getElementById('print-iframe');
+      if (existingIframe) existingIframe.remove();
+
+      const iframe = document.createElement('iframe');
+      iframe.id = 'print-iframe';
+      iframe.style.cssText =
+        'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
+      document.body.appendChild(iframe);
+
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!iframeDoc) return;
+
+      iframeDoc.open();
+      iframeDoc.write(html);
+      iframeDoc.close();
+
+      setTimeout(() => {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+        setTimeout(() => iframe.remove(), 1000);
+      }, 300);
+    }
   }
 }

@@ -21,6 +21,9 @@ export class SyncService {
   ) {
     this.ecouterConnexion();
     this.rafraichirCompteur();
+    // Enregistrement du callback post-login pour détecter les ventes
+    // offline stockées avant que la session soit établie
+    this.auth.onLoginSuccess = () => this.rafraichirCompteur();
   }
 
   // ─── Écoute online/offline ───────────────────────────────────
@@ -28,7 +31,8 @@ export class SyncService {
   private ecouterConnexion(): void {
     window.addEventListener('online', async () => {
       this.estEnLigne.set(true);
-      await this.synchroniser();
+      // Attendre 1.2s que le réseau soit stable avant de tenter la sync
+      setTimeout(() => this.synchroniser(), 1200);
     });
 
     window.addEventListener('offline', () => {
@@ -40,9 +44,14 @@ export class SyncService {
 
   async rafraichirCompteur(): Promise<void> {
     const tenantId = this.auth.getTenantId();
-    if (!tenantId) return;
+    // Ne pas compter si la session n'est pas établie (tenantId serait 'default')
+    if (!tenantId || tenantId === 'default') return;
     const count = await this.offline.compterVentesPending(tenantId);
     this.ventesPendingCount.set(count);
+    // Si en ligne avec des ventes en attente, déclencher la sync
+    if (count > 0 && this.estEnLigne() && !this.estEnSync()) {
+      this.synchroniser();
+    }
   }
 
   // ─── Synchronisation ─────────────────────────────────────────
@@ -51,7 +60,7 @@ export class SyncService {
     if (this.estEnSync() || !this.estEnLigne()) return;
 
     const tenantId = this.auth.getTenantId();
-    if (!tenantId) return;
+    if (!tenantId || tenantId === 'default') return;
 
     const ventes = await this.offline.getVentesPending(tenantId);
     if (ventes.length === 0) return;
@@ -79,8 +88,14 @@ export class SyncService {
       );
       await this.offline.marquerVenteSynced(vente.id!);
     } catch (err: any) {
-      const msg = err?.error?.message || 'Erreur réseau';
-      await this.offline.marquerVenteError(vente.id!, msg);
+      const status = err?.status ?? 0;
+      // Erreur métier définitive (400, 422) → marquer en erreur pour ne pas
+      // reboucler sur une vente corrompue
+      if (status === 400 || status === 422) {
+        const msg = err?.error?.message || 'Données invalides';
+        await this.offline.marquerVenteError(vente.id!, msg);
+      }
+      // Erreur réseau temporaire → on garde statut 'pending' pour retry
     }
   }
 
@@ -96,20 +111,11 @@ export class SyncService {
     };
 
     if (this.estEnLigne()) {
-      // Retry x2 avec timeout 8s — évite le faux offline sur cold-start Render
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const timeout$ = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), 8000),
-          );
-          await Promise.race([
-            firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete)),
-            timeout$,
-          ]);
-          return 'online';
-        } catch {
-          if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
-        }
+      try {
+        await firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete));
+        return 'online';
+      } catch {
+        // Échec réseau → bascule offline
       }
     }
 

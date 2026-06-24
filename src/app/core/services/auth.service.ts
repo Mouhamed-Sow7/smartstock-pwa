@@ -10,6 +10,10 @@ export class AuthService {
   private TOKEN_KEY = 'ss_token';
   private USER_KEY = 'ss_user';
 
+  // Callback appelé après un login réussi — injecté par SyncService pour
+  // éviter la dépendance circulaire (AuthService <-> SyncService)
+  onLoginSuccess?: () => void;
+
   constructor(
     private http: HttpClient,
     private router: Router,
@@ -21,6 +25,8 @@ export class AuthService {
         if (res.token) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
           localStorage.setItem(this.USER_KEY, JSON.stringify(res.user || res));
+          // Déclencher la vérification des ventes pending après connexion
+          setTimeout(() => this.onLoginSuccess?.(), 500);
         }
       }),
     );
