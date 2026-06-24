@@ -5,7 +5,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
-import { MatSnackBar } from '@angular/material/snack-bar';
+import { OfflineService } from '../../../core/services/offline.service';
 
 export interface CartItem {
   produit: any;
