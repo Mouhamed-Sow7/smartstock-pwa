@@ -91,11 +91,15 @@ interface BarcodeDetectorLike {
           <input
             type="text"
             [(ngModel)]="barcode"
-            (ngModelChange)="onInputChange($event)"
+            (input)="onInputChange(barcode)"
             (keyup.enter)="scanProduct()"
+            (blur)="onInputBlur()"
             placeholder="Nom produit ou code-barres..."
             [disabled]="isLoading"
             autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
           />
           <button (click)="scanProduct()" [disabled]="isLoading || !barcode.trim()">
             {{ isLoading ? '...' : 'Ajouter' }}
@@ -108,7 +112,9 @@ interface BarcodeDetectorLike {
             class="suggestion-item"
             *ngFor="let p of suggestions; let i = index"
             [class.first]="i === 0"
+            (mousedown)="$event.preventDefault()"
             (click)="selectionnerProduit(p)"
+            (touchstart)="onSuggestionTouchStart(p, $event)"
           >
             <div class="sug-info">
               <span class="sug-nom">{{ p.nom }}</span>
@@ -403,14 +409,19 @@ interface BarcodeDetectorLike {
         background: var(--navy-card);
         border: 1px solid var(--navy-border);
         border-radius: 12px;
-        padding: 12px 14px;
+        padding: 14px 14px;
         color: var(--text-1);
-        font-size: 14px;
+        /* 16px minimum pour éviter le zoom automatique sur iOS */
+        font-size: 16px;
         outline: none;
         backdrop-filter: blur(12px);
+        /* Désactiver le zoom iOS au focus */
+        -webkit-text-size-adjust: 100%;
+        min-height: 52px;
       }
       input::placeholder {
         color: var(--text-3);
+        font-size: 14px;
       }
       input:focus {
         border-color: var(--accent);
@@ -450,12 +461,17 @@ interface BarcodeDetectorLike {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 10px 14px;
+        padding: 14px 14px;
         cursor: pointer;
         border-bottom: 1px solid var(--navy-border);
-        transition: background 0.15s;
+        transition: background 0.12s;
+        /* Tap target minimum 48px recommandé pour mobile */
+        min-height: 52px;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
       }
-      .suggestion-item:hover {
+      .suggestion-item:hover,
+      .suggestion-item:active {
         background: var(--accent-lite);
       }
       .suggestion-item:last-child {
@@ -742,6 +758,27 @@ export class ScanComponent implements OnInit, OnDestroy {
           (p.codeBarres && p.codeBarres.toLowerCase().includes(q)),
       )
       .slice(0, 6);
+  }
+
+  // Blur retardé : laisse 200ms pour qu'un tap sur suggestion soit traité
+  // avant de fermer la liste (sur mobile, blur arrive ~100ms avant click/touchend)
+  private blurTimer: ReturnType<typeof setTimeout> | null = null;
+
+  onInputBlur(): void {
+    this.blurTimer = setTimeout(() => {
+      this.suggestions = [];
+    }, 200);
+  }
+
+  // touchstart déclenché AVANT blur — on annule le timer de fermeture
+  // et on sélectionne immédiatement le produit
+  onSuggestionTouchStart(produit: any, event: TouchEvent): void {
+    event.preventDefault(); // empêche le blur de l'input
+    if (this.blurTimer) {
+      clearTimeout(this.blurTimer);
+      this.blurTimer = null;
+    }
+    this.selectionnerProduit(produit);
   }
 
   selectionnerProduit(produit: CachedProduit): void {
