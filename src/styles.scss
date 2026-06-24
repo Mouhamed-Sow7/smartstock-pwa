@@ -121,3 +121,10 @@ a {
 .mat-mdc-form-field .mat-mdc-form-field-icon-suffix mat-icon {
   color: var(--text-2) !important;
 }
+
+/* Snackbar rupture de stock — rouge discret */
+.snack-warn .mdc-snackbar__surface {
+  background: #7f1d1d !important;
+  color: #fca5a5 !important;
+  font-weight: 600;
+}

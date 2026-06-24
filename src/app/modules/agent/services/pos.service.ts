@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, throwError } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
@@ -34,6 +35,7 @@ export class PosService {
     private auth: AuthService,
     private sync: SyncService,
     private offline: OfflineService,
+    private snack: MatSnackBar,
   ) {}
 
   get cartSnapshot(): CartItem[] {
@@ -48,10 +50,26 @@ export class PosService {
   }
 
   addToCart(produit: any): void {
+    // Bloquer si stock = 0
+    if ((produit?.stock ?? -1) === 0) {
+      this.snack.open('Produit en rupture de stock', '✕', { duration: 3000, panelClass: 'snack-warn' });
+      return;
+    }
+
     const cart = [...this.cartSnapshot];
     const idx = cart.findIndex((i) => i.produit?._id === produit?._id);
+
     if (idx >= 0) {
-      cart[idx] = { ...cart[idx], quantite: cart[idx].quantite + 1 };
+      const enPanier = cart[idx].quantite;
+      const stockDispo = produit?.stock ?? Infinity;
+      // Bloquer si on dépasse le stock disponible
+      if (enPanier >= stockDispo) {
+        this.snack.open(`Stock max atteint (${stockDispo} unité${stockDispo > 1 ? 's' : ''})`, '✕', {
+          duration: 3000, panelClass: 'snack-warn',
+        });
+        return;
+      }
+      cart[idx] = { ...cart[idx], quantite: enPanier + 1 };
     } else {
       cart.push({ produit, quantite: 1, prix: Number(produit?.prix || 0) });
     }
