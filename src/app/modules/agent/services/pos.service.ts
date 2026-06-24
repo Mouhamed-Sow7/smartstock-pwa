@@ -4,6 +4,7 @@ import { catchError, map, tap } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 export interface CartItem {
   produit: any;
@@ -32,6 +33,7 @@ export class PosService {
     private api: ApiService,
     private auth: AuthService,
     private sync: SyncService,
+    private snackBar: MatSnackBar,
   ) {}
 
   get cartSnapshot(): CartItem[] {
@@ -46,9 +48,22 @@ export class PosService {
   }
 
   addToCart(produit: any): void {
+    // Bloquer l'ajout si le produit est en rupture de stock
+    const maxStock = Number(produit?.stock);
+    if (Number.isFinite(maxStock) && maxStock === 0) {
+      this.snackBar.open('Produit en rupture de stock', 'Fermer', { duration: 3000 });
+      return;
+    }
+
     const cart = [...this.cartSnapshot];
     const idx = cart.findIndex((i) => i.produit?._id === produit?._id);
     if (idx >= 0) {
+      // Si un stock est défini, empêcher d'incrémenter au-delà du stock disponible
+      if (Number.isFinite(maxStock) && cart[idx].quantite >= maxStock) {
+        this.snackBar.open('Stock maximal atteint pour ce produit', 'Fermer', { duration: 3000 });
+        return;
+      }
+
       cart[idx] = { ...cart[idx], quantite: cart[idx].quantite + 1 };
     } else {
       cart.push({ produit, quantite: 1, prix: Number(produit?.prix || 0) });

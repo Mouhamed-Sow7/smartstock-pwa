@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 import Dexie, { Table } from 'dexie';
+import { firstValueFrom } from 'rxjs';
+import { ApiService } from './api.service';
 
 export interface CachedProduit {
   _id: string;
@@ -60,7 +62,7 @@ export class OfflineService extends Dexie {
   ventesPending!: Table<VentePending, number>;
   ventes!: Table<CachedVente, string>;
 
-  constructor() {
+  constructor(private api: ApiService) {
     super('SmartStockDB');
     this.version(2).stores({
       produits: '_id, tenantId, nom, codeBarres',
@@ -69,6 +71,26 @@ export class OfflineService extends Dexie {
       ventesPending: '++id, tenantId, statut, createdAt',
       ventes: '_id, tenantId, createdAt, numeroTicket',
     });
+  }
+
+  /**
+   * Force le téléchargement de tous les produits depuis l'API distante
+   * et écrase la table locale Dexie pour le tenant donné.
+   * Retourne true si la mise à jour a eu lieu, false sinon.
+   */
+  async syncProduitsFromServer(tenantId: string): Promise<boolean> {
+    try {
+      const res: any = await firstValueFrom(this.api.get('produits'));
+      if (res?.success && Array.isArray(res.data)) {
+        const produits = res.data.map((p: any) => ({ ...p, tenantId }));
+        await this.cacheProduits(tenantId, produits);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Erreur lors de la synchronisation des produits :', err);
+      return false;
+    }
   }
 
   // ─── Produits ───────────────────────────────────────────────
@@ -104,12 +126,13 @@ export class OfflineService extends Dexie {
   // ─── Ventes cache (pour rapports offline) ───────────────────
   async cacheVentes(tenantId: string, ventes: CachedVente[]): Promise<void> {
     await this.ventes.where('tenantId').equals(tenantId).delete();
-    await this.ventes.bulkPut(ventes.map(v => ({ ...v, tenantId })));
+    await this.ventes.bulkPut(ventes.map((v) => ({ ...v, tenantId })));
   }
   async getVentesCachees(tenantId: string, debut: string, fin: string): Promise<CachedVente[]> {
     return this.ventes
-      .where('tenantId').equals(tenantId)
-      .and(v => v.createdAt >= debut && v.createdAt <= fin)
+      .where('tenantId')
+      .equals(tenantId)
+      .and((v) => v.createdAt >= debut && v.createdAt <= fin)
       .toArray();
   }
 
@@ -118,8 +141,11 @@ export class OfflineService extends Dexie {
     return this.ventesPending.add(vente);
   }
   async getVentesPending(tenantId: string): Promise<VentePending[]> {
-    return this.ventesPending.where('statut').equals('pending')
-      .and(v => v.tenantId === tenantId).toArray();
+    return this.ventesPending
+      .where('statut')
+      .equals('pending')
+      .and((v) => v.tenantId === tenantId)
+      .toArray();
   }
   async marquerVenteSynced(id: number): Promise<void> {
     await this.ventesPending.update(id, { statut: 'synced' });
@@ -128,8 +154,11 @@ export class OfflineService extends Dexie {
     await this.ventesPending.update(id, { statut: 'error', errorMessage: message });
   }
   async compterVentesPending(tenantId: string): Promise<number> {
-    return this.ventesPending.where('statut').equals('pending')
-      .and(v => v.tenantId === tenantId).count();
+    return this.ventesPending
+      .where('statut')
+      .equals('pending')
+      .and((v) => v.tenantId === tenantId)
+      .count();
   }
   async nettoyerVentesSynced(): Promise<void> {
     await this.ventesPending.where('statut').equals('synced').delete();
