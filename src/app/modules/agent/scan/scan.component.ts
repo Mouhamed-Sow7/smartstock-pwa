@@ -786,6 +786,22 @@ export class ScanComponent implements OnInit, OnDestroy {
   selectionnerProduit(produit: CachedProduit): void {
     this.suggestions = [];
     this.barcode = '';
+
+    // Bloquer si rupture de stock
+    const stock = Number(produit.stock ?? -1);
+    if (stock === 0) {
+      this.errorMessage = `"${produit.nom}" est en rupture de stock`;
+      setTimeout(() => (this.errorMessage = ''), 3000);
+      return;
+    }
+    // Bloquer si déjà au max en panier
+    const enPanier = this.cartItems.find(i => i.produit?._id === produit._id)?.quantite ?? 0;
+    if (stock > 0 && enPanier >= stock) {
+      this.errorMessage = `Stock max atteint pour "${produit.nom}" (${stock} unité${stock > 1 ? 's' : ''})`;
+      setTimeout(() => (this.errorMessage = ''), 3000);
+      return;
+    }
+
     this.errorMessage = '';
     this.pos.addToCart(produit);
     this.lastProductName = produit.nom;
@@ -819,6 +835,20 @@ export class ScanComponent implements OnInit, OnDestroy {
       this.allProduits.find((p) => p.nom.toLowerCase() === code.toLowerCase());
 
     if (fromCache) {
+      const stock = Number(fromCache.stock ?? -1);
+      const enPanier = this.cartItems.find(i => i.produit?._id === fromCache._id)?.quantite ?? 0;
+      if (stock === 0) {
+        this.errorMessage = `"${fromCache.nom}" est en rupture de stock`;
+        this.isLoading = false;
+        setTimeout(() => (this.errorMessage = ''), 3000);
+        return;
+      }
+      if (stock > 0 && enPanier >= stock) {
+        this.errorMessage = `Stock max atteint pour "${fromCache.nom}" (${stock} unité${stock > 1 ? 's' : ''})`;
+        this.isLoading = false;
+        setTimeout(() => (this.errorMessage = ''), 3000);
+        return;
+      }
       this.pos.addToCart(fromCache);
       this.lastProductName = fromCache.nom;
       this.playSuccessSound();
@@ -835,6 +865,20 @@ export class ScanComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (produit) => {
+            const stock = Number(produit?.stock ?? -1);
+            const enPanier = this.cartItems.find(i => i.produit?._id === produit?._id)?.quantite ?? 0;
+            if (stock === 0) {
+              this.errorMessage = `"${produit?.nom}" est en rupture de stock`;
+              this.isLoading = false;
+              setTimeout(() => (this.errorMessage = ''), 3000);
+              return;
+            }
+            if (stock > 0 && enPanier >= stock) {
+              this.errorMessage = `Stock max atteint (${stock} unité${stock > 1 ? 's' : ''})`;
+              this.isLoading = false;
+              setTimeout(() => (this.errorMessage = ''), 3000);
+              return;
+            }
             this.pos.addToCart(produit);
             this.lastProductName = produit?.nom || 'Produit';
             this.playSuccessSound();
