@@ -4,6 +4,8 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { OfflineService } from '../../../core/services/offline.service';
 import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
@@ -17,11 +19,21 @@ import { AuthService } from '../../../core/services/auth.service';
     MatToolbarModule,
     MatIconModule,
     MatButtonModule,
+    MatSnackBarModule,
   ],
   template: `
     <div class="topbar">
       <span class="app-title">SmartStock Agent</span>
       <span class="status-badge">{{ user?.boutique || 'Boutique' }}</span>
+      <button
+        mat-icon-button
+        (click)="onRefresh()"
+        style="color:var(--text-2)"
+        [class.spin]="isSyncing"
+        aria-label="Rafraîchir"
+      >
+        <mat-icon>autorenew</mat-icon>
+      </button>
       <button mat-icon-button (click)="logout()" style="color:var(--text-2)">
         <mat-icon>logout</mat-icon>
       </button>
@@ -147,17 +159,52 @@ import { AuthService } from '../../../core/services/auth.service';
         line-height: 1;
         display: block;
       }
+
+      @keyframes spin {
+        0% {
+          transform: rotate(0deg);
+        }
+        100% {
+          transform: rotate(360deg);
+        }
+      }
+
+      .spin {
+        animation: spin 1s linear infinite;
+        display: inline-block;
+      }
     `,
   ],
 })
 export class AgentLayoutComponent {
   user: any = null;
+  isSyncing = false;
 
   constructor(
     private auth: AuthService,
     private router: Router,
+    private offline: OfflineService,
+    private snackBar: MatSnackBar,
   ) {
     this.user = this.auth.getUser();
+  }
+
+  async onRefresh(): Promise<void> {
+    try {
+      this.isSyncing = true;
+      const tenantId = this.auth.getTenantId();
+      const ok = await this.offline.syncProduitsFromServer(tenantId);
+      this.isSyncing = false;
+      if (ok) this.snackBar.open('Catalogue mis à jour', 'Fermer', { duration: 3000 });
+      else
+        this.snackBar.open('Aucune modification ou échec de synchronisation', 'Fermer', {
+          duration: 3000,
+        });
+    } catch (err) {
+      this.isSyncing = false;
+      console.error('Erreur syncProduitsFromServer (manuelle):', err);
+      this.snackBar.open('Erreur de synchronisation', 'Fermer', { duration: 3000 });
+    }
   }
 
   logout(): void {

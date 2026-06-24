@@ -5,7 +5,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
-import { OfflineService } from '../../../core/services/offline.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 export interface CartItem {
   produit: any;
@@ -118,15 +118,17 @@ export class PosService {
     try {
       for (const item of snapshot) {
         const cached = await this.offline.getProduitByBarcode(item.produit.codeBarres ?? '');
-        const produit = cached ?? (await this.offline.getProduits(tenantId)).find(
-          (p) => p._id === item.produit._id
-        );
+        const produit =
+          cached ??
+          (await this.offline.getProduits(tenantId)).find((p) => p._id === item.produit._id);
         if (produit) {
           const nouveauStock = Math.max(0, (produit.stock ?? 0) - item.quantite);
           await this.offline.updateProduitStock(tenantId, item.produit._id, nouveauStock);
         }
       }
-    } catch { /* silencieux — le vrai stock sera rechargé depuis l'API au prochain ngOnInit */ }
+    } catch {
+      /* silencieux — le vrai stock sera rechargé depuis l'API au prochain ngOnInit */
+    }
 
     // Générer un ticket local dans tous les cas
     const now = new Date().toISOString();

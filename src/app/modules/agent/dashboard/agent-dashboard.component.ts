@@ -7,6 +7,7 @@ import { catchError, takeUntil, timeout, retry } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
 import { PosService } from '../services/pos.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { OfflineService } from '../../../core/services/offline.service';
 
 @Component({
   selector: 'app-agent-dashboard',
@@ -342,6 +343,7 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
     private pos: PosService,
     private auth: AuthService,
     private cdr: ChangeDetectorRef,
+    private offline: OfflineService,
   ) {}
 
   ngOnInit(): void {
@@ -353,6 +355,17 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
     else this.prenom = user?.email?.split('@')[0] || 'Agent';
 
     this.chargerStats();
+
+    // Forcer la synchronisation des produits depuis le serveur au chargement
+    try {
+      const tenantId = this.auth.getTenantId();
+      // Fire-and-forget; Sync silencieuse
+      this.offline.syncProduitsFromServer(tenantId).then((ok) => {
+        if (!ok) console.debug('syncProduitsFromServer: aucun changement ou échec silencieux');
+      });
+    } catch (err) {
+      console.error('Erreur syncProduitsFromServer:', err);
+    }
 
     this.pos.cart$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
       this.cartCount = items.reduce((sum, i) => sum + i.quantite, 0);
