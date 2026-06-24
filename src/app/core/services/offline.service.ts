@@ -105,6 +105,11 @@ export class OfflineService extends Dexie {
     return this.produits.where('codeBarres').equals(codeBarres).first();
   }
 
+  /** Met à jour le stock d'un produit dans le cache Dexie local sans tout recharger */
+  async updateProduitStock(tenantId: string, produitId: string, nouveauStock: number): Promise<void> {
+    await this.produits.where('_id').equals(produitId).modify({ stock: nouveauStock });
+  }
+
   // ─── Agents ─────────────────────────────────────────────────
   async cacheAgents(tenantId: string, agents: CachedAgent[]): Promise<void> {
     await this.agents.where('tenantId').equals(tenantId).delete();
