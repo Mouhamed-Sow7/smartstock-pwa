@@ -14,7 +14,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { BrowserMultiFormatReader } from '@zxing/browser';
 import type { IScannerControls } from '@zxing/browser';
 import { DecodeHintType, BarcodeFormat } from '@zxing/library';
-import { Subject } from 'rxjs';
+import { Subject, interval } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { PosService, CartItem } from '../services/pos.service';
 import { OfflineService, CachedProduit } from '../../../core/services/offline.service';
@@ -743,6 +743,24 @@ export class ScanComponent implements OnInit, OnDestroy {
       if (items.length === 0) this.showCartPreview = false;
       this.cdr.detectChanges();
     });
+
+    // 4. Réagir à chaque mise à jour du cache Dexie (bouton refresh manuel
+    //    ou décrément post-vente) → recharger allProduits immédiatement
+    this.offline.produitsUpdated$.pipe(takeUntil(this.destroy$)).subscribe(async () => {
+      this.allProduits = await this.offline.getProduits(tenantId);
+      this.cdr.detectChanges();
+    });
+
+    // 5. Polling automatique toutes les 60s pour rester synchronisé avec
+    //    les changements stock faits par le patron (réapprovisionnement, etc.)
+    interval(60_000)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(async () => {
+        if (this.sync.estEnLigne()) {
+          await this.offline.syncProduitsFromServer(tenantId);
+          // produitsUpdated$ s'émet dans syncProduitsFromServer → allProduits rechargé automatiquement
+        }
+      });
   }
 
   // ─── Autocomplétion ────────────────────────────────────────

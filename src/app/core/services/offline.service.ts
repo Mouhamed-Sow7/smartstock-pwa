@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import Dexie, { Table } from 'dexie';
+import { Subject } from 'rxjs';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from './api.service';
 
@@ -62,6 +63,10 @@ export class OfflineService extends Dexie {
   ventesPending!: Table<VentePending, number>;
   ventes!: Table<CachedVente, string>;
 
+  /** Émet chaque fois que le cache produits est mis à jour (sync ou décrément post-vente) */
+  private _produitsUpdated$ = new Subject<void>();
+  readonly produitsUpdated$ = this._produitsUpdated$.asObservable();
+
   constructor(private api: ApiService) {
     super('SmartStockDB');
     this.version(2).stores({
@@ -97,6 +102,7 @@ export class OfflineService extends Dexie {
   async cacheProduits(tenantId: string, produits: CachedProduit[]): Promise<void> {
     await this.produits.where('tenantId').equals(tenantId).delete();
     await this.produits.bulkPut(produits);
+    this._produitsUpdated$.next();
   }
   async getProduits(tenantId: string): Promise<CachedProduit[]> {
     return this.produits.where('tenantId').equals(tenantId).toArray();
@@ -108,6 +114,7 @@ export class OfflineService extends Dexie {
   /** Met à jour le stock d'un produit dans le cache Dexie local sans tout recharger */
   async updateProduitStock(tenantId: string, produitId: string, nouveauStock: number): Promise<void> {
     await this.produits.where('_id').equals(produitId).modify({ stock: nouveauStock });
+    this._produitsUpdated$.next();
   }
 
   // ─── Agents ─────────────────────────────────────────────────
