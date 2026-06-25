@@ -349,7 +349,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
         );
         this.reapproId = null;
         this.reapproSaving = false;
-        this.snack.open(`+${this.reapproQty} unité(s) ajoutée(s) au stock`, '✓', { duration: 2500 });
+        this.snack.open(`+${this.reapproQty} unité(s) ajoutée(s) au stock`, 'OK', { duration: 2500 });
       },
       error: () => {
         this.reapproSaving = false;

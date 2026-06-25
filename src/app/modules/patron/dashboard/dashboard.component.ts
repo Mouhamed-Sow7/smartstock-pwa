@@ -17,7 +17,7 @@ import { AuthService } from '../../../core/services/auth.service';
       <!-- Greeting -->
       <div class="greeting-block">
         <div class="greeting-row">
-          <span class="hand">👋</span>
+          <mat-icon class="hand-icon">waving_hand</mat-icon>
           <div>
             <div class="greeting-sub">Bonjour,</div>
             <div class="greeting-name">{{ nomPatron }}</div>
@@ -143,7 +143,7 @@ import { AuthService } from '../../../core/services/auth.service';
     /* ── Greeting ── */
     .greeting-block { margin-bottom: 24px; }
     .greeting-row { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
-    .hand { font-size: 32px; line-height: 1; }
+    .hand-icon { font-size: 32px; width: 32px; height: 32px; color: #facc15; }
     .greeting-sub { color: var(--text-3); font-size: 13px; }
     .greeting-name { color: var(--text-1); font-size: 26px; font-weight: 800; line-height: 1.1; flex: 1; }
     .greeting-date { color: var(--text-3); font-size: 13px; margin-top: 4px; margin-left: 2px; }

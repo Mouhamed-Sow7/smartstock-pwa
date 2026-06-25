@@ -76,7 +76,7 @@ import { AuthService } from '../../../core/services/auth.service';
                 [class.selected]="ticket.modePaiement === m.value"
                 (click)="changerMode(m.value)"
               >
-                <span>{{ m.icon }}</span>
+                <mat-icon class="mode-mini-icon">{{ m.icon }}</mat-icon>
                 <span>{{ m.label }}</span>
               </button>
             </div>
@@ -146,6 +146,7 @@ import { AuthService } from '../../../core/services/auth.service';
       background: rgba(255,255,255,.03); color: var(--text-2); cursor: pointer; font-size: 10px;
     }
     .mode-mini span:first-child { font-size: 18px; }
+    .mode-mini-icon { font-size: 18px; width: 18px; height: 18px; }
     .mode-mini.selected { border-color: var(--accent); background: var(--accent-lite); color: var(--accent); }
     .close-edit {
       width: 100%; padding: 6px; border-radius: 8px; border: 1px solid var(--navy-border);
@@ -163,10 +164,10 @@ export class TicketComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   readonly modesPaiement = [
-    { value: 'especes',      label: 'Espèces',  icon: '💵' },
-    { value: 'wave',         label: 'Wave',     icon: '🌊' },
-    { value: 'orange_money', label: 'Orange',   icon: '🟠' },
-    { value: 'free_money',   label: 'Free',     icon: '🟢' },
+    { value: 'especes',      label: 'Espèces',  icon: 'payments' },
+    { value: 'wave',         label: 'Wave',     icon: 'water' },
+    { value: 'orange_money', label: 'Orange',   icon: 'swap_horiz' },
+    { value: 'free_money',   label: 'Free',     icon: 'phonelink' },
   ];
 
   constructor(private pos: PosService, private auth: AuthService) {}

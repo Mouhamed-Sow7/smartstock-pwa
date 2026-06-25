@@ -202,7 +202,7 @@ export class PosService {
 
     const offlineBadge =
       ticket.modeCreation === 'offline'
-        ? `<p style="color:#f59e0b;font-weight:bold;">⚠ Vente hors ligne — sera synchronisée</p>`
+        ? `<p style="color:#f59e0b;font-weight:bold;"><i class="fa-solid fa-wifi-slash" style="margin-right:6px"></i>Vente hors ligne — sera synchronisée</p>`
         : '';
 
     const html = `

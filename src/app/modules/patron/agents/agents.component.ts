@@ -393,7 +393,7 @@ export class AgentsComponent implements OnInit, OnDestroy {
       .afterClosed().subscribe((newAgent: Agent) => {
         if (newAgent) {
           this.agents.update(list => [newAgent, ...list]);
-          this.snack.open(`${newAgent.prenom} ${newAgent.nom} ajouté ✓`, '', { duration: 2500 });
+          this.snack.open(`${newAgent.prenom} ${newAgent.nom} ajouté`, 'OK', { duration: 2500 });
         }
       });
   }

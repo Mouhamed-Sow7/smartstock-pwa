@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PosService, CartItem } from '../services/pos.service';
 
 type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money';
@@ -72,7 +73,7 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money';
               [class.selected]="modePaiement === m.value"
               (click)="modePaiement = m.value"
             >
-              <span class="mode-icon">{{ m.icon }}</span>
+              <span class="mode-logo" [innerHTML]="m.svg"></span>
               <span class="mode-name">{{ m.label }}</span>
               <mat-icon class="mode-check" *ngIf="modePaiement === m.value">check_circle</mat-icon>
             </button>
@@ -151,8 +152,8 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money';
     .paiement-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
     .mode-btn {
       position: relative;
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
-      padding: 12px 8px; border-radius: 12px; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 6px;
+      padding: 12px 8px 10px; border-radius: 12px; cursor: pointer;
       border: 1.5px solid var(--navy-border);
       background: rgba(255,255,255,.03);
       color: var(--text-2); transition: all .15s;
@@ -161,9 +162,9 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money';
     .mode-btn.selected {
       border-color: var(--accent);
       background: var(--accent-lite);
-      color: var(--accent);
     }
-    .mode-icon { font-size: 22px; line-height: 1; }
+    .mode-logo { display: flex; align-items: center; justify-content: center; }
+    .mode-logo svg { width: 44px; height: 32px; border-radius: 6px; }
     .mode-name { font-size: 12px; font-weight: 600; }
     .mode-check {
       position: absolute; top: 6px; right: 6px;
@@ -193,18 +194,86 @@ export class PanierComponent implements OnInit, OnDestroy {
   modePaiement: ModePaiement = 'especes';
   private destroy$ = new Subject<void>();
 
-  readonly modes: { value: ModePaiement; label: string; icon: string }[] = [
-    { value: 'especes',      label: 'Espèces',      icon: '💵' },
-    { value: 'wave',         label: 'Wave',         icon: '🌊' },
-    { value: 'orange_money', label: 'Orange Money', icon: '🟠' },
-    { value: 'free_money',   label: 'Free Money',   icon: '🟢' },
+  private readonly _rawModes: { value: ModePaiement; label: string; svg: string }[] = [
+    {
+      value: 'especes', label: 'Espèces',
+      svg: `<svg viewBox="0 0 48 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="1" y="1" width="46" height="30" rx="4" fill="#166534" stroke="#4ade80" stroke-width="1.5"/>
+        <ellipse cx="24" cy="16" rx="7" ry="7" fill="#4ade80" opacity=".25"/>
+        <text x="24" y="21" text-anchor="middle" fill="#4ade80" font-size="11" font-weight="bold" font-family="sans-serif">FCFA</text>
+        <rect x="4" y="4" width="7" height="5" rx="1" fill="#4ade80" opacity=".4"/>
+        <rect x="37" y="23" width="7" height="5" rx="1" fill="#4ade80" opacity=".4"/>
+      </svg>`
+    },
+    {
+      value: 'wave', label: 'Wave',
+      svg: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="10" fill="#5BC8F5"/>
+        <!-- Corps -->
+        <ellipse cx="24" cy="30" rx="10" ry="12" fill="#1a1a1a"/>
+        <!-- Ventre blanc -->
+        <ellipse cx="24" cy="32" rx="6" ry="8" fill="white"/>
+        <!-- Tête -->
+        <ellipse cx="24" cy="17" rx="8" ry="8" fill="#1a1a1a"/>
+        <!-- Yeux -->
+        <circle cx="21" cy="15" r="1.5" fill="white"/>
+        <circle cx="27" cy="15" r="1.5" fill="white"/>
+        <!-- Bec -->
+        <ellipse cx="24" cy="19.5" rx="2.5" ry="1.5" fill="#F5A623"/>
+        <!-- Bras gauche levé -->
+        <ellipse cx="13" cy="22" rx="3" ry="6" fill="#1a1a1a" transform="rotate(-40 13 22)"/>
+        <!-- Bras droit -->
+        <ellipse cx="35" cy="26" rx="3" ry="5" fill="#1a1a1a" transform="rotate(15 35 26)"/>
+        <!-- Pattes -->
+        <ellipse cx="20" cy="43" rx="4" ry="2.5" fill="#F5A623"/>
+        <ellipse cx="28" cy="43" rx="4" ry="2.5" fill="#F5A623"/>
+        <!-- Texte wave -->
+        <text x="24" y="52" text-anchor="middle" fill="white" font-size="7" font-weight="bold" font-family="sans-serif">wave</text>
+      </svg>`
+    },
+    {
+      value: 'orange_money', label: 'Orange Money',
+      svg: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="10" fill="white"/>
+        <!-- Flèche noire ↗ -->
+        <path d="M10 32 L28 10 L36 10 L36 18 L16 38 Z" fill="#1a1a1a"/>
+        <polygon points="26,8 38,8 38,20" fill="#1a1a1a"/>
+        <!-- Flèche orange ↙ -->
+        <path d="M38 16 L20 38 L12 38 L12 30 L32 10 Z" fill="#FF6B00" opacity="0"/>
+        <path d="M22 10 L38 28 L30 38 L12 22 Z" fill="none"/>
+        <!-- Version simplifiée : deux flèches propres -->
+        <g transform="translate(4,4)">
+          <!-- Flèche noire haut-droite -->
+          <path d="M4 28 L20 8 L28 8 L28 16 L14 32 Z" fill="#1a1a1a"/>
+          <path d="M18 6 L30 6 L30 18 L26 14 L14 26 L10 22 L22 10 Z" fill="#1a1a1a"/>
+          <!-- Flèche orange bas-gauche -->
+          <path d="M36 12 L20 32 L12 32 L12 24 L26 8 Z" fill="none"/>
+          <path d="M22 34 L10 34 L10 22 L14 26 L26 14 L30 18 L18 30 Z" fill="#FF6B00"/>
+        </g>
+      </svg>`
+    },
+    {
+      value: 'free_money', label: 'Free Money',
+      svg: `<svg viewBox="0 0 80 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="80" height="48" rx="10" fill="white"/>
+        <!-- "free" en rouge italique -->
+        <text x="40" y="24" text-anchor="middle" fill="#E30613" font-size="18" font-weight="bold" font-style="italic" font-family="Georgia,serif">free</text>
+        <!-- Trait rouge souligné -->
+        <line x1="12" y1="29" x2="68" y2="29" stroke="#E30613" stroke-width="2.5"/>
+        <!-- "MONEY" en gris foncé -->
+        <text x="40" y="42" text-anchor="middle" fill="#333333" font-size="11" font-weight="bold" font-family="Arial,sans-serif" letter-spacing="2">MONEY</text>
+      </svg>`
+    },
   ];
 
   get modeLabel(): string {
-    return this.modes.find(m => m.value === this.modePaiement)?.label ?? 'Espèces';
+    return this._rawModes.find(m => m.value === this.modePaiement)?.label ?? 'Espèces';
   }
 
-  constructor(private pos: PosService, private router: Router) {}
+  readonly modes: { value: ModePaiement; label: string; svg: SafeHtml }[];
+  constructor(private pos: PosService, private router: Router, sanitizer: DomSanitizer) {
+    this.modes = this._rawModes.map(m => ({ ...m, svg: sanitizer.bypassSecurityTrustHtml(m.svg) }));
+  }
 
   ngOnInit(): void {
     this.pos.cart$.pipe(takeUntil(this.destroy$)).subscribe((items) => {
