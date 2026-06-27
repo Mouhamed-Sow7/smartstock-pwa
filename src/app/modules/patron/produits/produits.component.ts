@@ -5,7 +5,6 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
@@ -41,7 +40,7 @@ function catInitial(cat: string): string {
   imports: [
     CommonModule, FormsModule, RouterLink,
     MatDialogModule, MatIconModule,
-    MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule,
+    MatProgressSpinnerModule, MatSnackBarModule,
     MatMenuModule, MatDividerModule,
   ],
   template: `
@@ -127,7 +126,7 @@ function catInitial(cat: string): string {
 
             <!-- Actions : menu 3 points via MatMenu (CDK Overlay) -->
             <div class="row-menu-wrap">
-              <button class="menu-trigger" [matMenuTriggerFor]="rowMenu" [matMenuTriggerData]="{produit: p}" matTooltip="Actions">
+              <button class="menu-trigger" [matMenuTriggerFor]="rowMenu" [matMenuTriggerData]="{produit: p}" aria-label="Actions">
                 <mat-icon>more_vert</mat-icon>
               </button>
             </div>
