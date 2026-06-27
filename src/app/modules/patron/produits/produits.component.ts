@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -39,7 +40,7 @@ function catInitial(cat: string): string {
   imports: [
     CommonModule, FormsModule, RouterLink,
     MatDialogModule, MatIconModule,
-    MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule,
+    MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule, MatMenuModule,
   ],
   template: `
     <div class="produits-page">
@@ -124,24 +125,24 @@ function catInitial(cat: string): string {
 
             <!-- Actions : menu 3 points -->
             <div class="row-menu-wrap">
-              <button class="menu-trigger" (click)="toggleMenu(p._id, $event)" matTooltip="Actions">
+              <button class="menu-trigger" [matMenuTriggerFor]="rowMenu" matTooltip="Actions">
                 <mat-icon>more_vert</mat-icon>
               </button>
-              <div class="dropdown-menu" *ngIf="openMenuId === p._id">
-                <button class="dd-item" (click)="ouvrirReappro(p); closeMenu()">
+              <mat-menu #rowMenu="matMenu" xPosition="before" panelClass="shelf-menu-panel">
+                <button mat-menu-item (click)="ouvrirReappro(p)">
                   <mat-icon>add_box</mat-icon> Entrée stock
                 </button>
-                <button class="dd-item" (click)="openEditDialog(p); closeMenu()">
+                <button mat-menu-item (click)="openEditDialog(p)">
                   <mat-icon>edit</mat-icon> Modifier
                 </button>
-                <button class="dd-item" (click)="printBarcode(p); closeMenu()">
+                <button mat-menu-item (click)="printBarcode(p)">
                   <mat-icon>print</mat-icon> Imprimer étiquette
                 </button>
                 <div class="dd-divider"></div>
-                <button class="dd-item danger" (click)="openDeleteDialog(p); closeMenu()">
+                <button mat-menu-item class="danger" (click)="openDeleteDialog(p)">
                   <mat-icon>delete</mat-icon> Supprimer
                 </button>
-              </div>
+              </mat-menu>
             </div>
           </div>
 
@@ -177,9 +178,6 @@ function catInitial(cat: string): string {
         </div>
       </div>
     </div>
-
-    <!-- Overlay ferme le menu au clic extérieur -->
-    <div class="menu-overlay" *ngIf="openMenuId" (click)="closeMenu()"></div>
   `,
   styles: [`
     /* ── Page ── */
@@ -316,34 +314,37 @@ function catInitial(cat: string): string {
     .menu-trigger:hover { background: rgba(255,255,255,.08); color: var(--text-1); }
     .menu-trigger mat-icon { font-size: 20px; }
 
-    .dropdown-menu {
-      position: absolute; right: 0; top: 36px; z-index: 200;
-      background: #1a2740; border: 1px solid rgba(255,255,255,.1);
-      border-radius: 12px; padding: 6px; min-width: 180px;
-      box-shadow: 0 8px 32px rgba(0,0,0,.45);
-      animation: ddIn .12s ease-out;
-    }
-    @keyframes ddIn {
-      from { opacity: 0; transform: translateY(-6px) scale(.97); }
-      to   { opacity: 1; transform: translateY(0) scale(1); }
-    }
-    .dd-item {
-      display: flex; align-items: center; gap: 10px; width: 100%;
-      padding: 9px 12px; border: none; background: none; border-radius: 8px;
-      color: var(--text-2); font-size: 13px; cursor: pointer; text-align: left;
-      transition: background .1s;
-    }
-    .dd-item:hover { background: rgba(255,255,255,.07); color: var(--text-1); }
-    .dd-item mat-icon { font-size: 17px; width: 17px; height: 17px; color: var(--text-3); }
-    .dd-item:hover mat-icon { color: var(--accent); }
-    .dd-item.danger { color: #e74c3c; }
-    .dd-item.danger:hover { background: rgba(231,76,60,.1); }
-    .dd-item.danger mat-icon { color: #e74c3c; }
-    .dd-divider { height: 1px; background: rgba(255,255,255,.07); margin: 4px 0; }
+    ::ng-deep .shelf-menu-panel .dd-divider { height: 1px; background: rgba(255,255,255,.07); margin: 4px 6px; }
 
-    .menu-overlay {
-      position: fixed; inset: 0; z-index: 199;
+    /* Theming du panneau mat-menu — rendu hors de l'arbre du composant (CDK Overlay),
+       ::ng-deep est nécessaire pour percer l'encapsulation de style ici. */
+    ::ng-deep .shelf-menu-panel {
+      background: #1a2740 !important;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,.45) !important;
+      min-width: 200px !important;
     }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-content { padding: 6px !important; }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item {
+      color: var(--text-2) !important;
+      font-size: 13px !important;
+      min-height: 40px !important;
+      border-radius: 8px !important;
+      gap: 10px;
+    }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item:hover:not(.danger) {
+      background: rgba(255,255,255,.07) !important;
+      color: var(--text-1) !important;
+    }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item mat-icon {
+      color: var(--text-3); font-size: 17px; width: 17px; height: 17px;
+      margin-right: 0;
+    }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item:hover:not(.danger) mat-icon { color: var(--accent); }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item.danger { color: #e74c3c !important; }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item.danger mat-icon { color: #e74c3c; }
+    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item.danger:hover { background: rgba(231,76,60,.1) !important; }
 
     /* ── Panel rentrée stock ── */
     .reappro-panel {
@@ -396,7 +397,6 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private produitService = inject(ProduitService);
 
   searchQuery = '';
-  openMenuId: string | null = null;
   reapproId: string | null = null;
   reapproQty = 1;
   reapproSaving = false;
@@ -425,13 +425,6 @@ export class ProduitsComponent implements OnInit, OnDestroy {
       items,
     }));
   }
-
-  toggleMenu(id: string, e: Event): void {
-    e.stopPropagation();
-    this.openMenuId = this.openMenuId === id ? null : id;
-  }
-
-  closeMenu(): void { this.openMenuId = null; }
 
   ouvrirReappro(p: any): void {
     this.reapproId = this.reapproId === p._id ? null : p._id;
