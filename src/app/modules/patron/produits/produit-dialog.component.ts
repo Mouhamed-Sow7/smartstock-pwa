@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -146,8 +146,9 @@ const CATEGORIES = [
       background: #0f1b2d;
       border-radius: 18px;
       overflow: hidden;
-      width: min(540px, 95vw);
+      width: min(540px, 100vw);
       display: flex; flex-direction: column;
+      max-height: 92dvh;
     }
     /* Header */
     .dlg-header {
@@ -172,7 +173,17 @@ const CATEGORIES = [
     .dlg-close mat-icon { font-size: 18px; }
 
     /* Body */
-    .dlg-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; max-height: 65vh; }
+    .dlg-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; flex: 1; }
+    @media (max-width: 600px) {
+      .dlg-body { padding: 12px 14px; gap: 10px; }
+      .fields-row { flex-direction: column; gap: 10px; }
+      .cat-grid { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+      .cat-chip { padding: 7px 2px; font-size: 9px; }
+      .cat-chip mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      .dlg-header { padding: 14px 14px 12px; }
+      .dlg-footer { padding: 10px 14px; }
+      .field-input { padding: 9px 10px; font-size: 14px; }
+    }
 
     /* Fields */
     .field-group { display: flex; flex-direction: column; gap: 6px; }
@@ -217,7 +228,7 @@ const CATEGORIES = [
       cursor: pointer; transition: all .15s;
     }
     .cat-chip mat-icon { font-size: 18px; width: 18px; height: 18px; color: inherit; }
-    .cat-chip:hover { background: color-mix(in srgb, var(--cc) 10%, transparent); border-color: color-mix(in srgb, var(--cc) 40%, transparent); color: var(--cc); }
+    .cat-chip:hover { background: rgba(var(--cc), .1); border-color: color-mix(in srgb, var(--cc) 40%, transparent); color: var(--cc); }
     .cat-chip.selected {
       background: color-mix(in srgb, var(--cc) 15%, transparent);
       border-color: color-mix(in srgb, var(--cc) 50%, transparent);

@@ -6,7 +6,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatMenuModule } from '@angular/material/menu';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -40,7 +39,7 @@ function catInitial(cat: string): string {
   imports: [
     CommonModule, FormsModule, RouterLink,
     MatDialogModule, MatIconModule,
-    MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule, MatMenuModule,
+    MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule,
   ],
   template: `
     <div class="produits-page">
@@ -125,24 +124,9 @@ function catInitial(cat: string): string {
 
             <!-- Actions : menu 3 points -->
             <div class="row-menu-wrap">
-              <button class="menu-trigger" [matMenuTriggerFor]="rowMenu" matTooltip="Actions">
+              <button class="menu-trigger" (click)="toggleMenu(p._id, $event)" matTooltip="Actions">
                 <mat-icon>more_vert</mat-icon>
               </button>
-              <mat-menu #rowMenu="matMenu" xPosition="before" panelClass="shelf-menu-panel">
-                <button mat-menu-item (click)="ouvrirReappro(p)">
-                  <mat-icon>add_box</mat-icon> Entrée stock
-                </button>
-                <button mat-menu-item (click)="openEditDialog(p)">
-                  <mat-icon>edit</mat-icon> Modifier
-                </button>
-                <button mat-menu-item (click)="printBarcode(p)">
-                  <mat-icon>print</mat-icon> Imprimer étiquette
-                </button>
-                <div class="dd-divider"></div>
-                <button mat-menu-item class="danger" (click)="openDeleteDialog(p)">
-                  <mat-icon>delete</mat-icon> Supprimer
-                </button>
-              </mat-menu>
             </div>
           </div>
 
@@ -178,6 +162,30 @@ function catInitial(cat: string): string {
         </div>
       </div>
     </div>
+
+    <!-- Dropdown menu téléporté hors du flux (position fixed) -->
+    <ng-container *ngIf="openMenuId && menuPos">
+      <div class="dropdown-teleport" [style.top.px]="menuPos.top" [style.left.px]="menuPos.left">
+        <ng-container *ngFor="let p of allProduits()">
+          <ng-container *ngIf="p._id === openMenuId">
+            <button class="dd-item" (click)="ouvrirReappro(p); closeMenu()">
+              <mat-icon>add_box</mat-icon> Entrée stock
+            </button>
+            <button class="dd-item" (click)="openEditDialog(p); closeMenu()">
+              <mat-icon>edit</mat-icon> Modifier
+            </button>
+            <button class="dd-item" (click)="printBarcode(p); closeMenu()">
+              <mat-icon>print</mat-icon> Imprimer étiquette
+            </button>
+            <div class="dd-divider"></div>
+            <button class="dd-item danger" (click)="openDeleteDialog(p); closeMenu()">
+              <mat-icon>delete</mat-icon> Supprimer
+            </button>
+          </ng-container>
+        </ng-container>
+      </div>
+      <div class="menu-overlay" (click)="closeMenu()"></div>
+    </ng-container>
   `,
   styles: [`
     /* ── Page ── */
@@ -314,37 +322,31 @@ function catInitial(cat: string): string {
     .menu-trigger:hover { background: rgba(255,255,255,.08); color: var(--text-1); }
     .menu-trigger mat-icon { font-size: 20px; }
 
-    ::ng-deep .shelf-menu-panel .dd-divider { height: 1px; background: rgba(255,255,255,.07); margin: 4px 6px; }
-
-    /* Theming du panneau mat-menu — rendu hors de l'arbre du composant (CDK Overlay),
-       ::ng-deep est nécessaire pour percer l'encapsulation de style ici. */
-    ::ng-deep .shelf-menu-panel {
-      background: #1a2740 !important;
-      border: 1px solid rgba(255,255,255,.1);
-      border-radius: 12px !important;
-      box-shadow: 0 8px 32px rgba(0,0,0,.45) !important;
-      min-width: 200px !important;
+    .dropdown-teleport {
+      position: fixed; z-index: 9999;
+      background: #1a2740; border: 1px solid rgba(255,255,255,.1);
+      border-radius: 12px; padding: 6px; min-width: 180px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.55);
+      animation: ddIn .12s ease-out;
     }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-content { padding: 6px !important; }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item {
-      color: var(--text-2) !important;
-      font-size: 13px !important;
-      min-height: 40px !important;
-      border-radius: 8px !important;
-      gap: 10px;
+    @keyframes ddIn {
+      from { opacity: 0; transform: translateY(-6px) scale(.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
     }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item:hover:not(.danger) {
-      background: rgba(255,255,255,.07) !important;
-      color: var(--text-1) !important;
+    .dd-item {
+      display: flex; align-items: center; gap: 10px; width: 100%;
+      padding: 9px 12px; border: none; background: none; border-radius: 8px;
+      color: var(--text-2); font-size: 13px; cursor: pointer; text-align: left;
+      transition: background .1s;
     }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item mat-icon {
-      color: var(--text-3); font-size: 17px; width: 17px; height: 17px;
-      margin-right: 0;
-    }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item:hover:not(.danger) mat-icon { color: var(--accent); }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item.danger { color: #e74c3c !important; }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item.danger mat-icon { color: #e74c3c; }
-    ::ng-deep .shelf-menu-panel .mat-mdc-menu-item.danger:hover { background: rgba(231,76,60,.1) !important; }
+    .dd-item:hover { background: rgba(255,255,255,.07); color: var(--text-1); }
+    .dd-item mat-icon { font-size: 17px; width: 17px; height: 17px; color: var(--text-3); }
+    .dd-item:hover mat-icon { color: var(--accent); }
+    .dd-item.danger { color: #e74c3c; }
+    .dd-item.danger:hover { background: rgba(231,76,60,.1); }
+    .dd-item.danger mat-icon { color: #e74c3c; }
+    .dd-divider { height: 1px; background: rgba(255,255,255,.07); margin: 4px 0; }
+    .menu-overlay { position: fixed; inset: 0; z-index: 9998; }
 
     /* ── Panel rentrée stock ── */
     .reappro-panel {
@@ -397,9 +399,14 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private produitService = inject(ProduitService);
 
   searchQuery = '';
+  openMenuId: string | null = null;
+  menuPos: { top: number; left: number } | null = null;
   reapproId: string | null = null;
   reapproQty = 1;
   reapproSaving = false;
+
+  // Signal pour accès à tous les produits depuis le template du dropdown téléporté
+  allProduits = this.produits;
 
   // Grouper par catégorie avec filtre recherche
   groupedProduits(): { categorie: string; color: string; initial: string; items: any[] }[] {
@@ -425,6 +432,20 @@ export class ProduitsComponent implements OnInit, OnDestroy {
       items,
     }));
   }
+
+  toggleMenu(id: string, e: Event): void {
+    e.stopPropagation();
+    if (this.openMenuId === id) { this.closeMenu(); return; }
+    const btn = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    // Positionner le dropdown à gauche du bouton, sous lui
+    this.menuPos = {
+      top: btn.bottom + 4,
+      left: Math.min(btn.right - 180, window.innerWidth - 196),
+    };
+    this.openMenuId = id;
+  }
+
+  closeMenu(): void { this.openMenuId = null; }
 
   ouvrirReappro(p: any): void {
     this.reapproId = this.reapproId === p._id ? null : p._id;
@@ -473,13 +494,21 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   }
 
   openAddDialog() {
-    this.dialog.open(ProduitDialogComponent, { data: { isEdit: false }, width: '500px' })
-      .afterClosed().subscribe(result => { if (result) this.chargerProduits(); });
+    this.dialog.open(ProduitDialogComponent, {
+      data: { isEdit: false },
+      width: '540px',
+      maxWidth: '100vw',
+      panelClass: 'produit-dialog-panel',
+    }).afterClosed().subscribe(result => { if (result) this.chargerProduits(); });
   }
 
   openEditDialog(produit: any) {
-    this.dialog.open(ProduitDialogComponent, { data: { produit, isEdit: true }, width: '500px' })
-      .afterClosed().subscribe(result => { if (result) this.chargerProduits(); });
+    this.dialog.open(ProduitDialogComponent, {
+      data: { produit, isEdit: true },
+      width: '540px',
+      maxWidth: '100vw',
+      panelClass: 'produit-dialog-panel',
+    }).afterClosed().subscribe(result => { if (result) this.chargerProduits(); });
   }
 
   openDeleteDialog(produit: any) {
