@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 import { FormsModule } from '@angular/forms';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
@@ -41,7 +42,7 @@ function catInitial(cat: string): string {
     CommonModule, FormsModule, RouterLink,
     MatDialogModule, MatIconModule,
     MatProgressSpinnerModule, MatSnackBarModule, MatTooltipModule,
-    MatMenuModule,
+    MatMenuModule, MatDividerModule,
   ],
   template: `
     <div class="produits-page">

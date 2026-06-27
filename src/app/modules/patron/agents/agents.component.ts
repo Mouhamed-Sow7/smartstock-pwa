@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { ApiService } from '../../../core/services/api.service';
@@ -220,7 +221,7 @@ export class AgentCreateDialogComponent {
   standalone: true,
   imports: [
     CommonModule, MatButtonModule, MatIconModule,
-    MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule,
+    MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatTooltipModule,
   ],
   template: `
     <div class="agents-page">
