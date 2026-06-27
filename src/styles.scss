@@ -162,3 +162,44 @@ a {
     max-height: 92dvh !important;
   }
 }
+
+/* ── Mat-menu dark theme (shelf-row-menu) ── */
+.shelf-row-menu .mat-mdc-menu-panel {
+  background: #1a2740 !important;
+  border: 1px solid rgba(255,255,255,.1) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,.55) !important;
+  min-width: 180px !important;
+}
+.shelf-row-menu .mat-mdc-menu-item {
+  color: #8892a4 !important;
+  font-size: 13px !important;
+  border-radius: 8px !important;
+  margin: 2px 4px !important;
+}
+.shelf-row-menu .mat-mdc-menu-item:hover {
+  background: rgba(255,255,255,.07) !important;
+  color: #e8eaf0 !important;
+}
+.shelf-row-menu .mat-mdc-menu-item .mat-icon {
+  color: #4a5568 !important;
+  font-size: 17px !important;
+  width: 17px !important;
+  height: 17px !important;
+}
+.shelf-row-menu .mat-mdc-menu-item:hover .mat-icon {
+  color: #00b894 !important;
+}
+.shelf-row-menu .mat-mdc-menu-item.menu-danger {
+  color: #e74c3c !important;
+}
+.shelf-row-menu .mat-mdc-menu-item.menu-danger .mat-icon {
+  color: #e74c3c !important;
+}
+.shelf-row-menu .mat-mdc-menu-item.menu-danger:hover {
+  background: rgba(231,76,60,.1) !important;
+}
+.shelf-row-menu mat-divider {
+  border-color: rgba(255,255,255,.07) !important;
+  margin: 4px 0 !important;
+}
