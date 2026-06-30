@@ -148,6 +148,10 @@ const CATEGORIES = [
       overflow: hidden;
       width: min(540px, 100vw);
       display: flex; flex-direction: column;
+      /* vh fallback obligatoire — dvh seul est invalide sur iOS < 15.4 et
+         laissait alors AUCUNE limite de hauteur (panel pouvait deborder
+         l'ecran sans scroll exploitable). */
+      max-height: 90vh;
       max-height: 92dvh;
     }
     /* Header */
@@ -182,7 +186,12 @@ const CATEGORIES = [
       .cat-chip mat-icon { font-size: 16px; width: 16px; height: 16px; }
       .dlg-header { padding: 14px 14px 12px; }
       .dlg-footer { padding: 10px 14px; }
-      .field-input { padding: 9px 10px; font-size: 14px; }
+      /* font-size >= 16px obligatoire : Safari iOS zoome automatiquement
+         toute la page au focus d'un champ dont le texte fait < 16px.
+         C'etait la cause principale du dialog "pas responsive" sur iOS —
+         des que l'utilisateur touchait un champ, Safari zoomait et cassait
+         toute la mise en page du bottom sheet. */
+      .field-input { padding: 9px 10px; font-size: 16px; }
     }
 
     /* Fields */
@@ -192,12 +201,12 @@ const CATEGORIES = [
     .opt { color: #636e72; font-size: 10px; text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 4px; }
     .field-input {
       width: 100%; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
-      border-radius: 8px; padding: 10px 12px; color: #e8eaf0; font-size: 14px; outline: none;
+      border-radius: 8px; padding: 10px 12px; color: #e8eaf0; font-size: 16px; outline: none;
       transition: border-color .15s; box-sizing: border-box;
     }
     .field-input:focus { border-color: #00b894; }
     .field-input.error { border-color: #e74c3c; }
-    .field-input.mono { font-family: monospace; font-size: 13px; }
+    .field-input.mono { font-family: monospace; font-size: 16px; }
     .field-input-wrap { position: relative; }
     .field-input-wrap .field-input { padding-right: 56px; }
     .field-suffix { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: #4a5568; font-weight: 600; white-space: nowrap; }
@@ -228,9 +237,20 @@ const CATEGORIES = [
       cursor: pointer; transition: all .15s;
     }
     .cat-chip mat-icon { font-size: 18px; width: 18px; height: 18px; color: inherit; }
-    .cat-chip:hover { background: rgba(var(--cc), .1); border-color: color-mix(in srgb, var(--cc) 40%, transparent); color: var(--cc); }
+    .cat-chip:hover {
+      /* Fallback simple AVANT color-mix : color-mix() est invalide sur Safari
+         < 16.2 (sept. 2022, donc tout iOS plus ancien) et la regle entiere
+         serait alors ignoree silencieusement. La declaration precedente
+         (valide partout) sert de filet de securite. */
+      background: rgba(255,255,255,.06);
+      background: color-mix(in srgb, var(--cc) 10%, transparent);
+      border-color: var(--cc);
+      color: var(--cc);
+    }
     .cat-chip.selected {
+      background: rgba(255,255,255,.1);
       background: color-mix(in srgb, var(--cc) 15%, transparent);
+      border-color: var(--cc);
       border-color: color-mix(in srgb, var(--cc) 50%, transparent);
       color: var(--cc);
     }

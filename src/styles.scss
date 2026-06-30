@@ -155,11 +155,19 @@ a {
   }
   .produit-dialog-panel .mat-mdc-dialog-container {
     border-radius: 20px 20px 0 0 !important;
-    max-height: 92dvh !important;
+    /* vh d'abord (fallback universel), dvh ensuite (iOS 15.4+ seulement —
+       dvh tient compte de la barre d'adresse Safari qui rétrécit/grandit).
+       Sans le fallback vh, max-height etait simplement IGNORE sur iOS < 15.4,
+       donc le panel pouvait depasser l'ecran sans limite ni scroll correct. */
+    max-height: 90vh !important;
+    max-height: 90dvh !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    -webkit-overflow-scrolling: touch;
   }
   .produit-dialog-panel .mdc-dialog__surface {
     border-radius: 20px 20px 0 0 !important;
-    max-height: 92dvh !important;
+    max-height: 90vh !important;
+    max-height: 90dvh !important;
   }
 }
 
