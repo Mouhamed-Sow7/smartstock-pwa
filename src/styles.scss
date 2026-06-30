@@ -203,3 +203,17 @@ a {
   border-color: rgba(255,255,255,.07) !important;
   margin: 4px 0 !important;
 }
+
+/* ── Fix CDK Overlay (mat-menu, mat-select, etc) toujours au-dessus ──
+   backdrop-filter sur .bottom-nav crée un nouveau stacking context qui peut
+   piéger les overlays CDK même avec z-index élevé. On force le conteneur
+   d'overlay global bien au-dessus de tout le reste de l'app. */
+.cdk-overlay-container {
+  z-index: 10000 !important;
+}
+.cdk-overlay-backdrop {
+  z-index: 9999 !important;
+}
+.cdk-overlay-pane {
+  z-index: 10001 !important;
+}

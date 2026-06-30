@@ -64,8 +64,8 @@ function catInitial(cat: string): string {
       <!-- Recherche -->
       <div class="search-bar" *ngIf="produits().length > 0">
         <mat-icon>search</mat-icon>
-        <input type="text" [(ngModel)]="searchQuery" placeholder="Rechercher un produit..." />
-        <button class="clear-search" *ngIf="searchQuery" (click)="searchQuery = ''">
+        <input type="text" [ngModel]="searchQuery()" (ngModelChange)="searchQuery.set($event)" placeholder="Rechercher un produit..." />
+        <button class="clear-search" *ngIf="searchQuery()" (click)="searchQuery.set('')">
           <mat-icon>close</mat-icon>
         </button>
       </div>
@@ -83,7 +83,7 @@ function catInitial(cat: string): string {
 
       <!-- Shelf rows groupées par catégorie -->
       <div class="shelf-container" *ngIf="!isLoading() && produits().length > 0">
-        <ng-container *ngFor="let group of groupedProduits()">
+        <ng-container *ngFor="let group of groupedProduits(); trackBy: trackByCategorie">
 
           <!-- Header catégorie -->
           <div class="cat-header">
@@ -94,7 +94,7 @@ function catInitial(cat: string): string {
 
           <!-- Rangées -->
           <div class="shelf-row"
-            *ngFor="let p of group.items"
+            *ngFor="let p of group.items; trackBy: trackByProduit"
             [class.rupture]="p.stock === 0"
             [class.alerte]="p.stock > 0 && p.stock <= (p.seuilAlerte || 5)">
 
@@ -158,9 +158,9 @@ function catInitial(cat: string): string {
         </ng-container>
 
         <!-- Aucun résultat recherche -->
-        <div class="no-results" *ngIf="groupedProduits().length === 0 && searchQuery">
+        <div class="no-results" *ngIf="groupedProduits().length === 0 && searchQuery()">
           <mat-icon>search_off</mat-icon>
-          <p>Aucun produit pour "{{ searchQuery }}"</p>
+          <p>Aucun produit pour "{{ searchQuery() }}"</p>
         </div>
       </div>
     </div>
@@ -369,21 +369,26 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private snack = inject(MatSnackBar);
   private produitService = inject(ProduitService);
 
-  searchQuery = '';
+  searchQuery = signal('');
   reapproId: string | null = null;
   reapproQty = 1;
   reapproSaving = false;
 
-  // Grouper par catégorie avec filtre recherche
-  groupedProduits(): { categorie: string; color: string; initial: string; items: any[] }[] {
-    const q = this.searchQuery.trim().toLowerCase();
+  // Grouper par catégorie avec filtre recherche — computed() = stable entre cycles
+  // de détection de changement tant que produits()/searchQuery() ne changent pas.
+  // Avant: méthode appelée 2x dans le template → nouveau tableau à chaque cycle →
+  // Angular redétruisait le *ngFor → le bouton mat-menu était démonté juste après
+  // l'ouverture du menu, donc rien ne s'affichait jamais.
+  groupedProduits = computed(() => {
+    const q = this.searchQuery().trim().toLowerCase();
+    const all = this.produits();
     const filtered = q
-      ? this.produits().filter(p =>
+      ? all.filter(p =>
           p.nom?.toLowerCase().includes(q) ||
           p.codeBarres?.toLowerCase().includes(q) ||
           p.categorie?.toLowerCase().includes(q)
         )
-      : this.produits();
+      : all;
 
     const map = new Map<string, any[]>();
     for (const p of filtered) {
@@ -397,12 +402,15 @@ export class ProduitsComponent implements OnInit, OnDestroy {
       initial: catInitial(cat),
       items,
     }));
-  }
+  });
 
   ouvrirReappro(p: any): void {
     this.reapproId = this.reapproId === p._id ? null : p._id;
     this.reapproQty = 1;
   }
+
+  trackByCategorie = (_: number, group: { categorie: string }) => group.categorie;
+  trackByProduit = (_: number, p: any) => p._id;
 
   confirmerReappro(p: any): void {
     if (this.reapproSaving) return;
