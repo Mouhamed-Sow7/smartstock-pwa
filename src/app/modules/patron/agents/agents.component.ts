@@ -71,7 +71,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
     .dlg-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; }
     .f-group { display:flex; flex-direction:column; gap:5px; }
     .f-group label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#4a5568; }
-    .f-group input { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:9px 11px; color:#e8eaf0; font-size:13px; outline:none; }
+    .f-group input { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:9px 11px; color:#e8eaf0; font-size:16px; outline:none; }
     .f-group input:focus { border-color:#00b894; }
     .req { color:#e74c3c; }
     .f-row { display:flex; gap:10px; }
@@ -113,14 +113,16 @@ export class BoutiqueDialogComponent {
   template: `
     <div class="dlg">
       <div class="dlg-head">
-        <div class="dlg-ico blue"><mat-icon>person_add</mat-icon></div>
+        <div class="dlg-ico blue"><mat-icon>{{ resultat ? 'check_circle' : 'person_add' }}</mat-icon></div>
         <div>
-          <div class="dlg-title">Nouvel agent</div>
+          <div class="dlg-title">{{ resultat ? 'Agent créé' : 'Nouvel agent' }}</div>
           <div class="dlg-sub">Boutique : <strong>{{ data.boutique.nom }}</strong></div>
         </div>
-        <button class="dlg-close" (click)="ref.close()"><mat-icon>close</mat-icon></button>
+        <button class="dlg-close" (click)="fermer()"><mat-icon>close</mat-icon></button>
       </div>
-      <div class="dlg-body">
+
+      <!-- Étape 1 : formulaire -->
+      <div class="dlg-body" *ngIf="!resultat">
         <form [formGroup]="form">
           <div class="f-row">
             <div class="f-group">
@@ -133,20 +135,48 @@ export class BoutiqueDialogComponent {
             </div>
           </div>
           <div class="f-group">
-            <label>Téléphone <span class="opt">(sert aussi de mot de passe par défaut)</span></label>
-            <input formControlName="telephone" placeholder="+221 77 123 45 67" type="tel" />
+            <label>Téléphone <span class="opt">optionnel — identifiant de connexion alternatif</span></label>
+            <input formControlName="telephone" placeholder="77 123 45 67" type="tel" />
+            <span class="f-hint">Avec ou sans indicatif 221, peu importe le format.</span>
           </div>
         </form>
         <div class="login-preview" *ngIf="form.get('prenom')?.value && form.get('nom')?.value">
           <mat-icon>info</mat-icon>
           <div>
-            <div class="lp-title">Identifiants de connexion générés</div>
+            <div class="lp-title">Identifiant de connexion</div>
             <div class="lp-email">{{ getEmailPreview() }}</div>
-            <div class="lp-mdp">Mot de passe : <strong>{{ form.get('telephone')?.value || 'smartstock2024' }}</strong></div>
+            <div class="lp-mdp">Un mot de passe sera généré automatiquement — il ne sera affiché qu'une seule fois.</div>
           </div>
         </div>
       </div>
-      <div class="dlg-foot">
+
+      <!-- Étape 2 : résultat (mot de passe généré, copiable) -->
+      <div class="dlg-body" *ngIf="resultat">
+        <div class="result-banner">
+          <mat-icon>check_circle</mat-icon>
+          <span>{{ resultat.prenom }} {{ resultat.nom }} peut maintenant se connecter</span>
+        </div>
+        <div class="cred-card">
+          <div class="cred-row">
+            <span class="cred-label">Email</span>
+            <span class="cred-value">{{ resultat.email }}</span>
+          </div>
+          <div class="cred-row" *ngIf="resultat.telephone">
+            <span class="cred-label">Téléphone</span>
+            <span class="cred-value">{{ resultat.telephone }}</span>
+          </div>
+          <div class="cred-row highlight">
+            <span class="cred-label">Mot de passe</span>
+            <span class="cred-value mono">{{ resultat.motDePasseGenere }}</span>
+          </div>
+        </div>
+        <div class="cred-warning">
+          <mat-icon>warning</mat-icon>
+          <span>Ce mot de passe ne sera plus jamais affiché. Transmets-le à l'agent maintenant.</span>
+        </div>
+      </div>
+
+      <div class="dlg-foot" *ngIf="!resultat">
         <button class="btn-cancel" (click)="ref.close()">Annuler</button>
         <button class="btn-save" [disabled]="form.invalid || loading" (click)="save()">
           <mat-spinner *ngIf="loading" diameter="14"></mat-spinner>
@@ -154,10 +184,18 @@ export class BoutiqueDialogComponent {
           Créer l'agent
         </button>
       </div>
+      <div class="dlg-foot" *ngIf="resultat">
+        <button class="btn-cancel" (click)="copier()">
+          <mat-icon>content_copy</mat-icon> Copier
+        </button>
+        <button class="btn-save" (click)="ref.close(resultat)">
+          <mat-icon>check</mat-icon> J'ai noté, fermer
+        </button>
+      </div>
     </div>
   `,
   styles: [`
-    .dlg { background:#0f1b2d; border-radius:16px; width:min(440px,95vw); display:flex; flex-direction:column; }
+    .dlg { background:#0f1b2d; border-radius:16px; width:min(440px,95vw); display:flex; flex-direction:column; max-height:90vh; max-height:90dvh; }
     .dlg-head { display:flex; align-items:center; gap:12px; padding:18px 18px 14px; border-bottom:1px solid rgba(255,255,255,.07); }
     .dlg-ico { width:38px; height:38px; border-radius:10px; background:rgba(0,184,148,.15); border:1px solid rgba(0,184,148,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .dlg-ico.blue { background:rgba(9,132,227,.15); border-color:rgba(9,132,227,.25); }
@@ -167,11 +205,12 @@ export class BoutiqueDialogComponent {
     .dlg-sub strong { color:#8892a4; }
     .dlg-close { margin-left:auto; width:30px; height:30px; border-radius:8px; border:none; background:rgba(255,255,255,.05); color:#4a5568; cursor:pointer; display:flex; align-items:center; justify-content:center; }
     .dlg-close mat-icon { font-size:17px; }
-    .dlg-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; }
+    .dlg-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
     .f-group { display:flex; flex-direction:column; gap:5px; }
     .f-group label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#4a5568; }
-    .f-group input { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:9px 11px; color:#e8eaf0; font-size:13px; outline:none; }
+    .f-group input { background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:8px; padding:9px 11px; color:#e8eaf0; font-size:16px; outline:none; }
     .f-group input:focus { border-color:#0984e3; }
+    .f-hint { font-size:10px; color:#4a5568; }
     .req { color:#e74c3c; }
     .opt { color:#636e72; font-size:9px; text-transform:none; letter-spacing:0; font-weight:400; }
     .f-row { display:flex; gap:10px; }
@@ -180,10 +219,21 @@ export class BoutiqueDialogComponent {
     .login-preview mat-icon { color:#0984e3; font-size:16px; width:16px; height:16px; flex-shrink:0; margin-top:2px; }
     .lp-title { font-size:11px; color:#8892a4; font-weight:700; text-transform:uppercase; letter-spacing:.5px; margin-bottom:3px; }
     .lp-email { font-size:12px; font-family:monospace; color:#74b9ff; font-weight:600; }
-    .lp-mdp { font-size:12px; color:#8892a4; margin-top:2px; }
-    .lp-mdp strong { color:#e8eaf0; }
+    .lp-mdp { font-size:11px; color:#636e72; margin-top:4px; line-height:1.4; }
+    .result-banner { display:flex; align-items:center; gap:8px; background:rgba(0,184,148,.1); border:1px solid rgba(0,184,148,.25); border-radius:10px; padding:10px 12px; font-size:13px; color:#00b894; font-weight:600; }
+    .result-banner mat-icon { font-size:18px; width:18px; height:18px; }
+    .cred-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden; }
+    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.05); gap:10px; }
+    .cred-row:last-child { border-bottom:none; }
+    .cred-row.highlight { background:rgba(0,184,148,.07); }
+    .cred-label { font-size:11px; color:#636e72; font-weight:600; text-transform:uppercase; letter-spacing:.4px; flex-shrink:0; }
+    .cred-value { font-size:13px; color:#e8eaf0; font-weight:600; text-align:right; word-break:break-all; }
+    .cred-value.mono { font-family:monospace; font-size:15px; color:#00b894; letter-spacing:.5px; }
+    .cred-warning { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:#fdcb6e; background:rgba(253,203,110,.08); border:1px solid rgba(253,203,110,.2); border-radius:8px; padding:9px 11px; line-height:1.4; }
+    .cred-warning mat-icon { font-size:15px; width:15px; height:15px; flex-shrink:0; margin-top:1px; }
     .dlg-foot { display:flex; gap:10px; padding:12px 18px; border-top:1px solid rgba(255,255,255,.07); }
-    .btn-cancel { padding:9px 16px; border-radius:8px; border:1px solid rgba(255,255,255,.1); background:transparent; color:#8892a4; font-size:13px; cursor:pointer; }
+    .btn-cancel { padding:9px 16px; border-radius:8px; border:1px solid rgba(255,255,255,.1); background:transparent; color:#8892a4; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:5px; }
+    .btn-cancel mat-icon { font-size:15px; width:15px; height:15px; }
     .btn-save { flex:1; padding:9px; border-radius:8px; border:none; background:#0984e3; color:#fff; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
     .btn-save:disabled { opacity:.45; cursor:not-allowed; }
     .btn-save mat-icon { font-size:16px; width:16px; height:16px; }
@@ -195,6 +245,7 @@ export class AgentCreateDialogComponent {
   private api = inject(ApiService);
   private fb = inject(FormBuilder);
   loading = false;
+  resultat: any = null;
   form = this.fb.group({
     prenom: ['', Validators.required],
     nom: ['', Validators.required],
@@ -209,9 +260,94 @@ export class AgentCreateDialogComponent {
     if (this.form.invalid) return;
     this.loading = true;
     this.api.post(`boutiques/${this.data.boutique._id}/agents`, this.form.value).subscribe({
-      next: (r: any) => { this.loading = false; this.ref.close(r.data); },
+      next: (r: any) => { this.loading = false; this.resultat = r.data; },
       error: () => { this.loading = false; }
     });
+  }
+  copier() {
+    if (!this.resultat) return;
+    const lines = [`Email: ${this.resultat.email}`, `Mot de passe: ${this.resultat.motDePasseGenere}`];
+    if (this.resultat.telephone) lines.splice(1, 0, `Téléphone: ${this.resultat.telephone}`);
+    navigator.clipboard?.writeText(lines.join('\n'));
+  }
+  fermer() { this.ref.close(this.resultat || null); }
+}
+
+// ─── Dialog résultat reset mot de passe ───────────────────────────────────
+@Component({
+  selector: 'app-password-result-dialog',
+  standalone: true,
+  imports: [CommonModule, MatDialogModule, MatIconModule],
+  template: `
+    <div class="dlg">
+      <div class="dlg-head">
+        <div class="dlg-ico"><mat-icon>vpn_key</mat-icon></div>
+        <div>
+          <div class="dlg-title">Mot de passe réinitialisé</div>
+          <div class="dlg-sub">{{ data.nom }}</div>
+        </div>
+        <button class="dlg-close" (click)="ref.close()"><mat-icon>close</mat-icon></button>
+      </div>
+      <div class="dlg-body">
+        <div class="cred-card">
+          <div class="cred-row" *ngIf="data.email">
+            <span class="cred-label">Email</span>
+            <span class="cred-value">{{ data.email }}</span>
+          </div>
+          <div class="cred-row highlight">
+            <span class="cred-label">Nouveau mot de passe</span>
+            <span class="cred-value mono">{{ data.motDePasseGenere }}</span>
+          </div>
+        </div>
+        <div class="cred-warning">
+          <mat-icon>warning</mat-icon>
+          <span>Ce mot de passe ne sera plus jamais affiché. Transmets-le à l'agent maintenant.</span>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <button class="btn-cancel" (click)="copier()">
+          <mat-icon>content_copy</mat-icon> Copier
+        </button>
+        <button class="btn-save" (click)="ref.close()">
+          <mat-icon>check</mat-icon> J'ai noté, fermer
+        </button>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .dlg { background:#0f1b2d; border-radius:16px; width:min(400px,95vw); display:flex; flex-direction:column; max-height:90vh; max-height:90dvh; }
+    .dlg-head { display:flex; align-items:center; gap:12px; padding:18px 18px 14px; border-bottom:1px solid rgba(255,255,255,.07); }
+    .dlg-ico { width:38px; height:38px; border-radius:10px; background:rgba(0,184,148,.15); border:1px solid rgba(0,184,148,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .dlg-ico mat-icon { color:#00b894; font-size:20px; }
+    .dlg-title { font-size:15px; font-weight:700; color:#e8eaf0; }
+    .dlg-sub { font-size:11px; color:#8892a4; }
+    .dlg-close { margin-left:auto; width:30px; height:30px; border-radius:8px; border:none; background:rgba(255,255,255,.05); color:#4a5568; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+    .dlg-close mat-icon { font-size:17px; }
+    .dlg-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
+    .cred-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden; }
+    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.05); gap:10px; }
+    .cred-row:last-child { border-bottom:none; }
+    .cred-row.highlight { background:rgba(0,184,148,.07); }
+    .cred-label { font-size:11px; color:#636e72; font-weight:600; text-transform:uppercase; letter-spacing:.4px; flex-shrink:0; }
+    .cred-value { font-size:13px; color:#e8eaf0; font-weight:600; text-align:right; word-break:break-all; }
+    .cred-value.mono { font-family:monospace; font-size:15px; color:#00b894; letter-spacing:.5px; }
+    .cred-warning { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:#fdcb6e; background:rgba(253,203,110,.08); border:1px solid rgba(253,203,110,.2); border-radius:8px; padding:9px 11px; line-height:1.4; }
+    .cred-warning mat-icon { font-size:15px; width:15px; height:15px; flex-shrink:0; margin-top:1px; }
+    .dlg-foot { display:flex; gap:10px; padding:12px 18px; border-top:1px solid rgba(255,255,255,.07); }
+    .btn-cancel { padding:9px 16px; border-radius:8px; border:1px solid rgba(255,255,255,.1); background:transparent; color:#8892a4; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:5px; }
+    .btn-cancel mat-icon { font-size:15px; width:15px; height:15px; }
+    .btn-save { flex:1; padding:9px; border-radius:8px; border:none; background:#00b894; color:#04241c; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; }
+    .btn-save mat-icon { font-size:16px; width:16px; height:16px; }
+  `]
+})
+export class PasswordResultDialogComponent {
+  ref = inject(MatDialogRef<PasswordResultDialogComponent>);
+  data: any = inject(MAT_DIALOG_DATA);
+  copier() {
+    const text = this.data.email
+      ? `Email: ${this.data.email}\nMot de passe: ${this.data.motDePasseGenere}`
+      : `Mot de passe: ${this.data.motDePasseGenere}`;
+    navigator.clipboard?.writeText(text);
   }
 }
 
@@ -241,15 +377,11 @@ export class AgentCreateDialogComponent {
         <p>Aucune boutique. Créez votre première boutique.</p>
       </div>
 
-      <!-- Liste boutiques -->
       <div class="boutiques-list" *ngIf="!isLoading()">
         <div class="boutique-block" *ngFor="let b of boutiques()">
 
-          <!-- Header boutique -->
           <div class="boutique-header" (click)="toggleExpand(b._id)">
-            <div class="boutique-avatar">
-              <mat-icon>store</mat-icon>
-            </div>
+            <div class="boutique-avatar"><mat-icon>store</mat-icon></div>
             <div class="boutique-info">
               <div class="boutique-nom">{{ b.nom }}</div>
               <div class="boutique-meta">
@@ -269,7 +401,6 @@ export class AgentCreateDialogComponent {
             </div>
           </div>
 
-          <!-- Agents de la boutique -->
           <div class="agents-list" *ngIf="expandedId === b._id">
             <div class="agents-loading" *ngIf="loadingAgents === b._id">
               <mat-spinner diameter="20"></mat-spinner>
@@ -283,11 +414,11 @@ export class AgentCreateDialogComponent {
               </div>
               <div class="agent-actions">
                 <span class="status-dot" [class.actif]="a.actif" [matTooltip]="a.actif ? 'Actif' : 'Inactif'"></span>
-                <button class="ico-btn-sm" (click)="toggleAgent(b._id, a)" matTooltip="{{ a.actif ? 'Désactiver' : 'Activer' }}">
+                <button class="ico-btn-sm" (click)="toggleAgent(b._id, a)" [matTooltip]="a.actif ? 'Désactiver' : 'Activer'">
                   <mat-icon>{{ a.actif ? 'toggle_on' : 'toggle_off' }}</mat-icon>
                 </button>
-                <button class="ico-btn-sm" (click)="copierCredentials(a)" matTooltip="Copier identifiants">
-                  <mat-icon>content_copy</mat-icon>
+                <button class="ico-btn-sm" (click)="reinitialiserMotDePasse(a)" matTooltip="Réinitialiser mot de passe">
+                  <mat-icon>key</mat-icon>
                 </button>
                 <button class="ico-btn-sm danger" (click)="supprimerAgent(b._id, a)" matTooltip="Supprimer">
                   <mat-icon>person_remove</mat-icon>
@@ -303,13 +434,12 @@ export class AgentCreateDialogComponent {
               <mat-icon>person_add</mat-icon> Ajouter un agent
             </button>
           </div>
-
         </div>
       </div>
     </div>
   `,
   styles: [`
-    .agents-page { max-width: 800px; margin: 0 auto; padding-bottom: 32px; }
+    .agents-page { max-width:800px; margin:0 auto; padding-bottom:32px; }
     .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
     h1 { font-size:22px; font-weight:800; color:var(--text-1); margin:0; }
     .btn-primary { padding:10px 16px; border-radius:12px; border:none; background:var(--accent); color:#04241c; font-size:13px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:6px; }
@@ -317,11 +447,9 @@ export class AgentCreateDialogComponent {
     .loading-center { display:flex; justify-content:center; padding:60px; }
     .empty-state { text-align:center; padding:60px 20px; color:var(--text-3); }
     .empty-state mat-icon { font-size:48px; width:48px; height:48px; margin-bottom:12px; }
-
-    /* Boutique block */
     .boutiques-list { display:flex; flex-direction:column; gap:12px; }
     .boutique-block { background:var(--navy-card); border:1px solid rgba(255,255,255,.07); border-radius:14px; overflow:hidden; }
-    .boutique-header { display:flex; align-items:center; gap:12px; padding:14px 14px; cursor:pointer; transition:background .12s; }
+    .boutique-header { display:flex; align-items:center; gap:12px; padding:14px; cursor:pointer; transition:background .12s; }
     .boutique-header:hover { background:rgba(255,255,255,.03); }
     .boutique-avatar { width:40px; height:40px; border-radius:10px; background:rgba(0,184,148,.15); border:1px solid rgba(0,184,148,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .boutique-avatar mat-icon { color:var(--accent); font-size:20px; }
@@ -337,8 +465,6 @@ export class AgentCreateDialogComponent {
     .ico-btn mat-icon { font-size:17px; }
     .expand-icon { font-size:20px; color:var(--text-3); transition:transform .2s; }
     .expand-icon.expanded { transform:rotate(180deg); }
-
-    /* Agents list */
     .agents-list { border-top:1px solid rgba(255,255,255,.05); padding:8px 14px 12px; display:flex; flex-direction:column; gap:4px; }
     .agents-loading { display:flex; justify-content:center; padding:12px; }
     .agent-row { display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; }
@@ -415,7 +541,7 @@ export class AgentsComponent implements OnInit, OnDestroy {
 
   supprimerBoutique(b: any, e: Event) {
     e.stopPropagation();
-    this.dialog.open(ConfirmDialogComponent, { data: { message: `Supprimer "${b.nom}" ?` } })
+    this.dialog.open(ConfirmDialogComponent, { data: { title: 'Supprimer', message: `Supprimer "${b.nom}" ?` } })
       .afterClosed().subscribe(ok => {
         if (!ok) return;
         this.api.delete(`boutiques/${b._id}`).subscribe({
@@ -431,7 +557,7 @@ export class AgentsComponent implements OnInit, OnDestroy {
         if (!agent) return;
         this.agentsMap = { ...this.agentsMap, [boutique._id]: [agent, ...(this.agentsMap[boutique._id] || [])] };
         this.boutiques.update(l => l.map(b => b._id === boutique._id ? { ...b, agentsCount: (b.agentsCount || 0) + 1 } : b));
-        this.snack.open(`Agent créé — ${agent.loginInfo}`, 'OK', { duration: 5000 });
+        this.snack.open(`${agent.prenom} ${agent.nom} ajouté`, 'OK', { duration: 2000 });
       });
   }
 
@@ -445,13 +571,24 @@ export class AgentsComponent implements OnInit, OnDestroy {
     });
   }
 
-  copierCredentials(agent: any) {
-    const text = `Email: ${agent.email}\nMot de passe: ${agent.telephone || 'smartstock2024'}`;
-    navigator.clipboard?.writeText(text).then(() => this.snack.open('Identifiants copiés', 'OK', { duration: 2000 }));
+  reinitialiserMotDePasse(agent: any) {
+    this.dialog.open(ConfirmDialogComponent, { data: { title: 'Réinitialiser', message: `Générer un nouveau mot de passe pour ${agent.prenom} ${agent.nom} ?` } })
+      .afterClosed().subscribe(ok => {
+        if (!ok) return;
+        this.api.patch(`boutiques/agents/${agent._id}/reset-password`, {}).subscribe({
+          next: (r: any) => {
+            this.dialog.open(PasswordResultDialogComponent, {
+              data: { nom: `${agent.prenom} ${agent.nom}`, email: agent.email, motDePasseGenere: r.data?.motDePasseGenere },
+              maxWidth: '100vw', panelClass: 'produit-dialog-panel',
+            });
+          },
+          error: () => this.snack.open('Erreur lors de la réinitialisation', 'OK', { duration: 3000 })
+        });
+      });
   }
 
   supprimerAgent(boutiqueId: string, agent: any) {
-    this.dialog.open(ConfirmDialogComponent, { data: { message: `Supprimer ${agent.prenom} ${agent.nom} ?` } })
+    this.dialog.open(ConfirmDialogComponent, { data: { title: 'Supprimer', message: `Supprimer ${agent.prenom} ${agent.nom} ?` } })
       .afterClosed().subscribe(ok => {
         if (!ok) return;
         this.api.delete(`boutiques/agents/${agent._id}`).subscribe({
