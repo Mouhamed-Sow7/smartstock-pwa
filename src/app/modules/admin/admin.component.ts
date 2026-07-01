@@ -80,6 +80,53 @@ interface PatronUser {
             </div>
           </div>
 
+
+          <!-- Section Agents — debug & reset -->
+          <div class="section-header" style="margin-top:8px">
+            <span class="section-title">Agents (debug)</span>
+            <button class="btn-ghost small" (click)="loadAgents()">
+              <mat-icon>refresh</mat-icon> Charger
+            </button>
+          </div>
+
+          <!-- Reset rapide par email -->
+          <div class="create-card" style="margin-bottom:12px">
+            <div style="font-size:11px;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">
+              Réinitialiser mot de passe agent
+            </div>
+            <div class="form-row">
+              <input class="field" placeholder="Email agent (ex: mouhamed.sow@digital-esf.sm)"
+                [(ngModel)]="resetEmailInput" style="flex:2" />
+              <input class="field" placeholder="Nouveau mot de passe" type="password"
+                [(ngModel)]="resetEmailPassword" style="flex:1;min-width:120px" />
+            </div>
+            <div class="error" *ngIf="resetEmailError">{{ resetEmailError }}</div>
+            <div class="success-msg" *ngIf="resetEmailSuccess">{{ resetEmailSuccess }}</div>
+            <div class="form-actions">
+              <button class="btn-primary small" (click)="resetByEmail()">
+                <mat-icon>key</mat-icon> Réinitialiser
+              </button>
+            </div>
+          </div>
+
+          <!-- Liste agents -->
+          <div class="agent-debug-list" *ngIf="agents.length > 0" style="margin-bottom:20px">
+            <div class="user-card" *ngFor="let a of agents" style="opacity:{{a.actif ? 1 : 0.5}}">
+              <div class="user-avatar" [class.inactive]="!a.actif">{{ initiale(a.nom) }}</div>
+              <div class="user-info">
+                <div class="user-name">
+                  {{ a.prenom }} {{ a.nom }}
+                  <span class="badge" [class.on]="a.actif">{{ a.actif ? 'Actif' : 'Inactif' }}</span>
+                </div>
+                <div class="user-meta">{{ a.email }}</div>
+                <div class="user-tenant">tél stocké: <strong>{{ a.telephone || '(aucun)' }}</strong> · tenant: {{ a.tenantId }}</div>
+              </div>
+              <button class="icon-btn" title="Reset mot de passe" (click)="openReset(a)">
+                <mat-icon>key</mat-icon>
+              </button>
+            </div>
+          </div>
+
           <div class="section-header">
             <span class="section-title">Patrons</span>
             <button class="btn-primary small" (click)="showCreate = !showCreate">
@@ -273,6 +320,7 @@ interface PatronUser {
       gap: 6px;
     }
     .error { color: var(--danger); font-size: 12px; margin-bottom: 8px; }
+    .success-msg { color: var(--accent); font-size: 12px; margin-bottom: 8px; font-weight: 600; }
 
     /* Topbar */
     .topbar {
@@ -417,6 +465,11 @@ export class AdminComponent implements OnInit {
 
   stats: { totalPatrons: number; actifs: number; inactifs: number } | null = null;
   users: PatronUser[] = [];
+  agents: PatronUser[] = [];  // debug: tous les agents de la plateforme
+  resetEmailInput = '';
+  resetEmailPassword = '';
+  resetEmailError = '';
+  resetEmailSuccess = '';
   loading = false;
 
   showCreate = false;
@@ -501,6 +554,38 @@ export class AdminComponent implements OnInit {
       .subscribe((res: any) => {
         this.loading = false;
         if (res?.success) this.users = res.data;
+      });
+  }
+
+  loadAgents(): void {
+    this.http.get(`${this.base}/agents`, { headers: this.headers() })
+      .pipe(catchError(() => of(null)))
+      .subscribe((res: any) => {
+        if (res?.success) this.agents = res.data;
+      });
+  }
+
+  resetByEmail(): void {
+    this.resetEmailError = '';
+    this.resetEmailSuccess = '';
+    if (!this.resetEmailInput.trim() || !this.resetEmailPassword.trim()) {
+      this.resetEmailError = 'Email et mot de passe requis';
+      return;
+    }
+    this.http.patch(`${this.base}/reset-by-email`,
+      { email: this.resetEmailInput.trim(), newPassword: this.resetEmailPassword },
+      { headers: this.headers() })
+      .pipe(catchError((err) => of({ success: false, message: err?.error?.message || 'Erreur' })))
+      .subscribe((res: any) => {
+        if (res?.success) {
+          this.resetEmailSuccess = `Mot de passe réinitialisé pour ${this.resetEmailInput}`;
+          this.resetEmailInput = '';
+          this.resetEmailPassword = '';
+          // Recharger la liste agents si elle était ouverte
+          if (this.agents.length) this.loadAgents();
+        } else {
+          this.resetEmailError = res?.message || 'Erreur';
+        }
       });
   }
 
