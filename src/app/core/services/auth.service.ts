@@ -20,12 +20,17 @@ export class AuthService {
   ) {}
 
   login(email: string, password: string) {
-    return this.http.post<any>(`${this.baseUrl}/login`, { email, password }).pipe(
+    return this.loginRaw({ email, password });
+  }
+
+  // loginRaw accepte n'importe quel payload { email?, telephone?, password }
+  // pour gérer à la fois les patrons (email) et les agents (email @slug.sm ou téléphone)
+  loginRaw(payload: { email?: string; telephone?: string; password: string }) {
+    return this.http.post<any>(`${this.baseUrl}/login`, payload).pipe(
       tap((res) => {
         if (res.token) {
           localStorage.setItem(this.TOKEN_KEY, res.token);
           localStorage.setItem(this.USER_KEY, JSON.stringify(res.user || res));
-          // Déclencher la vérification des ventes pending après connexion
           setTimeout(() => this.onLoginSuccess?.(), 500);
         }
       }),

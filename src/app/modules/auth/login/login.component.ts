@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -9,6 +9,18 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+
+// Regex permissive : accepte email classique + agents (@slug.sm) + téléphone sénégalais
+function emailOuTelephone(ctrl: AbstractControl): ValidationErrors | null {
+  const v = (ctrl.value || '').trim();
+  if (!v) return null;
+  // email standard ou @domaine.xx (2-5 chars)
+  const emailOk = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(v);
+  // téléphone sénégalais : 9 chiffres commençant par 7, ou avec +221/00221
+  const telOk = /^(\+?221|00221)?[7][05678]\d{7}$/.test(v.replace(/\s/g, ''));
+  return emailOk || telOk ? null : { emailOuTelephone: true };
+}
+
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -30,27 +42,34 @@ export class LoginComponent {
   isLoading = false;
   showPassword = false;
   errorMessage = '';
+
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
   ) {
     this.loginForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
+      identifiant: ['', [Validators.required, emailOuTelephone]],
+      password: ['', [Validators.required, Validators.minLength(4)]],
     });
   }
+
   onSubmit(): void {
-    if (this.loginForm.invalid) {
-      return;
-    }
+    if (this.loginForm.invalid) return;
     this.isLoading = true;
     this.errorMessage = '';
-    const { email, password } = this.loginForm.value;
-    this.authService.login(email, password).subscribe({
+    const { identifiant, password } = this.loginForm.value;
+    const raw = (identifiant || '').trim();
+
+    // Détecter si c'est un téléphone ou un email
+    const isTelephone = /^(\+?221|00221)?[7][05678]\d{7}$/.test(raw.replace(/\s/g, ''));
+    const payload = isTelephone
+      ? { telephone: raw, password }
+      : { email: raw, password };
+
+    this.authService.loginRaw(payload).subscribe({
       next: () => {
         this.isLoading = false;
-        // Navigation basée sur le rôle de l'utilisateur
         const user = this.authService.getUser();
         if (user?.role === 'patron') {
           this.router.navigate(['/patron']);
@@ -60,9 +79,9 @@ export class LoginComponent {
           this.router.navigate(['/']);
         }
       },
-      error: (error) => {
+      error: (error: any) => {
         this.isLoading = false;
-        this.errorMessage = error.error?.message || 'Email ou mot de passe incorrect';
+        this.errorMessage = error.error?.message || 'Identifiant ou mot de passe incorrect';
       },
     });
   }
