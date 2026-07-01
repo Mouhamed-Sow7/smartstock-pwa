@@ -9,7 +9,9 @@ import { environment } from '../../../environments/environment';
 interface PatronUser {
   _id: string;
   nom: string;
+  prenom?: string;
   email: string;
+  telephone?: string;
   boutique?: string;
   tenantId: string;
   actif: boolean;
