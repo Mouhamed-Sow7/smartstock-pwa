@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, inject, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -244,6 +244,8 @@ export class AgentCreateDialogComponent {
   data: any = inject(MAT_DIALOG_DATA);
   private api = inject(ApiService);
   private fb = inject(FormBuilder);
+  private zone = inject(NgZone);
+  private cdr = inject(ChangeDetectorRef);
   loading = false;
   resultat: any = null;
   form = this.fb.group({
@@ -260,8 +262,18 @@ export class AgentCreateDialogComponent {
     if (this.form.invalid) return;
     this.loading = true;
     this.api.post(`boutiques/${this.data.boutique._id}/agents`, this.form.value).subscribe({
-      next: (r: any) => { this.loading = false; this.resultat = r.data; },
-      error: () => { this.loading = false; }
+      next: (r: any) => {
+        // NgZone.run() garantit qu'Angular detecte le changement meme quand
+        // le subscribe s'execute hors de la zone (cause du spinner persistant).
+        this.zone.run(() => {
+          this.loading = false;
+          this.resultat = r.data;
+          this.cdr.detectChanges();
+        });
+      },
+      error: () => {
+        this.zone.run(() => { this.loading = false; this.cdr.detectChanges(); });
+      }
     });
   }
   copier() {

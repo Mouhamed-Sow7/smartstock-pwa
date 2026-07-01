@@ -13,6 +13,7 @@ import { Subject } from 'rxjs';
 import { takeUntil, timeout, retry } from 'rxjs/operators';
 import { RapportService, Vente } from '../../../core/services/rapport.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ApiService } from '../../../core/services/api.service';
 
 type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | 'personnalise';
 
@@ -39,6 +40,14 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
             (click)="setPeriode(p.value)">
             {{ p.label }}
           </button>
+        </div>
+        <!-- Filtre boutique — visible seulement si le patron a plusieurs boutiques -->
+        <div class="boutique-filter" *ngIf="boutiques.length > 0">
+          <mat-icon class="boutique-icon">storefront</mat-icon>
+          <select class="boutique-select" [(ngModel)]="boutiqueSelectId" (change)="charger()">
+            <option value="">Toutes les boutiques</option>
+            <option *ngFor="let b of boutiques" [value]="b._id">{{ b.nom }}</option>
+          </select>
         </div>
         <div class="date-range" *ngIf="periode === 'personnalise'">
           <input type="date" [(ngModel)]="dateDebut" (change)="charger()" />
@@ -144,6 +153,21 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
       border-color: var(--accent);
       color: #04241c;
     }
+    /* Filtre boutique */
+    .boutique-filter {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 10px;
+      padding: 6px 10px;
+      background: rgba(255,255,255,.04);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 10px;
+    }
+    .boutique-icon { font-size: 16px; width: 16px; height: 16px; color: var(--text-3); flex-shrink: 0; }
+    .boutique-select {
+      background: transparent; border: none; color: var(--text-2);
+      font-size: 13px; cursor: pointer; outline: none; flex: 1; min-width: 0;
+    }
+    .boutique-select option { background: #162236; color: var(--text-1); }
     .date-range {
       display: flex;
       align-items: center;
@@ -284,6 +308,7 @@ export class VentesComponent implements OnInit, OnDestroy {
   private rapport = inject(RapportService);
   private auth = inject(AuthService);
   private snack = inject(MatSnackBar);
+  private api = inject(ApiService);
   private destroy$ = new Subject<void>();
 
   ventes = signal<Vente[]>([]);
@@ -293,6 +318,8 @@ export class VentesComponent implements OnInit, OnDestroy {
   periode: Periode = 'aujourd_hui';
   dateDebut = '';
   dateFin = '';
+  boutiqueSelectId = '';   // '' = toutes les boutiques
+  boutiques: any[] = [];   // liste des boutiques du patron (pour le sélecteur)
 
   periodes = [
     { value: 'aujourd_hui' as Periode, label: "Auj." },
@@ -307,7 +334,12 @@ export class VentesComponent implements OnInit, OnDestroy {
   totalMarge = () => this.ventes().reduce((s, v) => s + (v.margeTotale || 0), 0);
   panierMoyen = () => this.ventes().length ? Math.round(this.totalCA() / this.ventes().length) : 0;
 
-  ngOnInit() { this.charger(); }
+  ngOnInit() {
+    this.charger();
+    // Charger les boutiques pour le sélecteur (silencieusement, si aucune = sélecteur caché)
+    this.api.get('boutiques').pipe(takeUntil(this.destroy$))
+      .subscribe({ next: (r: any) => { this.boutiques = r.data || []; }, error: () => {} });
+  }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   setPeriode(p: Periode) {
@@ -319,7 +351,7 @@ export class VentesComponent implements OnInit, OnDestroy {
     const { debut, fin } = this.getRange();
     if (!debut || !fin) return;
     this.isLoading.set(true);
-    this.rapport.getVentes(debut, fin).pipe(
+    this.rapport.getVentes(debut, fin, this.boutiqueSelectId || undefined).pipe(
       timeout(15000),
       retry({ count: 3, delay: 4000 }),
       takeUntil(this.destroy$),

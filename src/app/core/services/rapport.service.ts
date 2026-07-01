@@ -19,8 +19,10 @@ export interface Vente {
 export class RapportService {
   constructor(private api: ApiService, private auth: AuthService) {}
 
-  getVentes(debut: string, fin: string): Observable<any> {
-    return this.api.get(`ventes?debut=${debut}&fin=${fin}`);
+  getVentes(debut: string, fin: string, boutiqueId?: string): Observable<any> {
+    let url = `ventes?debut=${debut}&fin=${fin}`;
+    if (boutiqueId) url += `&boutiqueId=${boutiqueId}`;
+    return this.api.get(url);
   }
 
   async exportPDF(ventes: Vente[], label: string, boutique: string): Promise<void> {
