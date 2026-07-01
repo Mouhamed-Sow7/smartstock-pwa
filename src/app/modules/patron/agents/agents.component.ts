@@ -515,7 +515,8 @@ export class AgentsComponent implements OnInit, OnDestroy {
   toggleExpand(id: string) {
     if (this.expandedId === id) { this.expandedId = null; return; }
     this.expandedId = id;
-    if (!this.agentsMap[id]) this.chargerAgents(id);
+    // agentsMap est un signal — lire la valeur avec () avant d'accéder à la clé
+    if (!this.agentsMap()[id]) this.chargerAgents(id);
   }
 
   chargerAgents(boutiqueId: string) {
