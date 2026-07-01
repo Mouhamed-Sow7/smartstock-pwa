@@ -223,12 +223,12 @@ export class BoutiqueDialogComponent {
     .result-banner { display:flex; align-items:center; gap:8px; background:rgba(0,184,148,.1); border:1px solid rgba(0,184,148,.25); border-radius:10px; padding:10px 12px; font-size:13px; color:#00b894; font-weight:600; }
     .result-banner mat-icon { font-size:18px; width:18px; height:18px; }
     .cred-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden; }
-    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.05); gap:10px; }
+    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.05); gap:10px; flex-wrap:wrap; }
     .cred-row:last-child { border-bottom:none; }
-    .cred-row.highlight { background:rgba(0,184,148,.07); }
+    .cred-row.highlight { background:rgba(0,184,148,.07); flex-direction:column; align-items:flex-start; gap:6px; }
     .cred-label { font-size:11px; color:#636e72; font-weight:600; text-transform:uppercase; letter-spacing:.4px; flex-shrink:0; }
-    .cred-value { font-size:13px; color:#e8eaf0; font-weight:600; text-align:right; word-break:break-all; }
-    .cred-value.mono { font-family:monospace; font-size:15px; color:#00b894; letter-spacing:.5px; }
+    .cred-value { font-size:13px; color:#e8eaf0; font-weight:600; word-break:break-all; }
+    .cred-value.mono { font-family:monospace; font-size:20px; color:#00b894; letter-spacing:2px; word-break:break-all; font-weight:700; }
     .cred-warning { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:#fdcb6e; background:rgba(253,203,110,.08); border:1px solid rgba(253,203,110,.2); border-radius:8px; padding:9px 11px; line-height:1.4; }
     .cred-warning mat-icon { font-size:15px; width:15px; height:15px; flex-shrink:0; margin-top:1px; }
     .dlg-foot { display:flex; gap:10px; padding:12px 18px; border-top:1px solid rgba(255,255,255,.07); }
@@ -325,12 +325,12 @@ export class AgentCreateDialogComponent {
     .dlg-close mat-icon { font-size:17px; }
     .dlg-body { padding:14px 18px; display:flex; flex-direction:column; gap:12px; overflow-y:auto; }
     .cred-card { background:rgba(255,255,255,.03); border:1px solid rgba(255,255,255,.08); border-radius:10px; overflow:hidden; }
-    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.05); gap:10px; }
+    .cred-row { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; border-bottom:1px solid rgba(255,255,255,.05); gap:10px; flex-wrap:wrap; }
     .cred-row:last-child { border-bottom:none; }
-    .cred-row.highlight { background:rgba(0,184,148,.07); }
+    .cred-row.highlight { background:rgba(0,184,148,.07); flex-direction:column; align-items:flex-start; gap:6px; }
     .cred-label { font-size:11px; color:#636e72; font-weight:600; text-transform:uppercase; letter-spacing:.4px; flex-shrink:0; }
-    .cred-value { font-size:13px; color:#e8eaf0; font-weight:600; text-align:right; word-break:break-all; }
-    .cred-value.mono { font-family:monospace; font-size:15px; color:#00b894; letter-spacing:.5px; }
+    .cred-value { font-size:13px; color:#e8eaf0; font-weight:600; word-break:break-all; }
+    .cred-value.mono { font-family:monospace; font-size:20px; color:#00b894; letter-spacing:2px; word-break:break-all; font-weight:700; }
     .cred-warning { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:#fdcb6e; background:rgba(253,203,110,.08); border:1px solid rgba(253,203,110,.2); border-radius:8px; padding:9px 11px; line-height:1.4; }
     .cred-warning mat-icon { font-size:15px; width:15px; height:15px; flex-shrink:0; margin-top:1px; }
     .dlg-foot { display:flex; gap:10px; padding:12px 18px; border-top:1px solid rgba(255,255,255,.07); }
