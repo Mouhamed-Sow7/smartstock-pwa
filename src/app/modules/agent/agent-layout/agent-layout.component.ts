@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -185,25 +185,32 @@ export class AgentLayoutComponent {
     private router: Router,
     private offline: OfflineService,
     private snackBar: MatSnackBar,
+    private ngZone: NgZone,
+    private cdr: ChangeDetectorRef,
   ) {
     this.user = this.auth.getUser();
   }
 
   async onRefresh(): Promise<void> {
+    // isSyncing est muté dans un contexte async (await sort de NgZone sur certains navigateurs).
+    // NgZone.run() garantit que les mutations sont vues par Angular et déclenchent le re-render.
+    this.ngZone.run(() => { this.isSyncing = true; this.cdr.markForCheck(); });
     try {
-      this.isSyncing = true;
       const tenantId = this.auth.getTenantId();
       const ok = await this.offline.syncProduitsFromServer(tenantId);
-      this.isSyncing = false;
-      if (ok) this.snackBar.open('Catalogue mis à jour', 'Fermer', { duration: 3000 });
-      else
-        this.snackBar.open('Aucune modification ou échec de synchronisation', 'Fermer', {
-          duration: 3000,
-        });
+      this.ngZone.run(() => {
+        this.isSyncing = false;
+        this.cdr.markForCheck();
+        if (ok) this.snackBar.open('Catalogue mis à jour', 'Fermer', { duration: 3000 });
+        else this.snackBar.open('Aucune modification', 'Fermer', { duration: 3000 });
+      });
     } catch (err) {
-      this.isSyncing = false;
+      this.ngZone.run(() => {
+        this.isSyncing = false;
+        this.cdr.markForCheck();
+        this.snackBar.open('Erreur de synchronisation', 'Fermer', { duration: 3000 });
+      });
       console.error('Erreur syncProduitsFromServer (manuelle):', err);
-      this.snackBar.open('Erreur de synchronisation', 'Fermer', { duration: 3000 });
     }
   }
 

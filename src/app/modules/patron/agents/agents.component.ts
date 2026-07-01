@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -402,11 +402,11 @@ export class PasswordResultDialogComponent {
           </div>
 
           <div class="agents-list" *ngIf="expandedId === b._id">
-            <div class="agents-loading" *ngIf="loadingAgents === b._id">
+            <div class="agents-loading" *ngIf="loadingAgents() === b._id">
               <mat-spinner diameter="20"></mat-spinner>
             </div>
 
-            <div class="agent-row" *ngFor="let a of agentsMap[b._id] || []">
+            <div class="agent-row" *ngFor="let a of agentsMap()[b._id] || []">
               <div class="agent-avatar">{{ (a.prenom || a.nom || 'A').charAt(0).toUpperCase() }}</div>
               <div class="agent-info">
                 <div class="agent-nom">{{ a.prenom }} {{ a.nom }}</div>
@@ -426,7 +426,7 @@ export class PasswordResultDialogComponent {
               </div>
             </div>
 
-            <div class="no-agents" *ngIf="(agentsMap[b._id] || []).length === 0 && loadingAgents !== b._id">
+            <div class="no-agents" *ngIf="(agentsMap()[b._id] || []).length === 0 && loadingAgents() !== b._id">
               Aucun agent dans cette boutique
             </div>
 
@@ -490,13 +490,16 @@ export class AgentsComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private dialog = inject(MatDialog);
   private snack = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
   private destroy$ = new Subject<void>();
 
   boutiques = signal<any[]>([]);
   isLoading = signal(true);
   expandedId: string | null = null;
-  loadingAgents: string | null = null;
-  agentsMap: Record<string, any[]> = {};
+  // Convertis en signals : Angular trackera automatiquement les mutations
+  // et re-rendra le template sans nécessiter d'appel explicite à markForCheck.
+  loadingAgents = signal<string | null>(null);
+  agentsMap = signal<Record<string, any[]>>({});
 
   ngOnInit() { this.charger(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
@@ -516,10 +519,13 @@ export class AgentsComponent implements OnInit, OnDestroy {
   }
 
   chargerAgents(boutiqueId: string) {
-    this.loadingAgents = boutiqueId;
+    this.loadingAgents.set(boutiqueId);
     this.api.get(`boutiques/${boutiqueId}/agents`).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (r: any) => { this.agentsMap = { ...this.agentsMap, [boutiqueId]: r.data || [] }; this.loadingAgents = null; },
-      error: () => { this.loadingAgents = null; }
+      next: (r: any) => {
+        this.agentsMap.update(m => ({ ...m, [boutiqueId]: r.data || [] }));
+        this.loadingAgents.set(null);
+      },
+      error: () => { this.loadingAgents.set(null); }
     });
   }
 
@@ -555,7 +561,7 @@ export class AgentsComponent implements OnInit, OnDestroy {
     this.dialog.open(AgentCreateDialogComponent, { data: { boutique }, maxWidth: '100vw', panelClass: 'produit-dialog-panel' })
       .afterClosed().subscribe(agent => {
         if (!agent) return;
-        this.agentsMap = { ...this.agentsMap, [boutique._id]: [agent, ...(this.agentsMap[boutique._id] || [])] };
+        this.agentsMap.update(m => ({ ...m, [boutique._id]: [agent, ...(m[boutique._id] || [])] }));
         this.boutiques.update(l => l.map(b => b._id === boutique._id ? { ...b, agentsCount: (b.agentsCount || 0) + 1 } : b));
         this.snack.open(`${agent.prenom} ${agent.nom} ajouté`, 'OK', { duration: 2000 });
       });
@@ -564,7 +570,10 @@ export class AgentsComponent implements OnInit, OnDestroy {
   toggleAgent(boutiqueId: string, agent: any) {
     this.api.patch(`boutiques/agents/${agent._id}/toggle`, {}).subscribe({
       next: (r: any) => {
-        this.agentsMap = { ...this.agentsMap, [boutiqueId]: this.agentsMap[boutiqueId].map(a => a._id === agent._id ? { ...a, actif: r.data.actif } : a) };
+        this.agentsMap.update(m => ({
+          ...m,
+          [boutiqueId]: (m[boutiqueId] || []).map(a => a._id === agent._id ? { ...a, actif: r.data.actif } : a)
+        }));
         this.snack.open(`Agent ${r.data.actif ? 'activé' : 'désactivé'}`, 'OK', { duration: 2000 });
       },
       error: () => this.snack.open('Erreur', 'OK', { duration: 2000 })
@@ -593,7 +602,7 @@ export class AgentsComponent implements OnInit, OnDestroy {
         if (!ok) return;
         this.api.delete(`boutiques/agents/${agent._id}`).subscribe({
           next: () => {
-            this.agentsMap = { ...this.agentsMap, [boutiqueId]: this.agentsMap[boutiqueId].filter(a => a._id !== agent._id) };
+            this.agentsMap.update(m => ({ ...m, [boutiqueId]: (m[boutiqueId] || []).filter(a => a._id !== agent._id) }));
             this.boutiques.update(l => l.map(b => b._id === boutiqueId ? { ...b, agentsCount: Math.max(0, (b.agentsCount || 1) - 1) } : b));
             this.snack.open('Agent supprimé', 'OK', { duration: 2000 });
           },
