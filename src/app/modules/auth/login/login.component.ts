@@ -10,10 +10,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
-// Regex permissive : accepte email classique + agents (@slug.sm) + téléphone sénégalais
+// Regex permissive : accepte email classique + agents (@slug.sm) + téléphone sénégalais + identifiants admin courts
 function emailOuTelephone(ctrl: AbstractControl): ValidationErrors | null {
   const v = (ctrl.value || '').trim();
   if (!v) return null;
+  // identifiants admin (admin, smartstock-admin, etc.)
+  if (['admin', 'smartstock-admin', 'admin@smartstock.sn'].includes(v.toLowerCase())) return null;
   // email standard ou @domaine.xx (2-5 chars)
   const emailOk = /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(v);
   // téléphone sénégalais : 9 chiffres commençant par 7, ou avec +221/00221
@@ -61,6 +63,18 @@ export class LoginComponent {
     const { identifiant, password } = this.loginForm.value;
     const raw = (identifiant || '').trim();
 
+    // ── Accès admin : identifiant "admin" + clé secrète ──────────────────────
+    // Pas d'appel API — la clé est stockée en sessionStorage pour que
+    // AdminComponent la retrouve et l'envoie dans x-admin-key.
+    const ADMIN_IDENTIFIANTS = ['admin', 'smartstock-admin', 'admin@smartstock.sn'];
+    if (ADMIN_IDENTIFIANTS.includes(raw.toLowerCase())) {
+      sessionStorage.setItem('ss_admin_key', password);
+      this.isLoading = false;
+      this.router.navigate(['/admin']);
+      return;
+    }
+
+    // ── Login standard patron / agent ─────────────────────────────────────────
     // Détecter si c'est un téléphone ou un email
     const isTelephone = /^(\+?221|00221)?[7][05678]\d{7}$/.test(raw.replace(/\s/g, ''));
     const payload = isTelephone
