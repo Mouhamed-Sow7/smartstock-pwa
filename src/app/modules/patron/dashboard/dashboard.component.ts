@@ -63,7 +63,7 @@ import { AuthService } from '../../../core/services/auth.service';
             <div class="kpi-value">{{ stats?.semaine?.total | number:'1.0-0' }}</div>
             <div class="kpi-unit">FCFA</div>
             <div class="kpi-label">Cette semaine</div>
-            <div class="kpi-sub">{{ stats?.semaine?.ventes ?? 0 }} vente(s)</div>
+            <div class="kpi-sub">{{ stats?.semaine?.ventes ?? 0 }} vente(s) · depuis le {{ debutSemaine }}</div>
           </div>
         </div>
 
@@ -291,6 +291,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   alertes = 0;
   nomPatron = 'Patron';
   today = '';
+  debutSemaine = '';
   loading = false;
   private destroy$ = new Subject<void>();
 
@@ -305,6 +306,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
     this.nomPatron = user?.nom || user?.prenom || 'Patron';
     const now = new Date();
     this.today = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+    // Lundi de la semaine courante (même logique que le backend)
+    const reculLundi = now.getDay() === 0 ? 6 : now.getDay() - 1;
+    const lundi = new Date(now.getFullYear(), now.getMonth(), now.getDate() - reculLundi);
+    this.debutSemaine = lundi.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
     this.chargerStats();
   }
 
