@@ -80,6 +80,27 @@ interface PatronUser {
                 <div class="stat-label">Inactifs</div>
               </div>
             </div>
+            <div class="stat-card" style="--glow:#6c5ce7">
+              <mat-icon>badge</mat-icon>
+              <div>
+                <div class="stat-value">{{ stats.totalAgents ?? 0 }}</div>
+                <div class="stat-label">Agents</div>
+              </div>
+            </div>
+            <div class="stat-card" style="--glow:#fdcb6e">
+              <mat-icon>receipt_long</mat-icon>
+              <div>
+                <div class="stat-value">{{ stats.ventes30j ?? 0 }}</div>
+                <div class="stat-label">Ventes 30j</div>
+              </div>
+            </div>
+            <div class="stat-card" style="--glow:#00cec9">
+              <mat-icon>trending_up</mat-icon>
+              <div>
+                <div class="stat-value">{{ (stats.ca30j ?? 0) | number:'1.0-0' }}</div>
+                <div class="stat-label">CA 30j (FCFA)</div>
+              </div>
+            </div>
           </div>
 
 
@@ -345,6 +366,7 @@ interface PatronUser {
 
     /* Stats */
     .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+    @media (max-width: 600px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
     .stat-card {
       background: rgba(255,255,255,.04);
       border: 1px solid rgba(255,255,255,.07);
@@ -465,7 +487,7 @@ export class AdminComponent implements OnInit {
   authError = '';
   connecting = false;
 
-  stats: { totalPatrons: number; actifs: number; inactifs: number } | null = null;
+  stats: { totalPatrons: number; actifs: number; inactifs: number; totalAgents?: number; totalVentes?: number; ca30j?: number; ventes30j?: number } | null = null;
   users: PatronUser[] = [];
   agents: PatronUser[] = [];  // debug: tous les agents de la plateforme
   resetEmailInput = '';
@@ -570,20 +592,22 @@ export class AdminComponent implements OnInit {
   resetByEmail(): void {
     this.resetEmailError = '';
     this.resetEmailSuccess = '';
-    if (!this.resetEmailInput.trim() || !this.resetEmailPassword.trim()) {
-      this.resetEmailError = 'Email et mot de passe requis';
+    if (!this.resetEmailInput.trim()) {
+      this.resetEmailError = 'Email requis';
       return;
     }
-    this.http.patch(`${this.base}/reset-by-email`,
-      { email: this.resetEmailInput.trim(), newPassword: this.resetEmailPassword },
-      { headers: this.headers() })
+    // Le mot de passe est optionnel — si vide, le backend génère automatiquement
+    const payload: any = { email: this.resetEmailInput.trim() };
+    if (this.resetEmailPassword.trim()) payload.newPassword = this.resetEmailPassword.trim();
+
+    this.http.patch(`${this.base}/reset-by-email`, payload, { headers: this.headers() })
       .pipe(catchError((err) => of({ success: false, message: err?.error?.message || 'Erreur' })))
       .subscribe((res: any) => {
         if (res?.success) {
-          this.resetEmailSuccess = `Mot de passe réinitialisé pour ${this.resetEmailInput}`;
+          const mdp = res.data?.motDePasseGenere || this.resetEmailPassword || '(voir backend)';
+          this.resetEmailSuccess = `Réinitialisé — Nouveau mot de passe : ${mdp}`;
           this.resetEmailInput = '';
           this.resetEmailPassword = '';
-          // Recharger la liste agents si elle était ouverte
           if (this.agents.length) this.loadAgents();
         } else {
           this.resetEmailError = res?.message || 'Erreur';
