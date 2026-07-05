@@ -143,7 +143,7 @@ const CATEGORIES = [
   styles: [`
     :host { display: block; }
     .dialog-wrap {
-      background: #0f1b2d;
+      background: var(--navy-card);
       border-radius: 18px;
       overflow: hidden;
       width: min(540px, 100vw);

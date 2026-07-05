@@ -167,7 +167,7 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
       background: transparent; border: none; color: var(--text-2);
       font-size: 13px; cursor: pointer; outline: none; flex: 1; min-width: 0;
     }
-    .boutique-select option { background: #162236; color: var(--text-1); }
+    .boutique-select option { background: var(--navy-light); color: var(--text-1); }
     .date-range {
       display: flex;
       align-items: center;

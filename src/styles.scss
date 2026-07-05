@@ -144,6 +144,38 @@ html {
   background: #ffffff !important;
 }
 
+/* Dialogs custom (.dlg) en light — agents, produits, etc. */
+[data-theme="light"] .dlg {
+  background: #ffffff !important;
+  border: 1px solid #d1d9e6 !important;
+  box-shadow: 0 8px 40px rgba(0,0,0,.12) !important;
+}
+[data-theme="light"] .dlg-head { background: #ffffff !important; border-bottom: 1px solid #d1d9e6 !important; }
+[data-theme="light"] .dlg-title { color: #0d1b2a !important; }
+[data-theme="light"] .dlg-sub { color: #3d5166 !important; }
+[data-theme="light"] .dlg-close { color: #6b7f96 !important; background: transparent !important; }
+[data-theme="light"] .dlg-close:hover { background: rgba(0,0,0,.06) !important; }
+[data-theme="light"] .dlg-body { background: #ffffff !important; }
+[data-theme="light"] .dlg-foot { background: #f5f7fa !important; border-top: 1px solid #d1d9e6 !important; }
+
+/* Dropdowns suggestions en light */
+[data-theme="light"] .suggestions {
+  background: #ffffff !important;
+  border-color: #d1d9e6 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12) !important;
+}
+[data-theme="light"] .suggestion-item {
+  border-bottom-color: #d1d9e6 !important;
+  color: #0d1b2a !important;
+}
+[data-theme="light"] .suggestion-item:hover,
+[data-theme="light"] .suggestion-item:active {
+  background: rgba(0,150,110,.08) !important;
+}
+[data-theme="light"] .suggestion-item.first {
+  background: rgba(0,150,110,.08) !important;
+}
+
 /* Snackbar en light */
 [data-theme="light"] .mdc-snackbar__surface {
   background: #1a2740 !important;

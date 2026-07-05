@@ -449,7 +449,7 @@ interface BarcodeDetectorLike {
         top: 100%;
         left: 0;
         right: 60px;
-        background: #162236;
+        background: var(--navy-light);
         border: 1px solid var(--navy-border);
         border-radius: 0 0 12px 12px;
         z-index: 100;

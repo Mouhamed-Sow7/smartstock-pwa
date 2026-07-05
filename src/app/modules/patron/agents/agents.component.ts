@@ -60,7 +60,7 @@ import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialo
     </div>
   `,
   styles: [`
-    .dlg { background:#0f1b2d; border-radius:16px; width:min(480px,95vw); display:flex; flex-direction:column; }
+    .dlg { background:var(--navy-card); border-radius:16px; width:min(480px,95vw); display:flex; flex-direction:column; }
     .dlg-head { display:flex; align-items:center; gap:12px; padding:18px 18px 14px; border-bottom:1px solid rgba(255,255,255,.07); }
     .dlg-ico { width:38px; height:38px; border-radius:10px; background:rgba(0,184,148,.15); border:1px solid rgba(0,184,148,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .dlg-ico mat-icon { color:#00b894; font-size:20px; }
@@ -195,7 +195,7 @@ export class BoutiqueDialogComponent {
     </div>
   `,
   styles: [`
-    .dlg { background:#0f1b2d; border-radius:16px; width:min(440px,95vw); display:flex; flex-direction:column; max-height:90vh; max-height:90dvh; }
+    .dlg { background:var(--navy-card); border-radius:16px; width:min(440px,95vw); display:flex; flex-direction:column; max-height:90vh; max-height:90dvh; }
     .dlg-head { display:flex; align-items:center; gap:12px; padding:18px 18px 14px; border-bottom:1px solid rgba(255,255,255,.07); }
     .dlg-ico { width:38px; height:38px; border-radius:10px; background:rgba(0,184,148,.15); border:1px solid rgba(0,184,148,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .dlg-ico.blue { background:rgba(9,132,227,.15); border-color:rgba(9,132,227,.25); }
@@ -327,7 +327,7 @@ export class AgentCreateDialogComponent {
     </div>
   `,
   styles: [`
-    .dlg { background:#0f1b2d; border-radius:16px; width:min(400px,95vw); display:flex; flex-direction:column; max-height:90vh; max-height:90dvh; }
+    .dlg { background:var(--navy-card); border-radius:16px; width:min(400px,95vw); display:flex; flex-direction:column; max-height:90vh; max-height:90dvh; }
     .dlg-head { display:flex; align-items:center; gap:12px; padding:18px 18px 14px; border-bottom:1px solid rgba(255,255,255,.07); }
     .dlg-ico { width:38px; height:38px; border-radius:10px; background:rgba(0,184,148,.15); border:1px solid rgba(0,184,148,.25); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
     .dlg-ico mat-icon { color:#00b894; font-size:20px; }

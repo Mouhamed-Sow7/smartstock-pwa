@@ -351,7 +351,7 @@ interface PatronUser {
       align-items: center;
       gap: 8px;
       padding: 14px 20px;
-      background: rgba(15,27,45,.85);
+      background: var(--navy-light);
       backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--navy-border);
       position: sticky;
