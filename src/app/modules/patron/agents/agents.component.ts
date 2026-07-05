@@ -368,7 +368,7 @@ export class PasswordResultDialogComponent {
   selector: 'app-agents',
   standalone: true,
   imports: [
-    CommonModule, MatButtonModule, MatIconModule,
+    CommonModule, MatButtonModule, MatIconModule, FormsModule,
     MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule, MatTooltipModule,
   ],
   template: `
@@ -422,19 +422,46 @@ export class PasswordResultDialogComponent {
               <div class="agent-avatar">{{ (a.prenom || a.nom || 'A').charAt(0).toUpperCase() }}</div>
               <div class="agent-info">
                 <div class="agent-nom">{{ a.prenom }} {{ a.nom }}</div>
-                <div class="agent-email">{{ a.email }}</div>
+                <div class="agent-email">{{ a.telephone || a.email }}</div>
               </div>
               <div class="agent-actions">
                 <span class="status-dot" [class.actif]="a.actif" [matTooltip]="a.actif ? 'Actif' : 'Inactif'"></span>
                 <button class="ico-btn-sm" (click)="toggleAgent(b._id, a)" [matTooltip]="a.actif ? 'Désactiver' : 'Activer'">
                   <mat-icon>{{ a.actif ? 'toggle_on' : 'toggle_off' }}</mat-icon>
                 </button>
-                <button class="ico-btn-sm" (click)="reinitialiserMotDePasse(a)" matTooltip="Réinitialiser mot de passe">
-                  <mat-icon>key</mat-icon>
+                <button class="ico-btn-sm" (click)="ouvrirEditerAgent(b._id, a)" matTooltip="Modifier">
+                  <mat-icon>edit</mat-icon>
                 </button>
                 <button class="ico-btn-sm danger" (click)="supprimerAgent(b._id, a)" matTooltip="Supprimer">
                   <mat-icon>person_remove</mat-icon>
                 </button>
+              </div>
+
+              <!-- Panel édition inline -->
+              <div class="edit-agent-panel" *ngIf="editAgentId === a._id">
+                <div class="edit-row">
+                  <input class="edit-input" [(ngModel)]="editPrenom" placeholder="Prénom" />
+                  <input class="edit-input" [(ngModel)]="editNom" placeholder="Nom" />
+                </div>
+                <div class="edit-row">
+                  <input class="edit-input" [(ngModel)]="editTelephone" placeholder="Téléphone (7X XXX XX XX)" />
+                </div>
+                <div class="edit-reset-row">
+                  <label class="reset-label">
+                    <input type="checkbox" [(ngModel)]="editResetPassword" />
+                    Générer un nouveau mot de passe
+                  </label>
+                </div>
+                <div class="edit-mdp-info" *ngIf="editNouveauMdp">
+                  Nouveau mot de passe : <strong>{{ editNouveauMdp }}</strong>
+                </div>
+                <div class="edit-actions">
+                  <button class="edit-cancel" (click)="editAgentId = null; editNouveauMdp = ''">Annuler</button>
+                  <button class="edit-save" (click)="sauvegarderAgent(b._id, a)" [disabled]="editSaving">
+                    <mat-icon>{{ editSaving ? 'hourglass_empty' : 'save' }}</mat-icon>
+                    Enregistrer
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -479,8 +506,21 @@ export class PasswordResultDialogComponent {
     .expand-icon.expanded { transform:rotate(180deg); }
     .agents-list { border-top:1px solid rgba(255,255,255,.05); padding:8px 14px 12px; display:flex; flex-direction:column; gap:4px; }
     .agents-loading { display:flex; justify-content:center; padding:12px; }
-    .agent-row { display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; }
+    .agent-row { display:flex; align-items:center; gap:10px; padding:8px 6px; border-radius:8px; flex-wrap:wrap; }
     .agent-row:hover { background:rgba(255,255,255,.03); }
+    .edit-agent-panel { width:100%; padding:12px; background:var(--navy-light); border-radius:10px; margin-top:4px; animation:slideInEdit .15s ease-out; }
+    @keyframes slideInEdit { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+    .edit-row { display:flex; gap:8px; margin-bottom:8px; }
+    .edit-input { flex:1; padding:8px 10px; border-radius:8px; border:1px solid var(--navy-border); background:var(--navy-card); color:var(--text-1); font-size:13px; min-width:0; }
+    .edit-input::placeholder { color:var(--text-3); }
+    .edit-reset-row { margin-bottom:8px; }
+    .reset-label { display:flex; align-items:center; gap:6px; color:var(--text-2); font-size:13px; cursor:pointer; }
+    .edit-mdp-info { background:rgba(0,184,148,.1); border:1px solid rgba(0,184,148,.25); border-radius:8px; padding:8px 12px; color:var(--accent); font-size:13px; margin-bottom:8px; }
+    .edit-actions { display:flex; gap:8px; }
+    .edit-cancel { flex:1; padding:8px; border-radius:8px; border:1px solid var(--navy-border); background:transparent; color:var(--text-3); cursor:pointer; font-size:13px; }
+    .edit-save { flex:2; padding:8px; border-radius:8px; border:none; background:var(--accent); color:#fff; font-weight:700; cursor:pointer; font-size:13px; display:flex; align-items:center; justify-content:center; gap:4px; }
+    .edit-save:disabled { opacity:.6; cursor:not-allowed; }
+    .edit-save mat-icon { font-size:16px; width:16px; height:16px; }
     .agent-avatar { width:32px; height:32px; border-radius:50%; background:rgba(9,132,227,.15); border:1px solid rgba(9,132,227,.25); display:flex; align-items:center; justify-content:center; color:#0984e3; font-size:13px; font-weight:700; flex-shrink:0; }
     .agent-info { flex:1; min-width:0; }
     .agent-nom { font-size:13px; font-weight:600; color:var(--text-1); }
@@ -508,10 +548,63 @@ export class AgentsComponent implements OnInit, OnDestroy {
   boutiques = signal<any[]>([]);
   isLoading = signal(true);
   expandedId: string | null = null;
-  // Convertis en signals : Angular trackera automatiquement les mutations
-  // et re-rendra le template sans nécessiter d'appel explicite à markForCheck.
   loadingAgents = signal<string | null>(null);
   agentsMap = signal<Record<string, any[]>>({});
+
+  // Édition agent inline
+  editAgentId: string | null = null;
+  editPrenom = '';
+  editNom = '';
+  editTelephone = '';
+  editResetPassword = false;
+  editNouveauMdp = '';
+  editSaving = false;
+
+  ouvrirEditerAgent(boutiqueId: string, agent: any): void {
+    if (this.editAgentId === agent._id) { this.editAgentId = null; return; }
+    this.editAgentId = agent._id;
+    this.editPrenom = agent.prenom || '';
+    this.editNom = agent.nom || '';
+    this.editTelephone = agent.telephone || '';
+    this.editResetPassword = false;
+    this.editNouveauMdp = '';
+  }
+
+  sauvegarderAgent(boutiqueId: string, agent: any): void {
+    if (this.editSaving) return;
+    this.editSaving = true;
+    const body: any = {
+      prenom: this.editPrenom,
+      nom: this.editNom,
+      telephone: this.editTelephone,
+      resetPassword: this.editResetPassword,
+    };
+    this.api.patch(`agents/${agent._id}`, body).subscribe({
+      next: (res: any) => {
+        this.editSaving = false;
+        if (res?.data) {
+          this.agentsMap.update(m => ({
+            ...m,
+            [boutiqueId]: (m[boutiqueId] || []).map(a =>
+              a._id === agent._id ? { ...a, ...res.data } : a
+            ),
+          }));
+        }
+        if (res?.nouveauMotDePasse) {
+          this.editNouveauMdp = res.nouveauMotDePasse;
+          this.editResetPassword = false;
+        } else {
+          this.editAgentId = null;
+          this.snack.open('Agent modifié', 'OK', { duration: 2000 });
+        }
+        this.cdr.markForCheck();
+      },
+      error: () => {
+        this.editSaving = false;
+        this.snack.open('Erreur lors de la modification', 'OK', { duration: 2500 });
+      },
+    });
+  }
 
   ngOnInit() { this.charger(); }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }

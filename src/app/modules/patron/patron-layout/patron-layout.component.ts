@@ -69,7 +69,7 @@ import { ThemeService } from '../../../core/services/theme.service';
   `,
   styles: [`
     .topbar {
-      background: rgba(15,27,45,.85);
+      background: var(--navy-light, rgba(15,27,45,.85));
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-bottom: 1px solid var(--navy-border);
@@ -156,7 +156,7 @@ import { ThemeService } from '../../../core/services/theme.service';
       right: 0;
       height: calc(var(--nav-h) + var(--safe-bot));
       padding-bottom: var(--safe-bot);
-      background: rgba(15, 27, 45, 0.92);
+      background: var(--navy-light);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
       border-top: 1px solid var(--navy-border);
