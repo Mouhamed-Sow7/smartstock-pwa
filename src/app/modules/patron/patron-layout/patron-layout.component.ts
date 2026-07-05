@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 @Component({
   selector: 'app-patron-layout',
@@ -24,6 +25,9 @@ import { SyncService } from '../../../core/services/sync.service';
         {{ sync.ventesPendingCount() }} en attente
       </span>
       <span class="tenant-name">{{ user?.boutique || 'Ma boutique' }}</span>
+      <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)" [title]="theme.isDark() ? 'Mode clair' : 'Mode sombre'">
+        <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
       <button mat-icon-button (click)="logout()" style="color:var(--text-2)">
         <mat-icon>logout</mat-icon>
       </button>
@@ -199,6 +203,7 @@ export class PatronLayoutComponent {
   constructor(
     private auth: AuthService,
     public sync: SyncService,
+    public theme: ThemeService,
     private router: Router,
   ) {
     this.user = this.auth.getUser();

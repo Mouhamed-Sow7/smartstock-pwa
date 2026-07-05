@@ -7,6 +7,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { OfflineService } from '../../../core/services/offline.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 @Component({
   selector: 'app-agent-layout',
@@ -33,6 +34,9 @@ import { AuthService } from '../../../core/services/auth.service';
         aria-label="Rafraîchir"
       >
         <mat-icon>autorenew</mat-icon>
+      </button>
+      <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)" [title]="theme.isDark() ? 'Mode clair' : 'Mode sombre'">
+        <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
       <button mat-icon-button (click)="logout()" style="color:var(--text-2)">
         <mat-icon>logout</mat-icon>
@@ -185,6 +189,7 @@ export class AgentLayoutComponent {
     private router: Router,
     private offline: OfflineService,
     private snackBar: MatSnackBar,
+    public theme: ThemeService,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef,
   ) {

@@ -35,6 +35,48 @@ html {
   --safe-bot: env(safe-area-inset-bottom, 0px);
 }
 
+/* ── Thème clair ──────────────────────────────────────────────────────────
+   IMPORTANT: rgba(255,255,255,x) devient invisible sur fond blanc.
+   --text-2 et --text-3 sont remplacés par des valeurs sombres lisibles. */
+[data-theme="light"] {
+  --navy:        #f0f4f8;
+  --navy-light:  #e2e8f0;
+  --navy-card:   rgba(0, 0, 0, 0.04);
+  --navy-border: rgba(0, 0, 0, 0.10);
+  --accent:      #00966e;
+  --accent-glow: rgba(0, 150, 110, 0.15);
+  --accent-lite: rgba(0, 150, 110, 0.10);
+  --text-1:      #0d1b2a;
+  --text-2:      #3d5166;
+  --text-3:      #7a92a8;
+  --danger:      #c0392b;
+  --warning:     #d68910;
+  --success:     #00966e;
+}
+
+/* Fond html/body suit le thème */
+[data-theme="light"] body,
+[data-theme="light"] html {
+  background: #f0f4f8;
+  color: #0d1b2a;
+}
+
+/* Mat-menu dark forcé en light */
+[data-theme="light"] .shelf-row-menu .mat-mdc-menu-panel {
+  background: #ffffff !important;
+  border-color: rgba(0,0,0,.12) !important;
+  box-shadow: 0 4px 24px rgba(0,0,0,.12) !important;
+}
+[data-theme="light"] .shelf-row-menu .mat-mdc-menu-item { color: #3d5166 !important; }
+[data-theme="light"] .shelf-row-menu .mat-mdc-menu-item:hover { background: rgba(0,0,0,.05) !important; color: #0d1b2a !important; }
+
+/* Autofill inputs en light */
+[data-theme="light"] .mat-mdc-form-field input:-webkit-autofill,
+[data-theme="light"] .mat-mdc-form-field input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #e2e8f0 inset !important;
+  -webkit-text-fill-color: #0d1b2a !important;
+}
+
 html,
 body {
   height: 100%;

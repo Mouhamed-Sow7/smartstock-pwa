@@ -42,11 +42,11 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
           </button>
         </div>
         <!-- Filtre boutique — visible seulement si le patron a plusieurs boutiques -->
-        <div class="boutique-filter" *ngIf="boutiques.length > 0">
+        <div class="boutique-filter" *ngIf="boutiques().length > 0">
           <mat-icon class="boutique-icon">storefront</mat-icon>
           <select class="boutique-select" [(ngModel)]="boutiqueSelectId" (change)="charger()">
             <option value="">Toutes les boutiques</option>
-            <option *ngFor="let b of boutiques" [value]="b._id">{{ b.nom }}</option>
+            <option *ngFor="let b of boutiques()" [value]="b._id">{{ b.nom }}</option>
           </select>
         </div>
         <div class="date-range" *ngIf="periode === 'personnalise'">
@@ -319,7 +319,7 @@ export class VentesComponent implements OnInit, OnDestroy {
   dateDebut = '';
   dateFin = '';
   boutiqueSelectId = '';   // '' = toutes les boutiques
-  boutiques: any[] = [];   // liste des boutiques du patron (pour le sélecteur)
+  boutiques = signal<any[]>([]);
 
   periodes = [
     { value: 'aujourd_hui' as Periode, label: "Auj." },
@@ -338,7 +338,7 @@ export class VentesComponent implements OnInit, OnDestroy {
     this.charger();
     // Charger les boutiques pour le sélecteur (silencieusement, si aucune = sélecteur caché)
     this.api.get('boutiques').pipe(takeUntil(this.destroy$))
-      .subscribe({ next: (r: any) => { this.boutiques = r.data || []; }, error: () => {} });
+      .subscribe({ next: (r: any) => { this.boutiques.set(r.data || []); }, error: () => {} });
   }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
