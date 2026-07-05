@@ -376,7 +376,12 @@ export class VentesComponent implements OnInit, OnDestroy {
         return { debut: fmt(d), fin: fmt(new Date(d.getTime() + 86400000 - 1)) };
       }
       case 'semaine': {
-        const d = new Date(now); d.setDate(now.getDate() - now.getDay()); d.setHours(0,0,0,0);
+        // Lundi de la semaine courante (convention EU/Afrique — semaine commence lundi)
+        const day = now.getDay(); // 0=dim, 1=lun ... 6=sam
+        const diffLundi = day === 0 ? -6 : 1 - day; // si dimanche → recule 6 jours
+        const d = new Date(now);
+        d.setDate(now.getDate() + diffLundi);
+        d.setHours(0, 0, 0, 0);
         return { debut: fmt(d), fin: fmt(now) };
       }
       case 'mois': {
