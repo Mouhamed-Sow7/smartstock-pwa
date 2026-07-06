@@ -195,85 +195,114 @@ export class PosService {
         <tr>
           <td>${item.produit?.nom || 'Produit'}</td>
           <td style="text-align:center;">x${item.quantite}</td>
-          <td style="text-align:right;">${(item.prix * item.quantite).toLocaleString('fr-FR')}</td>
+          <td style="text-align:right;">${(item.prix * item.quantite).toLocaleString('fr-FR')} F</td>
         </tr>`,
       )
       .join('');
 
-    const offlineBadge =
-      ticket.modeCreation === 'offline'
-        ? `<p style="color:#f59e0b;font-weight:bold;"><i class="fa-solid fa-wifi-slash" style="margin-right:6px"></i>Vente hors ligne — sera synchronisée</p>`
-        : '';
+    const modeLabel: Record<string, string> = {
+      especes: 'Espèces', wave: 'Wave', orange_money: 'Orange Money', free_money: 'Free Money'
+    };
 
-    const html = `
-      <html>
-        <head>
-          <title>Ticket ${ticket.numeroTicket}</title>
-          <style>
-            @page { margin: 0; }
-            body { margin: 0; font-family: Arial, sans-serif; }
-            .ticket { width: ${width}; margin: 0 auto; padding: 8px; font-size: 12px; }
-            h2,h3,p { margin: 0; text-align: center; }
-            .meta { margin: 6px 0; text-align: center; font-size: 11px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-            td { padding: 2px 0; vertical-align: top; }
-            .total { border-top: 1px dashed #000; margin-top: 8px; padding-top: 6px; font-weight: 700; text-align: right; }
-            .footer { margin-top: 8px; text-align: center; font-size: 11px; }
-          </style>
-        </head>
-        <body>
-          <div class="ticket">
-            <h2>${shopName}</h2>
-            ${offlineBadge}
-            <p>Ticket: ${ticket.numeroTicket}</p>
-            <div class="meta">${new Date(ticket.createdAt).toLocaleString('fr-FR')}</div>
-            <table>${itemsHtml}</table>
-            <div class="total">Total: ${ticket.total.toLocaleString('fr-FR')} FCFA</div>
-            <div class="footer">Merci pour votre achat</div>
-          </div>
-        </body>
-      </html>
-    `;
+    const html = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Ticket ${ticket.numeroTicket}</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body {
+        font-family: Arial, sans-serif;
+        background: #f5f5f5;
+        display: flex; flex-direction: column;
+        align-items: center; min-height: 100vh;
+        padding: 16px 16px env(safe-area-inset-bottom, 16px);
+      }
+      .ticket {
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px 16px;
+        width: 100%;
+        max-width: 340px;
+        box-shadow: 0 4px 16px rgba(0,0,0,.1);
+      }
+      h2 { font-size: 18px; text-align: center; margin-bottom: 4px; }
+      .meta { text-align: center; font-size: 11px; color: #666; margin-bottom: 12px; }
+      .num { text-align: center; font-size: 12px; color: #00966e; font-weight: 700; margin-bottom: 2px; }
+      table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13px; }
+      td { padding: 4px 2px; vertical-align: top; }
+      td:last-child { text-align: right; white-space: nowrap; }
+      .sep { border-top: 1px dashed #ccc; margin: 8px 0; }
+      .total { font-size: 16px; font-weight: 700; text-align: right; color: #00966e; margin: 8px 0 4px; }
+      .mode { font-size: 12px; color: #666; text-align: right; margin-bottom: 12px; }
+      .offline { background: #fef3c7; border: 1px solid #f59e0b; border-radius: 6px;
+        padding: 6px 10px; font-size: 11px; color: #92400e; text-align: center; margin-bottom: 10px; }
+      .footer { text-align: center; font-size: 11px; color: #999; margin-top: 8px; }
+      .btn-print {
+        display: block; width: 100%; max-width: 340px;
+        margin: 16px auto 0;
+        padding: 14px; background: #00966e; color: #fff;
+        border: none; border-radius: 10px; font-size: 16px; font-weight: 700;
+        cursor: pointer;
+      }
+      .btn-close {
+        display: block; width: 100%; max-width: 340px;
+        margin: 8px auto 0;
+        padding: 12px; background: transparent; color: #555;
+        border: 1px solid #ccc; border-radius: 10px; font-size: 15px;
+        cursor: pointer;
+      }
+      @media print {
+        body { background: #fff; padding: 0; }
+        .ticket { box-shadow: none; border-radius: 0; max-width: ${width}; padding: 4px; }
+        .btn-print, .btn-close { display: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="ticket">
+      <h2>${shopName}</h2>
+      <div class="num">${ticket.numeroTicket}</div>
+      <div class="meta">${new Date(ticket.createdAt).toLocaleString('fr-FR')}</div>
+      ${ticket.modeCreation === 'offline' ? '<div class="offline">Vente hors ligne — sera synchronisée</div>' : ''}
+      <table>${itemsHtml}</table>
+      <div class="sep"></div>
+      <div class="total">Total : ${ticket.total.toLocaleString('fr-FR')} FCFA</div>
+      <div class="mode">${modeLabel[ticket.modePaiement] || ticket.modePaiement}</div>
+      <div class="footer">Merci pour votre achat</div>
+    </div>
+    <button class="btn-print" onclick="window.print()">Imprimer</button>
+    <button class="btn-close" onclick="window.close()">Fermer</button>
+    <script>
+      // Sur Android, window.print() peut ne rien faire — on affiche au moins le ticket
+      // L'utilisateur peut faire une capture d'écran ou partager depuis le navigateur
+      document.querySelector('.btn-print').addEventListener('click', function() {
+        if (typeof window.print === 'function') {
+          window.print();
+        }
+      });
+    </script>
+  </body>
+</html>`;
 
-    // Stratégie anti-blocage Android :
-    // window.open est bloqué par Chrome mobile si ce n'est pas déclenché
-    // directement dans un handler de clic synchrone (ce qui est le cas ici).
-    // On tente d'abord window.open, et on replie sur un iframe caché si
-    // la popup est bloquée (printWindow === null).
-    const printWindow = window.open('', '_blank', 'width=420,height=700');
-
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-        setTimeout(() => printWindow.close(), 300);
-      }, 250);
-    } else {
-      // Fallback : iframe caché injecté dans la page courante
-      // Contourne le blocage popup des navigateurs mobiles
-      const existingIframe = document.getElementById('print-iframe');
-      if (existingIframe) existingIframe.remove();
-
-      const iframe = document.createElement('iframe');
-      iframe.id = 'print-iframe';
-      iframe.style.cssText =
-        'position:fixed;top:-9999px;left:-9999px;width:0;height:0;border:none;';
-      document.body.appendChild(iframe);
-
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (!iframeDoc) return;
-
-      iframeDoc.open();
-      iframeDoc.write(html);
-      iframeDoc.close();
-
-      setTimeout(() => {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => iframe.remove(), 1000);
-      }, 300);
+    // Ouvrir dans un nouvel onglet — fonctionne sur iOS Safari et Android Chrome
+    // depuis un handler de clic synchrone (pas de blocage popup)
+    const newWin = window.open('', '_blank');
+    if (newWin) {
+      newWin.document.write(html);
+      newWin.document.close();
+      return;
     }
+
+    // Fallback si popup bloquée (PWA standalone) : naviguer vers une data URL
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
 }
