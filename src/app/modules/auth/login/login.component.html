@@ -1,62 +1,137 @@
 <div class="login-page">
-  <div class="login-card">
-    <div class="logo-area">
-      <div class="app-name">SmartStock</div>
-      <div class="app-sub">Gestion commerciale mobile-first</div>
+
+  <!-- ─── Côté gauche : hero / branding ─────────────────── -->
+  <div class="hero">
+    <div class="hero-content">
+      <div class="brand">
+        <div class="brand-icon">
+          <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="40" height="40" rx="10" fill="#00b894"/>
+            <path d="M10 28 L10 18 L20 12 L30 18 L30 28" stroke="white" stroke-width="2.5" stroke-linejoin="round" fill="none"/>
+            <rect x="16" y="20" width="8" height="8" rx="1" fill="white"/>
+            <path d="M8 20 L20 13 L32 20" stroke="white" stroke-width="2" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
+        <span class="brand-name">SmartStock</span>
+      </div>
+
+      <h1 class="hero-title">
+        Gérez votre boutique,<br>
+        <span class="accent">même sans internet.</span>
+      </h1>
+
+      <p class="hero-sub">
+        Caisse enregistreuse, gestion de stock et suivi des ventes — conçu pour les commerçants d'Afrique de l'Ouest.
+      </p>
+
+      <div class="features">
+        <div class="feat">
+          <span class="feat-icon"><i class="fa-solid fa-wifi-slash"></i></span>
+          <div>
+            <div class="feat-title">100% Offline</div>
+            <div class="feat-desc">Fonctionne sans connexion, synchronisation automatique</div>
+          </div>
+        </div>
+        <div class="feat">
+          <span class="feat-icon"><i class="fa-solid fa-qrcode"></i></span>
+          <div>
+            <div class="feat-title">Scan caméra</div>
+            <div class="feat-desc">Scanner les codes-barres avec votre téléphone</div>
+          </div>
+        </div>
+        <div class="feat">
+          <span class="feat-icon"><i class="fa-solid fa-chart-line"></i></span>
+          <div>
+            <div class="feat-title">Tableau de bord</div>
+            <div class="feat-desc">Ventes, marges et stocks en temps réel</div>
+          </div>
+        </div>
+        <div class="feat">
+          <span class="feat-icon"><i class="fa-brands fa-wave-square" style="font-family:'Font Awesome 6 Free';font-weight:900"></i>
+            <span style="font-size:13px;font-weight:700">W</span></span>
+          <div>
+            <div class="feat-title">Wave · Orange · Free</div>
+            <div class="feat-desc">Tous les modes de paiement mobile money</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="hero-badge">
+        <i class="fa-solid fa-store"></i>
+        Utilisé par des boutiques, supermarchés et quincailleries
+      </div>
     </div>
-
-    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-      <mat-form-field appearance="outline">
-        <mat-label>Email ou téléphone</mat-label>
-        <!-- type="text" pas "email" — le champ accepte aussi les emails @slug.sm et les téléphones -->
-        <input matInput type="text" formControlName="identifiant"
-          autocomplete="username"
-          placeholder="patron@demo.com ou 77 123 45 67" />
-        <mat-icon matSuffix>person</mat-icon>
-        <mat-error *ngIf="loginForm.get('identifiant')?.hasError('required')">
-          Identifiant requis
-        </mat-error>
-        <mat-error *ngIf="loginForm.get('identifiant')?.hasError('emailOuTelephone')">
-          Saisir un email valide ou un numéro de téléphone sénégalais
-        </mat-error>
-      </mat-form-field>
-
-      <mat-form-field appearance="outline">
-        <mat-label>Mot de passe</mat-label>
-        <input
-          matInput
-          [type]="showPassword ? 'text' : 'password'"
-          formControlName="password"
-          autocomplete="current-password"
-        />
-        <button
-          mat-icon-button
-          matSuffix
-          type="button"
-          aria-label="Afficher le mot de passe"
-          (click)="showPassword = !showPassword"
-        >
-          <mat-icon>{{ showPassword ? 'visibility_off' : 'visibility' }}</mat-icon>
-        </button>
-        <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
-          Le mot de passe est requis
-        </mat-error>
-        <mat-error *ngIf="loginForm.get('password')?.hasError('minlength')">
-          Minimum 4 caractères
-        </mat-error>
-      </mat-form-field>
-
-      <button
-        mat-raised-button
-        class="btn-login"
-        type="submit"
-        [disabled]="loginForm.invalid || isLoading"
-      >
-        <mat-spinner diameter="18" *ngIf="isLoading" style="display:inline-block;margin-right:6px"></mat-spinner>
-        {{ isLoading ? 'Connexion...' : 'Se connecter' }}
-      </button>
-
-      <p class="error-msg" *ngIf="errorMessage">{{ errorMessage }}</p>
-    </form>
   </div>
+
+  <!-- ─── Côté droit : formulaire ────────────────────────── -->
+  <div class="form-side">
+    <div class="form-card">
+      <div class="form-header">
+        <h2>Connexion</h2>
+        <p>Accédez à votre espace de gestion</p>
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <div class="field-group">
+          <label>Email ou téléphone</label>
+          <div class="input-wrap" [class.has-error]="loginForm.get('identifiant')?.invalid && loginForm.get('identifiant')?.touched">
+            <i class="fa-solid fa-user input-icon"></i>
+            <input
+              type="text"
+              formControlName="identifiant"
+              autocomplete="username"
+              placeholder="patron@demo.com ou 77 123 45 67"
+            />
+          </div>
+          <span class="field-error" *ngIf="loginForm.get('identifiant')?.hasError('required') && loginForm.get('identifiant')?.touched">
+            Identifiant requis
+          </span>
+          <span class="field-error" *ngIf="loginForm.get('identifiant')?.hasError('emailOuTelephone') && loginForm.get('identifiant')?.touched">
+            Email valide ou téléphone sénégalais (7X XXX XX XX)
+          </span>
+        </div>
+
+        <div class="field-group">
+          <label>Mot de passe</label>
+          <div class="input-wrap" [class.has-error]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched">
+            <i class="fa-solid fa-lock input-icon"></i>
+            <input
+              [type]="showPassword ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="current-password"
+              placeholder="••••••••"
+            />
+            <button type="button" class="eye-btn" (click)="showPassword = !showPassword" tabindex="-1">
+              <i [class]="showPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye'"></i>
+            </button>
+          </div>
+          <span class="field-error" *ngIf="loginForm.get('password')?.hasError('required') && loginForm.get('password')?.touched">
+            Mot de passe requis
+          </span>
+        </div>
+
+        <div class="error-banner" *ngIf="errorMessage">
+          <i class="fa-solid fa-circle-exclamation"></i>
+          {{ errorMessage }}
+        </div>
+
+        <button type="submit" class="btn-submit" [disabled]="loginForm.invalid || isLoading">
+          <span *ngIf="!isLoading">
+            <i class="fa-solid fa-right-to-bracket"></i>
+            Se connecter
+          </span>
+          <span *ngIf="isLoading" class="loading-dots">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            Connexion...
+          </span>
+        </button>
+      </form>
+
+      <div class="demo-hint">
+        <i class="fa-solid fa-circle-info"></i>
+        Compte démo : <strong>patron@demo.com</strong> / <strong>demo123</strong>
+      </div>
+    </div>
+  </div>
+
 </div>
