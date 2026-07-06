@@ -7,7 +7,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
 
 // Regex permissive : accepte email classique + agents (@slug.sm) + téléphone sénégalais + identifiants admin courts
@@ -35,6 +35,7 @@ function emailOuTelephone(ctrl: AbstractControl): ValidationErrors | null {
     MatIconModule,
     MatButtonModule,
     MatProgressSpinnerModule,
+    RouterLink,
   ],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.scss'],

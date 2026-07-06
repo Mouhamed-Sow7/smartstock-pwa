@@ -7,6 +7,11 @@ export const routes: Routes = [
       import('./modules/auth/login/login.component').then((m) => m.LoginComponent),
   },
   {
+    path: 'register',
+    loadComponent: () =>
+      import('./modules/auth/register/register.component').then((m) => m.RegisterComponent),
+  },
+  {
     path: 'admin',
     loadComponent: () =>
       import('./modules/admin/admin.component').then((m) => m.AdminComponent),
