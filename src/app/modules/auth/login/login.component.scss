@@ -125,8 +125,9 @@
   align-items: center;
   justify-content: center;
   padding: 40px 32px;
-  background: var(--navy-card);
-  border-left: 1px solid var(--navy-border);
+  background: #0a1628;
+  border-left: 1px solid rgba(0,184,148,.15);
+  box-shadow: -8px 0 40px rgba(0,0,0,.3);
 }
 .form-card {
   width: 100%;
@@ -138,12 +139,12 @@
 .form-header h2 {
   font-size: 26px;
   font-weight: 800;
-  color: var(--text-1);
+  color: #ffffff;
   margin: 0 0 6px;
 }
 .form-header p {
   font-size: 14px;
-  color: var(--text-3);
+  color: rgba(255,255,255,.45);
   margin: 0;
 }
 
@@ -155,28 +156,29 @@
   display: block;
   font-size: 13px;
   font-weight: 600;
-  color: var(--text-2);
+  color: rgba(255,255,255,.6);
   margin-bottom: 7px;
 }
 .input-wrap {
   position: relative;
   display: flex;
   align-items: center;
-  background: var(--navy-light);
-  border: 1.5px solid var(--navy-border);
+  background: rgba(255,255,255,.06);
+  border: 1.5px solid rgba(255,255,255,.1);
   border-radius: 12px;
   transition: border-color .15s;
 }
 .input-wrap:focus-within {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(0,184,148,.12);
+  border-color: #00b894;
+  box-shadow: 0 0 0 3px rgba(0,184,148,.15);
+  background: rgba(255,255,255,.08);
 }
 .input-wrap.has-error {
-  border-color: var(--danger);
+  border-color: #e74c3c;
 }
 .input-icon {
   padding: 0 12px;
-  color: var(--text-3);
+  color: rgba(255,255,255,.3);
   font-size: 14px;
   pointer-events: none;
 }
@@ -186,28 +188,28 @@
   background: transparent;
   border: none;
   outline: none;
-  color: var(--text-1);
+  color: #ffffff;
   font-size: 15px;
   font-family: inherit;
   min-width: 0;
 }
-.input-wrap input::placeholder { color: var(--text-3); }
+.input-wrap input::placeholder { color: rgba(255,255,255,.3); }
 .eye-btn {
   background: none;
   border: none;
   padding: 0 14px;
   cursor: pointer;
-  color: var(--text-3);
+  color: rgba(255,255,255,.3);
   font-size: 14px;
   display: flex;
   align-items: center;
 }
-.eye-btn:hover { color: var(--accent); }
+.eye-btn:hover { color: #00b894; }
 .field-error {
   display: block;
   margin-top: 5px;
   font-size: 12px;
-  color: var(--danger);
+  color: #e74c3c;
 }
 
 /* Error banner */
@@ -251,15 +253,15 @@
 .demo-hint {
   text-align: center;
   font-size: 12px;
-  color: var(--text-3);
-  background: var(--navy-light);
+  color: rgba(255,255,255,.4);
+  background: rgba(255,255,255,.04);
   border-radius: 10px;
   padding: 10px 14px;
-  border: 1px dashed var(--navy-border);
+  border: 1px dashed rgba(255,255,255,.1);
   line-height: 1.5;
 }
-.demo-hint i { margin-right: 4px; color: var(--accent); }
-.demo-hint strong { color: var(--text-2); }
+.demo-hint i { margin-right: 4px; color: #00b894; }
+.demo-hint strong { color: rgba(255,255,255,.7); }
 
 /* ── Responsive mobile ─────────────────────────────────────── */
 @media (max-width: 768px) {
