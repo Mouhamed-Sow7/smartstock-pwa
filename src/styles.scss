@@ -515,6 +515,12 @@ a {
 .cdk-overlay-backdrop {
   z-index: 9999 !important;
 }
+/* Backdrop dialog : semi-transparent avec blur — pas un mur opaque */
+.cdk-overlay-backdrop.cdk-overlay-dark-backdrop {
+  background: rgba(0, 0, 0, 0.55) !important;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
 .cdk-overlay-pane {
   z-index: 10001 !important;
 }
