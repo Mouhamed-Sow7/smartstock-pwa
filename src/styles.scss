@@ -435,32 +435,33 @@ a {
   border-radius: 18px !important;
   overflow: visible !important;
 }
-/* Sur mobile : plein écran bas, coins ronds en haut — sheet style */
+/* Sur mobile : bottom sheet centré correctement */
 @media (max-width: 600px) {
-  .produit-dialog-panel {
+  .cdk-overlay-pane.produit-dialog-panel {
     position: fixed !important;
+    top: auto !important;
     bottom: 0 !important;
     left: 0 !important;
     right: 0 !important;
+    transform: none !important;
     margin: 0 !important;
     max-width: 100vw !important;
     width: 100vw !important;
+    align-items: flex-end !important;
   }
   .produit-dialog-panel .mat-mdc-dialog-container {
     border-radius: 20px 20px 0 0 !important;
-    /* vh d'abord (fallback universel), dvh ensuite (iOS 15.4+ seulement —
-       dvh tient compte de la barre d'adresse Safari qui rétrécit/grandit).
-       Sans le fallback vh, max-height etait simplement IGNORE sur iOS < 15.4,
-       donc le panel pouvait depasser l'ecran sans limite ni scroll correct. */
     max-height: 90vh !important;
     max-height: 90dvh !important;
+    width: 100vw !important;
+    margin: 0 !important;
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-    -webkit-overflow-scrolling: touch;
   }
   .produit-dialog-panel .mdc-dialog__surface {
     border-radius: 20px 20px 0 0 !important;
     max-height: 90vh !important;
     max-height: 90dvh !important;
+    width: 100vw !important;
   }
 }
 

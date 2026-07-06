@@ -92,68 +92,65 @@ function catInitial(cat: string): string {
             <span class="cat-count">{{ group.items.length }}</span>
           </div>
 
-          <!-- Rangées -->
-          <div class="shelf-row"
-            *ngFor="let p of group.items; trackBy: trackByProduit"
-            [class.rupture]="p.stock === 0"
-            [class.alerte]="p.stock > 0 && p.stock <= (p.seuilAlerte || 5)">
+          <!-- Rangées + panel stock inline DIRECTEMENT sous chaque produit -->
+          <ng-container *ngFor="let p of group.items; trackBy: trackByProduit">
+            <div class="shelf-row"
+              [class.rupture]="p.stock === 0"
+              [class.alerte]="p.stock > 0 && p.stock <= (p.seuilAlerte || 5)">
 
-            <!-- Avatar catégorie -->
-            <div class="row-avatar" [style.background]="group.color + '22'" [style.border-color]="group.color + '55'">
-              <span [style.color]="group.color">{{ group.initial }}</span>
-            </div>
-
-            <!-- Infos principales -->
-            <div class="row-body">
-              <div class="row-top">
-                <span class="row-nom">{{ p.nom }}</span>
-                <!-- Badge stock -->
-                <span class="stock-badge rupture-badge" *ngIf="p.stock === 0">Rupture</span>
-                <span class="stock-badge alerte-badge" *ngIf="p.stock > 0 && p.stock <= (p.seuilAlerte || 5)">
-                  <mat-icon>warning</mat-icon> {{ p.stock }}
-                </span>
-                <span class="stock-badge ok-badge" *ngIf="p.stock > (p.seuilAlerte || 5)">{{ p.stock }}</span>
+              <!-- Avatar catégorie -->
+              <div class="row-avatar" [style.background]="group.color + '22'" [style.border-color]="group.color + '55'">
+                <span [style.color]="group.color">{{ group.initial }}</span>
               </div>
-              <div class="row-bottom">
-                <span class="row-prix">{{ p.prix | number:'1.0-0' }} FCFA</span>
-                <span class="row-sep">·</span>
-                <span class="row-code" *ngIf="p.codeBarres">{{ p.codeBarres }}</span>
-                <span class="row-marge" *ngIf="p.prixAchat">
-                  Marge {{ getMargePct(p) }}%
-                </span>
-              </div>
-            </div>
 
-            <!-- Actions : menu 3 points via MatMenu (CDK Overlay) -->
-            <div class="row-menu-wrap">
-              <button class="menu-trigger" [matMenuTriggerFor]="rowMenu" [matMenuTriggerData]="{produit: p}" aria-label="Actions">
-                <mat-icon>more_vert</mat-icon>
-              </button>
-            </div>
-          </div>
-
-          <!-- Panel rentrée stock inline (sous la rangée active) -->
-          <div class="reappro-panel" *ngIf="reapproId && group.items.some(i => i._id === reapproId)">
-            <ng-container *ngFor="let p of group.items">
-              <div *ngIf="reapproId === p._id" class="reappro-inner">
-                <span class="reappro-label">Entrée stock — {{ p.nom }}</span>
-                <div class="reappro-row">
-                  <button class="qty-btn" (click)="reapproQty = reapproQty > 1 ? reapproQty - 1 : 1">
-                    <mat-icon>remove</mat-icon>
-                  </button>
-                  <span class="qty-val">+{{ reapproQty }}</span>
-                  <button class="qty-btn" (click)="reapproQty = reapproQty + 1">
-                    <mat-icon>add</mat-icon>
-                  </button>
-                  <button class="reappro-confirm" (click)="confirmerReappro(p)" [disabled]="reapproSaving">
-                    <mat-icon>{{ reapproSaving ? 'hourglass_empty' : 'check' }}</mat-icon>
-                    Confirmer
-                  </button>
-                  <button class="reappro-cancel" (click)="reapproId = null">Annuler</button>
+              <!-- Infos principales -->
+              <div class="row-body">
+                <div class="row-top">
+                  <span class="row-nom">{{ p.nom }}</span>
+                  <!-- Badge stock -->
+                  <span class="stock-badge rupture-badge" *ngIf="p.stock === 0">Rupture</span>
+                  <span class="stock-badge alerte-badge" *ngIf="p.stock > 0 && p.stock <= (p.seuilAlerte || 5)">
+                    <mat-icon>warning</mat-icon> {{ p.stock }}
+                  </span>
+                  <span class="stock-badge ok-badge" *ngIf="p.stock > (p.seuilAlerte || 5)">{{ p.stock }}</span>
+                </div>
+                <div class="row-bottom">
+                  <span class="row-prix">{{ p.prix | number:'1.0-0' }} FCFA</span>
+                  <span class="row-sep">·</span>
+                  <span class="row-code" *ngIf="p.codeBarres">{{ p.codeBarres }}</span>
+                  <span class="row-marge" *ngIf="p.prixAchat">
+                    Marge {{ getMargePct(p) }}%
+                  </span>
                 </div>
               </div>
-            </ng-container>
-          </div>
+
+              <!-- Actions : menu 3 points via MatMenu (CDK Overlay) -->
+              <div class="row-menu-wrap">
+                <button class="menu-trigger" [matMenuTriggerFor]="rowMenu" [matMenuTriggerData]="{produit: p}" aria-label="Actions">
+                  <mat-icon>more_vert</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Panel rentrée stock — juste sous CE produit -->
+            <div class="reappro-panel" *ngIf="reapproId === p._id">
+              <span class="reappro-label">Entrée stock — {{ p.nom }}</span>
+              <div class="reappro-row">
+                <button class="qty-btn" (click)="reapproQty = reapproQty > 1 ? reapproQty - 1 : 1">
+                  <mat-icon>remove</mat-icon>
+                </button>
+                <span class="qty-val">+{{ reapproQty }}</span>
+                <button class="qty-btn" (click)="reapproQty = reapproQty + 1">
+                  <mat-icon>add</mat-icon>
+                </button>
+                <button class="reappro-confirm" (click)="confirmerReappro(p)" [disabled]="reapproSaving">
+                  <mat-icon>{{ reapproSaving ? 'hourglass_empty' : 'check' }}</mat-icon>
+                  Confirmer
+                </button>
+                <button class="reappro-cancel" (click)="reapproId = null">Annuler</button>
+              </div>
+            </div>
+          </ng-container>
 
         </ng-container>
 
