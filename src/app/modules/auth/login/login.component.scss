@@ -267,22 +267,36 @@
 @media (max-width: 768px) {
   .login-page {
     flex-direction: column;
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
+  /* Hero : compact, juste logo + titre */
   .hero {
-    padding: 32px 24px;
+    flex: 0 0 auto;
+    padding: 48px 24px 32px;
+    padding-top: calc(48px + env(safe-area-inset-top, 0px));
   }
-  .features { display: none; } /* Masqué sur mobile pour gagner de la place */
-  .hero-sub { display: none; }
-  .hero-badge { display: none; }
-  .hero-title { font-size: 22px; margin-bottom: 8px; }
-  .brand { margin-bottom: 16px; }
+  .features, .hero-sub, .hero-badge { display: none; }
+  .hero-title { font-size: 22px; margin-bottom: 0; }
+  .brand { margin-bottom: 14px; }
+
+  /* Formulaire : prend le reste, scrollable si besoin */
   .form-side {
+    flex: 1 1 auto;
     width: 100%;
     border-left: none;
-    border-top: 1px solid var(--navy-border);
-    padding: 32px 24px;
+    border-top: 1px solid rgba(255,255,255,.1);
+    padding: 28px 24px;
+    padding-bottom: calc(28px + env(safe-area-inset-bottom, 16px));
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .form-card { max-width: 100%; }
+  .form-header { margin-bottom: 24px; }
+  .form-header h2 { font-size: 22px; }
+  .field-group { margin-bottom: 14px; }
 }
 
 .register-link {
