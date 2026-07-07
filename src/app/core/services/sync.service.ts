@@ -32,7 +32,10 @@ export class SyncService {
     window.addEventListener('online', async () => {
       this.estEnLigne.set(true);
       // Attendre 1.2s que le réseau soit stable avant de tenter la sync
-      setTimeout(() => this.synchroniser(), 1200);
+      setTimeout(() => {
+        this.synchroniser();
+        this.synchroniserProduits();
+      }, 1200);
     });
 
     window.addEventListener('offline', () => {
@@ -111,16 +114,75 @@ export class SyncService {
     };
 
     if (this.estEnLigne()) {
-      try {
-        await firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete));
-        return 'online';
-      } catch {
-        // Échec réseau → bascule offline
+      // Retry robuste : 3 tentatives avec timeout 8s chacune
+      // (couvre le cold-start Render ~20-30s + réseau instable)
+      for (let essai = 0; essai < 3; essai++) {
+        try {
+          const timeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 8000)
+          );
+          await Promise.race([
+            firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete)),
+            timeout,
+          ]);
+          return 'online';
+        } catch (err: any) {
+          const status = err?.status ?? 0;
+          // Erreur métier → ne pas retenter
+          if (status === 400 || status === 422) break;
+          // Dernier essai → bascule offline
+          if (essai === 2) break;
+          // Attendre 2s avant retry
+          await new Promise(r => setTimeout(r, 2000));
+        }
       }
     }
 
+    // Bascule offline
     await this.offline.ajouterVentePending(venteComplete);
     await this.rafraichirCompteur();
+    return 'offline';
+  }
+
+  // ─── Sync produits créés offline ─────────────────────────────
+
+  async synchroniserProduits(): Promise<void> {
+    const tenantId = this.auth.getTenantId();
+    if (!tenantId || tenantId === 'default' || !this.estEnLigne()) return;
+
+    const produits = await this.offline.getProduitsPending(tenantId);
+    if (produits.length === 0) return;
+
+    for (const produit of produits) {
+      try {
+        await firstValueFrom(this.http.post(`${environment.apiUrl}/produits`, produit.data));
+        await this.offline.marquerProduitSynced(produit.id!);
+      } catch (err: any) {
+        const status = err?.status ?? 0;
+        if (status === 400 || status === 422) {
+          await this.offline.marquerProduitError(produit.id!, err?.error?.message || 'Données invalides');
+        }
+      }
+    }
+    await this.offline.nettoyerProduitsSynced();
+  }
+
+  /** Créer un produit (online) ou le mettre en file d'attente (offline) */
+  async creerProduitOffline(tenantId: string, data: any): Promise<'online' | 'offline'> {
+    if (this.estEnLigne()) {
+      try {
+        await firstValueFrom(this.http.post(`${environment.apiUrl}/produits`, data));
+        return 'online';
+      } catch {
+        // bascule offline
+      }
+    }
+    await this.offline.ajouterProduitPending({
+      tenantId,
+      data,
+      createdAt: new Date().toISOString(),
+      statut: 'pending',
+    });
     return 'offline';
   }
 }

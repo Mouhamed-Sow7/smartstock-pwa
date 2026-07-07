@@ -55,6 +55,28 @@ export interface CachedVente {
   createdAt: string;
 }
 
+/** Ligne du panier persistée — survit aux fermetures d'app / rechargements forcés iOS */
+export interface CartItemPersisted {
+  id?: number;
+  tenantId: string;
+  produitId: string;
+  nom: string;
+  prix: number;
+  quantite: number;
+  stock: number;           // snapshot au moment d'ajout — limite max panier
+  codeBarres?: string;
+}
+
+/** Produit créé hors-ligne — sera POSTé à /api/produits au retour en ligne */
+export interface ProduitPending {
+  id?: number;
+  tenantId: string;
+  data: any;               // champs bruts du produit (nom, prix, stock, categorie, etc.)
+  createdAt: string;
+  statut: 'pending' | 'synced' | 'error';
+  errorMessage?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OfflineService extends Dexie {
   produits!: Table<CachedProduit, string>;
@@ -62,6 +84,8 @@ export class OfflineService extends Dexie {
   stats!: Table<CachedStats, string>;
   ventesPending!: Table<VentePending, number>;
   ventes!: Table<CachedVente, string>;
+  cartItems!: Table<CartItemPersisted, number>;
+  produitsPending!: Table<ProduitPending, number>;
 
   /** Émet chaque fois que le cache produits est mis à jour (sync ou décrément post-vente) */
   private _produitsUpdated$ = new Subject<void>();
@@ -69,12 +93,15 @@ export class OfflineService extends Dexie {
 
   constructor(private api: ApiService) {
     super('SmartStockDB');
-    this.version(2).stores({
+    this.version(3).stores({
       produits: '_id, tenantId, nom, codeBarres',
       agents: '_id, tenantId, nom',
       stats: 'id, tenantId',
       ventesPending: '++id, tenantId, statut, createdAt',
       ventes: '_id, tenantId, createdAt, numeroTicket',
+      // v3 — nouvelles tables offline avancé
+      cartItems: '++id, tenantId',
+      produitsPending: '++id, tenantId, statut',
     });
   }
 
@@ -174,5 +201,58 @@ export class OfflineService extends Dexie {
   }
   async nettoyerVentesSynced(): Promise<void> {
     await this.ventesPending.where('statut').equals('synced').delete();
+  }
+
+  // ─── Panier persisté (survit aux fermetures iOS) ─────────────
+
+  /** Sauvegarde l'état complet du panier en remplaçant toutes les lignes du tenant */
+  async persisterPanier(tenantId: string, items: CartItemPersisted[]): Promise<void> {
+    await this.cartItems.where('tenantId').equals(tenantId).delete();
+    if (items.length > 0) {
+      await this.cartItems.bulkAdd(items.map(i => ({ ...i, tenantId })));
+    }
+  }
+
+  /** Charge le panier persisté (appelé dans pos.service.ts au démarrage) */
+  async restaurerPanier(tenantId: string): Promise<CartItemPersisted[]> {
+    return this.cartItems.where('tenantId').equals(tenantId).toArray();
+  }
+
+  /** Vide le panier persisté (après validation d'une vente) */
+  async viderPanierPersiste(tenantId: string): Promise<void> {
+    await this.cartItems.where('tenantId').equals(tenantId).delete();
+  }
+
+  // ─── Produits créés offline ───────────────────────────────────
+
+  /** Sauvegarde un produit créé hors-ligne pour sync ultérieure */
+  async ajouterProduitPending(produit: Omit<ProduitPending, 'id'>): Promise<number> {
+    return this.produitsPending.add(produit);
+  }
+
+  async getProduitsPending(tenantId: string): Promise<ProduitPending[]> {
+    return this.produitsPending
+      .where('statut').equals('pending')
+      .and(p => p.tenantId === tenantId)
+      .toArray();
+  }
+
+  async marquerProduitSynced(id: number): Promise<void> {
+    await this.produitsPending.update(id, { statut: 'synced' });
+  }
+
+  async marquerProduitError(id: number, message: string): Promise<void> {
+    await this.produitsPending.update(id, { statut: 'error', errorMessage: message });
+  }
+
+  async compterProduitsPending(tenantId: string): Promise<number> {
+    return this.produitsPending
+      .where('statut').equals('pending')
+      .and(p => p.tenantId === tenantId)
+      .count();
+  }
+
+  async nettoyerProduitsSynced(): Promise<void> {
+    await this.produitsPending.where('statut').equals('synced').delete();
   }
 }

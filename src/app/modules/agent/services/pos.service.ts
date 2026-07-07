@@ -26,6 +26,7 @@ export interface SaleTicket {
 export class PosService {
   private cartSubject = new BehaviorSubject<CartItem[]>([]);
   private lastTicketSubject = new BehaviorSubject<SaleTicket | null>(null);
+  private tenantId = '';
 
   cart$ = this.cartSubject.asObservable();
   lastTicket$ = this.lastTicketSubject.asObservable();
@@ -36,7 +37,22 @@ export class PosService {
     private sync: SyncService,
     private offline: OfflineService,
     private snack: MatSnackBar,
-  ) {}
+  ) {
+    // Restaurer le panier depuis Dexie au démarrage (survit aux fermetures iOS)
+    this.tenantId = this.auth.getTenantId() ?? '';
+    if (this.tenantId) {
+      this.offline.restaurerPanier(this.tenantId).then(items => {
+        if (items.length > 0) {
+          const cartItems: CartItem[] = items.map(i => ({
+            produit: { _id: i.produitId, nom: i.nom, prix: i.prix, stock: i.stock, codeBarres: i.codeBarres },
+            quantite: i.quantite,
+            prix: i.prix,
+          }));
+          this.cartSubject.next(cartItems);
+        }
+      });
+    }
+  }
 
   get cartSnapshot(): CartItem[] {
     return this.cartSubject.value;
@@ -47,6 +63,22 @@ export class PosService {
       map((res: any) => (res?.data ? res.data : res)),
       catchError((err) => throwError(() => err)),
     );
+  }
+
+  /** Persiste le panier courant dans Dexie (fire-and-forget) */
+  private _persistPanier(items: CartItem[]): void {
+    const tenantId = this.tenantId || this.auth.getTenantId() || '';
+    if (!tenantId) return;
+    const toStore = items.map(i => ({
+      tenantId,
+      produitId: i.produit._id,
+      nom: i.produit.nom,
+      prix: i.prix,
+      quantite: i.quantite,
+      stock: i.produit.stock ?? 0,
+      codeBarres: i.produit.codeBarres,
+    }));
+    this.offline.persisterPanier(tenantId, toStore).catch(() => {});
   }
 
   addToCart(produit: any): void {
@@ -74,6 +106,7 @@ export class PosService {
       cart.push({ produit, quantite: 1, prix: Number(produit?.prix || 0) });
     }
     this.cartSubject.next(cart);
+    this._persistPanier(cart);
   }
 
   decrementItem(produitId: string): void {
@@ -81,14 +114,19 @@ export class PosService {
       .map((i) => (i.produit?._id === produitId ? { ...i, quantite: i.quantite - 1 } : i))
       .filter((i) => i.quantite > 0);
     this.cartSubject.next(next);
+    this._persistPanier(next);
   }
 
   removeItem(produitId: string): void {
-    this.cartSubject.next(this.cartSnapshot.filter((i) => i.produit?._id !== produitId));
+    const next = this.cartSnapshot.filter((i) => i.produit?._id !== produitId);
+    this.cartSubject.next(next);
+    this._persistPanier(next);
   }
 
   clearCart(): void {
     this.cartSubject.next([]);
+    const tenantId = this.tenantId || this.auth.getTenantId() || '';
+    if (tenantId) this.offline.viderPanierPersiste(tenantId).catch(() => {});
   }
 
   getTotal(): number {
