@@ -11,6 +11,12 @@ function emailValidator(ctrl: AbstractControl): ValidationErrors | null {
   return /^[^\s@]+@[^\s@]+\.[a-zA-Z]{2,}$/.test(v) ? null : { email: true };
 }
 
+function telephoneValidator(ctrl: AbstractControl): ValidationErrors | null {
+  const v = (ctrl.value || '').trim().replace(/\s/g, '');
+  if (!v) return null; // optionnel
+  return /^(\+?221|00221)?[7][05678]\d{7}$/.test(v) ? null : { invalidPhone: true };
+}
+
 function passwordMatch(form: AbstractControl): ValidationErrors | null {
   const pwd = form.get('password')?.value;
   const confirm = form.get('passwordConfirm')?.value;
@@ -85,6 +91,16 @@ function passwordMatch(form: AbstractControl): ValidationErrors | null {
               <input formControlName="email" type="email" placeholder="mamadou@minimarket.com" autocomplete="email" />
             </div>
             <span class="field-error" *ngIf="form.get('email')?.invalid && form.get('email')?.touched">Email invalide</span>
+          </div>
+
+          <!-- Téléphone -->
+          <div class="field-group">
+            <label>Téléphone <span class="hint-label">(optionnel — identifiant de connexion rapide)</span></label>
+            <div class="input-wrap">
+              <i class="fa-solid fa-mobile-screen-button"></i>
+              <input formControlName="telephone" type="tel" placeholder="77 123 45 67" autocomplete="tel" />
+            </div>
+            <span class="field-error" *ngIf="form.get('telephone')?.errors?.['invalidPhone']">Numéro sénégalais invalide (ex: 77 123 45 67)</span>
           </div>
 
           <!-- Mot de passe -->
@@ -282,6 +298,7 @@ export class RegisterComponent {
       nom:             ['', Validators.required],
       boutique:        ['', Validators.required],
       email:           ['', [Validators.required, emailValidator]],
+      telephone:       ['', [telephoneValidator]],
       password:        ['', [Validators.required, Validators.minLength(6)]],
       passwordConfirm: ['', Validators.required],
     }, { validators: passwordMatch });
@@ -291,9 +308,9 @@ export class RegisterComponent {
     if (this.form.invalid) return;
     this.isLoading = true;
     this.errorMessage = '';
-    const { nom, boutique, email, password } = this.form.value;
+    const { nom, boutique, email, telephone, password } = this.form.value;
 
-    this.http.post(`${environment.apiUrl}/auth/register`, { nom, boutique, email, password })
+    this.http.post(`${environment.apiUrl}/auth/register`, { nom, boutique, email, telephone, password })
       .subscribe({
         next: (res: any) => {
           this.isLoading = false;
