@@ -332,11 +332,19 @@ html,
 body {
   height: 100%;
   margin: 0;
-  overflow: hidden;
   background: var(--navy);
   font-family: 'Roboto', sans-serif;
   color: var(--text-1);
   -webkit-font-smoothing: antialiased;
+  /* NE PAS mettre overflow:hidden ici — ça bloque le scroll sur admin/login/register.
+     Chaque layout (agent/patron) gère son propre overflow via position:fixed */
+}
+
+/* Les layouts agent/patron sont en position fixed → pas besoin du overflow:hidden global */
+app-agent-layout, app-patron-layout {
+  display: block;
+  height: 100vh;
+  overflow: hidden;
 }
 
 * {

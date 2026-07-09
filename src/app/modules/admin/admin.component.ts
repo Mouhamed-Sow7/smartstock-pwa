@@ -179,12 +179,20 @@ interface Agent  { _id: string; nom: string; prenom?: string; email?: string; te
 </div>
   `,
   styles: [`
+    /* Host element : contraindre à 100vh pour que flex fonctionne */
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      height: 100dvh;
+      overflow: hidden;
+      background: #0a1628;
+    }
+
     /* Reset & base */
     *{box-sizing:border-box;margin:0;padding:0}
     .adm{
-      min-height:100vh;background:#0a1628;color:#e8eaf0;
-      font-family:'Inter',Arial,sans-serif;
-      display:flex;flex-direction:column;
+      display:contents; /* laisse :host gérer le layout */
     }
 
     /* Topbar fixe */
