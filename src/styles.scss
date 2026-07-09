@@ -562,3 +562,23 @@ a {
 .shelf-container, .items-list, .vente-card, .historique-page {
   -webkit-overflow-scrolling: touch;
 }
+
+/* ── Page login : toujours dark, indépendante du thème ───────
+   Le hero et le formulaire ont des couleurs hardcodées sombres.
+   En light mode, les variables CSS basculent vers des valeurs claires
+   mais le fond du formulaire reste #0a1628 → contraste catastrophique.
+   Solution : neutraliser les variables CSS dans le scope app-login. */
+[data-theme="light"] app-login,
+[data-theme="light"] app-login .login-page,
+[data-theme="light"] app-login .form-side,
+[data-theme="light"] app-login .input-wrap,
+[data-theme="light"] app-login .hero {
+  --navy: #0a1628;
+  --navy-light: #0f1b2d;
+  --navy-card: #0f1b2d;
+  --navy-border: rgba(255,255,255,.1);
+  --text-1: #ffffff;
+  --text-2: rgba(255,255,255,.6);
+  --text-3: rgba(255,255,255,.3);
+  --accent: #00b894;
+}

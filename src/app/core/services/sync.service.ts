@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { OfflineService, VentePending } from './offline.service';
+import { OfflineService, VentePending, ProduitPending } from './offline.service';
 import { AuthService } from './auth.service';
 import { environment } from '../../../environments/environment';
 
@@ -10,9 +10,16 @@ export class SyncService {
   // ─── Signaux réactifs ────────────────────────────────────────
   readonly estEnLigne = signal<boolean>(navigator.onLine);
   readonly ventesPendingCount = signal<number>(0);
+  readonly produitsPendingCount = signal<number>(0);
   readonly estEnSync = signal<boolean>(false);
 
-  readonly afficherBandeau = computed(() => !this.estEnLigne() || this.ventesPendingCount() > 0);
+  readonly afficherBandeau = computed(() =>
+    !this.estEnLigne() || this.ventesPendingCount() > 0 || this.produitsPendingCount() > 0
+  );
+
+  readonly totalPendingCount = computed(() =>
+    this.ventesPendingCount() + this.produitsPendingCount()
+  );
 
   constructor(
     private http: HttpClient,
@@ -32,10 +39,7 @@ export class SyncService {
     window.addEventListener('online', async () => {
       this.estEnLigne.set(true);
       // Attendre 1.2s que le réseau soit stable avant de tenter la sync
-      setTimeout(() => {
-        this.synchroniser();
-        this.synchroniserProduits();
-      }, 1200);
+      setTimeout(() => this.synchroniser(), 1200);
     });
 
     window.addEventListener('offline', () => {
@@ -47,36 +51,67 @@ export class SyncService {
 
   async rafraichirCompteur(): Promise<void> {
     const tenantId = this.auth.getTenantId();
-    // Ne pas compter si la session n'est pas établie (tenantId serait 'default')
     if (!tenantId || tenantId === 'default') return;
-    const count = await this.offline.compterVentesPending(tenantId);
-    this.ventesPendingCount.set(count);
-    // Si en ligne avec des ventes en attente, déclencher la sync
-    if (count > 0 && this.estEnLigne() && !this.estEnSync()) {
+    const [ventes, produits] = await Promise.all([
+      this.offline.compterVentesPending(tenantId),
+      this.offline.compterProduitsPending(tenantId),
+    ]);
+    this.ventesPendingCount.set(ventes);
+    this.produitsPendingCount.set(produits);
+    if ((ventes > 0 || produits > 0) && this.estEnLigne() && !this.estEnSync()) {
       this.synchroniser();
     }
   }
 
-  // ─── Synchronisation ─────────────────────────────────────────
-
   async synchroniser(): Promise<void> {
     if (this.estEnSync() || !this.estEnLigne()) return;
-
     const tenantId = this.auth.getTenantId();
     if (!tenantId || tenantId === 'default') return;
 
-    const ventes = await this.offline.getVentesPending(tenantId);
-    if (ventes.length === 0) return;
+    const [ventes, produits] = await Promise.all([
+      this.offline.getVentesPending(tenantId),
+      this.offline.getProduitsPending(tenantId),
+    ]);
+    if (ventes.length === 0 && produits.length === 0) return;
 
     this.estEnSync.set(true);
 
-    for (const vente of ventes) {
-      await this.syncVente(vente);
+    // 1. Sync produits en premier (les ventes peuvent référencer ces produits)
+    for (const p of produits) {
+      await this.syncProduit(p);
     }
+    await this.offline.nettoyerProduitsSynced();
 
+    // 2. Sync ventes
+    for (const v of ventes) {
+      await this.syncVente(v);
+    }
     await this.offline.nettoyerVentesSynced();
+
     await this.rafraichirCompteur();
     this.estEnSync.set(false);
+  }
+
+  private async syncProduit(p: any): Promise<void> {
+    try {
+      await firstValueFrom(
+        this.http.post(`${environment.apiUrl}/produits`, {
+          nom: p.nom,
+          prix: p.prix,
+          prixAchat: p.prixAchat,
+          stock: p.stock,
+          seuilAlerte: p.seuilAlerte,
+          codeBarres: p.codeBarres,
+          categorie: p.categorie,
+        }),
+      );
+      await this.offline.marquerProduitSynced(p.id!);
+    } catch (err: any) {
+      const status = err?.status ?? 0;
+      if (status >= 400 && status < 500) {
+        await this.offline.marquerProduitError(p.id!, err?.error?.message || 'Erreur');
+      }
+    }
   }
 
   private async syncVente(vente: VentePending): Promise<void> {
@@ -103,7 +138,6 @@ export class SyncService {
   }
 
   // ─── Ajouter une vente (online ou offline) ───────────────────
-
   async creerVente(
     payload: Omit<VentePending, 'id' | 'statut' | 'createdAt'>,
   ): Promise<'online' | 'offline'> {
@@ -114,75 +148,48 @@ export class SyncService {
     };
 
     if (this.estEnLigne()) {
-      // Retry robuste : 3 tentatives avec timeout 8s chacune
-      // (couvre le cold-start Render ~20-30s + réseau instable)
-      for (let essai = 0; essai < 3; essai++) {
+      // Retry x2 avec timeout 8s (évite faux offline sur cold-start Render)
+      for (let attempt = 0; attempt < 2; attempt++) {
         try {
-          const timeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), 8000)
+          const timeout$ = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('timeout')), 8000),
           );
           await Promise.race([
             firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete)),
-            timeout,
+            timeout$,
           ]);
           return 'online';
-        } catch (err: any) {
-          const status = err?.status ?? 0;
-          // Erreur métier → ne pas retenter
-          if (status === 400 || status === 422) break;
-          // Dernier essai → bascule offline
-          if (essai === 2) break;
-          // Attendre 2s avant retry
-          await new Promise(r => setTimeout(r, 2000));
+        } catch {
+          if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
         }
       }
     }
 
-    // Bascule offline
     await this.offline.ajouterVentePending(venteComplete);
     await this.rafraichirCompteur();
     return 'offline';
   }
 
-  // ─── Sync produits créés offline ─────────────────────────────
-
-  async synchroniserProduits(): Promise<void> {
-    const tenantId = this.auth.getTenantId();
-    if (!tenantId || tenantId === 'default' || !this.estEnLigne()) return;
-
-    const produits = await this.offline.getProduitsPending(tenantId);
-    if (produits.length === 0) return;
-
-    for (const produit of produits) {
-      try {
-        await firstValueFrom(this.http.post(`${environment.apiUrl}/produits`, produit.data));
-        await this.offline.marquerProduitSynced(produit.id!);
-      } catch (err: any) {
-        const status = err?.status ?? 0;
-        if (status === 400 || status === 422) {
-          await this.offline.marquerProduitError(produit.id!, err?.error?.message || 'Données invalides');
-        }
-      }
-    }
-    await this.offline.nettoyerProduitsSynced();
-  }
-
-  /** Créer un produit (online) ou le mettre en file d'attente (offline) */
-  async creerProduitOffline(tenantId: string, data: any): Promise<'online' | 'offline'> {
+  // ─── Créer un produit (online ou offline) ────────────────────
+  async creerProduit(payload: Omit<ProduitPending, 'id' | 'statut' | 'createdAt'>): Promise<'online' | 'offline'> {
     if (this.estEnLigne()) {
       try {
-        await firstValueFrom(this.http.post(`${environment.apiUrl}/produits`, data));
+        const timeout$ = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 8000),
+        );
+        await Promise.race([
+          firstValueFrom(this.http.post(`${environment.apiUrl}/produits`, payload)),
+          timeout$,
+        ]);
         return 'online';
-      } catch {
-        // bascule offline
-      }
+      } catch { /* bascule offline */ }
     }
     await this.offline.ajouterProduitPending({
-      tenantId,
-      data,
+      ...payload,
       createdAt: new Date().toISOString(),
       statut: 'pending',
     });
+    await this.rafraichirCompteur();
     return 'offline';
   }
 }

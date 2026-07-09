@@ -8,6 +8,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { OfflineService } from '../../../core/services/offline.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
+import { SyncService } from '../../../core/services/sync.service';
 
 @Component({
   selector: 'app-agent-layout',
@@ -26,45 +27,50 @@ import { ThemeService } from '../../../core/services/theme.service';
     <div class="topbar">
       <span class="app-title">SmartStock Agent</span>
       <span class="status-badge">{{ user?.boutique || 'Boutique' }}</span>
-      <button
-        mat-icon-button
-        (click)="onRefresh()"
-        style="color:var(--text-2)"
-        [class.spin]="isSyncing"
-        aria-label="Rafraîchir"
-      >
+      <button mat-icon-button (click)="onRefresh()" style="color:var(--text-2)" [class.spin]="isSyncing || sync.estEnSync()" aria-label="Rafraîchir">
         <mat-icon>autorenew</mat-icon>
       </button>
-      <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)" [title]="theme.isDark() ? 'Mode clair' : 'Mode sombre'">
+      <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)">
         <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
       <button mat-icon-button (click)="logout()" style="color:var(--text-2)">
         <mat-icon>logout</mat-icon>
       </button>
     </div>
+
+    <!-- Bandeau offline / sync en attente -->
+    <div class="sync-banner" *ngIf="sync.afficherBandeau()">
+      <mat-icon>{{ sync.estEnLigne() ? (sync.estEnSync() ? 'sync' : 'cloud_queue') : 'wifi_off' }}</mat-icon>
+      <span *ngIf="!sync.estEnLigne()">Hors ligne — données sauvegardées localement</span>
+      <span *ngIf="sync.estEnLigne() && sync.estEnSync()">Synchronisation en cours...</span>
+      <span *ngIf="sync.estEnLigne() && !sync.estEnSync() && sync.totalPendingCount() > 0">
+        {{ sync.totalPendingCount() }} élément(s) en attente de sync
+      </span>
+      <button *ngIf="sync.estEnLigne() && !sync.estEnSync() && sync.totalPendingCount() > 0"
+        class="sync-now-btn" (click)="sync.synchroniser()">
+        Synchroniser
+      </button>
+    </div>
+
     <main class="main-content">
       <router-outlet></router-outlet>
     </main>
+
     <nav class="bottom-nav">
       <a routerLink="/agent/dashboard" routerLinkActive="active">
-        <mat-icon>home</mat-icon>
-        <span>Accueil</span>
+        <mat-icon>home</mat-icon><span>Accueil</span>
       </a>
       <a routerLink="/agent/scan" routerLinkActive="active">
-        <mat-icon>qr_code_scanner</mat-icon>
-        <span>Scan</span>
+        <mat-icon>qr_code_scanner</mat-icon><span>Scan</span>
       </a>
       <a routerLink="/agent/panier" routerLinkActive="active">
-        <mat-icon>shopping_cart</mat-icon>
-        <span>Panier</span>
+        <mat-icon>shopping_cart</mat-icon><span>Panier</span>
       </a>
       <a routerLink="/agent/ticket" routerLinkActive="active">
-        <mat-icon>receipt_long</mat-icon>
-        <span>Ticket</span>
+        <mat-icon>receipt_long</mat-icon><span>Ticket</span>
       </a>
       <a routerLink="/agent/historique" routerLinkActive="active">
-        <mat-icon>history</mat-icon>
-        <span>Historique</span>
+        <mat-icon>history</mat-icon><span>Historique</span>
       </a>
     </nav>
   `,
@@ -115,6 +121,23 @@ import { ThemeService } from '../../../core/services/theme.service';
         padding: 16px;
       }
 
+      /* Bandeau offline/sync */
+      .sync-banner {
+        display: flex; align-items: center; gap: 8px;
+        background: rgba(243,156,18,.15);
+        border-bottom: 1px solid rgba(243,156,18,.3);
+        color: #f59e0b;
+        font-size: 12px; font-weight: 600;
+        padding: 7px 16px;
+      }
+      .sync-banner mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      .sync-now-btn {
+        margin-left: auto; padding: 3px 10px; border-radius: 8px;
+        border: 1px solid rgba(243,156,18,.4); background: rgba(243,156,18,.15);
+        color: #f59e0b; font-size: 11px; font-weight: 700; cursor: pointer;
+      }
+
+      /* ─── Bottom Nav ───────────────────────────────────── */
       .bottom-nav {
         position: fixed;
         bottom: 0;
@@ -190,6 +213,7 @@ export class AgentLayoutComponent {
     private offline: OfflineService,
     private snackBar: MatSnackBar,
     public theme: ThemeService,
+    public sync: SyncService,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef,
   ) {

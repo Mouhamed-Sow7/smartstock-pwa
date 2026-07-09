@@ -55,54 +55,44 @@ export interface CachedVente {
   createdAt: string;
 }
 
-/** Ligne du panier persistée — survit aux fermetures d'app / rechargements forcés iOS */
-export interface CartItemPersisted {
-  id?: number;
-  tenantId: string;
-  produitId: string;
-  nom: string;
-  prix: number;
-  quantite: number;
-  stock: number;           // snapshot au moment d'ajout — limite max panier
-  codeBarres?: string;
-}
-
-/** Produit créé hors-ligne — sera POSTé à /api/produits au retour en ligne */
 export interface ProduitPending {
   id?: number;
   tenantId: string;
-  data: any;               // champs bruts du produit (nom, prix, stock, categorie, etc.)
-  createdAt: string;
+  nom: string;
+  prix: number;
+  prixAchat?: number;
+  stock: number;
+  seuilAlerte?: number;
+  codeBarres?: string;
+  categorie?: string;
   statut: 'pending' | 'synced' | 'error';
+  createdAt: string;
   errorMessage?: string;
 }
 
-@Injectable({ providedIn: 'root' })
+export interface CartItemPersisted {
+  produitId: string;
+  nom: string;
+  prix: number;
+  stock: number;
+  codeBarres?: string;
+  quantite: number;
+  tenantId: string;
+}
 export class OfflineService extends Dexie {
   produits!: Table<CachedProduit, string>;
   agents!: Table<CachedAgent, string>;
   stats!: Table<CachedStats, string>;
   ventesPending!: Table<VentePending, number>;
   ventes!: Table<CachedVente, string>;
-  cartItems!: Table<CartItemPersisted, number>;
   produitsPending!: Table<ProduitPending, number>;
+  panier!: Table<CartItemPersisted, string>;
 
-  /** Émet chaque fois que le cache produits est mis à jour (sync ou décrément post-vente) */
   private _produitsUpdated$ = new Subject<void>();
   readonly produitsUpdated$ = this._produitsUpdated$.asObservable();
 
   constructor(private api: ApiService) {
     super('SmartStockDB');
-
-    // v1 — structure initiale (doit être déclarée pour que Dexie puisse migrer proprement)
-    this.version(1).stores({
-      produits: '_id, tenantId, nom, codeBarres',
-      agents: '_id, tenantId, nom',
-      stats: 'id, tenantId',
-      ventesPending: '++id, tenantId, statut, createdAt',
-    });
-
-    // v2 — ajout table ventes (cache pour rapports offline)
     this.version(2).stores({
       produits: '_id, tenantId, nom, codeBarres',
       agents: '_id, tenantId, nom',
@@ -110,16 +100,15 @@ export class OfflineService extends Dexie {
       ventesPending: '++id, tenantId, statut, createdAt',
       ventes: '_id, tenantId, createdAt, numeroTicket',
     });
-
-    // v3 — panier persisté (iOS) + produits pending (offline création)
+    // v3 : panier persisté + produits créés offline
     this.version(3).stores({
       produits: '_id, tenantId, nom, codeBarres',
       agents: '_id, tenantId, nom',
       stats: 'id, tenantId',
       ventesPending: '++id, tenantId, statut, createdAt',
       ventes: '_id, tenantId, createdAt, numeroTicket',
-      cartItems: '++id, tenantId',
-      produitsPending: '++id, tenantId, statut',
+      produitsPending: '++id, tenantId, statut, createdAt',
+      panier: 'produitId, tenantId',
     });
   }
 
@@ -221,55 +210,46 @@ export class OfflineService extends Dexie {
     await this.ventesPending.where('statut').equals('synced').delete();
   }
 
-  // ─── Panier persisté (survit aux fermetures iOS) ─────────────
-
-  /** Sauvegarde l'état complet du panier en remplaçant toutes les lignes du tenant */
-  async persisterPanier(tenantId: string, items: CartItemPersisted[]): Promise<void> {
-    await this.cartItems.where('tenantId').equals(tenantId).delete();
-    if (items.length > 0) {
-      await this.cartItems.bulkAdd(items.map(i => ({ ...i, tenantId })));
-    }
+  // ─── Panier persisté ────────────────────────────────────────
+  /** Sauvegarde un article dans le panier persisté (upsert par produitId) */
+  async sauvegarderItemPanier(item: CartItemPersisted): Promise<void> {
+    await this.panier.put(item);
+  }
+  /** Supprime un article du panier persisté */
+  async supprimerItemPanier(produitId: string): Promise<void> {
+    await this.panier.delete(produitId);
+  }
+  /** Récupère tous les articles du panier pour un tenant */
+  async getItemsPanier(tenantId: string): Promise<CartItemPersisted[]> {
+    return this.panier.where('tenantId').equals(tenantId).toArray();
+  }
+  /** Vide entièrement le panier persisté */
+  async viderPanier(tenantId: string): Promise<void> {
+    await this.panier.where('tenantId').equals(tenantId).delete();
   }
 
-  /** Charge le panier persisté (appelé dans pos.service.ts au démarrage) */
-  async restaurerPanier(tenantId: string): Promise<CartItemPersisted[]> {
-    return this.cartItems.where('tenantId').equals(tenantId).toArray();
+  // ─── Produits pending (créés offline) ───────────────────────
+  async ajouterProduitPending(p: Omit<ProduitPending, 'id'>): Promise<number> {
+    return this.produitsPending.add(p);
   }
-
-  /** Vide le panier persisté (après validation d'une vente) */
-  async viderPanierPersiste(tenantId: string): Promise<void> {
-    await this.cartItems.where('tenantId').equals(tenantId).delete();
-  }
-
-  // ─── Produits créés offline ───────────────────────────────────
-
-  /** Sauvegarde un produit créé hors-ligne pour sync ultérieure */
-  async ajouterProduitPending(produit: Omit<ProduitPending, 'id'>): Promise<number> {
-    return this.produitsPending.add(produit);
-  }
-
   async getProduitsPending(tenantId: string): Promise<ProduitPending[]> {
     return this.produitsPending
       .where('statut').equals('pending')
-      .and(p => p.tenantId === tenantId)
+      .and((p) => p.tenantId === tenantId)
       .toArray();
   }
-
   async marquerProduitSynced(id: number): Promise<void> {
     await this.produitsPending.update(id, { statut: 'synced' });
   }
-
-  async marquerProduitError(id: number, message: string): Promise<void> {
-    await this.produitsPending.update(id, { statut: 'error', errorMessage: message });
+  async marquerProduitError(id: number, msg: string): Promise<void> {
+    await this.produitsPending.update(id, { statut: 'error', errorMessage: msg });
   }
-
   async compterProduitsPending(tenantId: string): Promise<number> {
     return this.produitsPending
       .where('statut').equals('pending')
-      .and(p => p.tenantId === tenantId)
+      .and((p) => p.tenantId === tenantId)
       .count();
   }
-
   async nettoyerProduitsSynced(): Promise<void> {
     await this.produitsPending.where('statut').equals('synced').delete();
   }
