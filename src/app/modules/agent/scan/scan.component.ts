@@ -713,7 +713,14 @@ export class ScanComponent implements OnInit, OnDestroy {
     const tenantId = this.auth.getTenantId() ?? '';
 
     // 1. Cache local d'abord → affichage immédiat même hors ligne
-    this.allProduits = await this.offline.getProduits(tenantId);
+    // Wrapper dans try/catch : si Dexie est en migration ou corrompu, on
+    // ne bloque pas tout ngOnInit (scan et panier resteraient inactifs).
+    try {
+      this.allProduits = await this.offline.getProduits(tenantId);
+    } catch (e) {
+      console.error('[scan] Dexie getProduits:', e);
+      this.allProduits = [];
+    }
 
     // 2. TOUJOURS rafraîchir depuis l'API si en ligne
     //    (même si le cache n'est pas vide — le stock évolue côté patron)
@@ -726,8 +733,10 @@ export class ScanComponent implements OnInit, OnDestroy {
 
         if (res?.success && res?.data) {
           const produits = res.data.map((p: any) => ({ ...p, tenantId }));
-          await this.offline.cacheProduits(tenantId, produits);
-          this.allProduits = produits; // mise à jour avec les stocks à jour
+          try {
+            await this.offline.cacheProduits(tenantId, produits);
+          } catch { /* silencieux si Dexie pas encore prête */ }
+          this.allProduits = produits;
           this.cdr.detectChanges();
         }
       } catch {
@@ -848,9 +857,16 @@ export class ScanComponent implements OnInit, OnDestroy {
     this.isLoading = true;
 
     // 1. Chercher dans le cache local d'abord
-    const fromCache =
-      (await this.offline.getProduitByBarcode(code)) ||
-      this.allProduits.find((p) => p.nom.toLowerCase() === code.toLowerCase());
+    let fromCache;
+    try {
+      fromCache =
+        (await this.offline.getProduitByBarcode(code)) ||
+        this.allProduits.find((p) => p.nom.toLowerCase() === code.toLowerCase());
+    } catch {
+      fromCache = this.allProduits.find((p) =>
+        p.codeBarres === code || p.nom.toLowerCase() === code.toLowerCase()
+      );
+    }
 
     if (fromCache) {
       const stock = Number(fromCache.stock ?? -1);
