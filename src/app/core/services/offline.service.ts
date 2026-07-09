@@ -93,13 +93,31 @@ export class OfflineService extends Dexie {
 
   constructor(private api: ApiService) {
     super('SmartStockDB');
+
+    // v1 — structure initiale (doit être déclarée pour que Dexie puisse migrer proprement)
+    this.version(1).stores({
+      produits: '_id, tenantId, nom, codeBarres',
+      agents: '_id, tenantId, nom',
+      stats: 'id, tenantId',
+      ventesPending: '++id, tenantId, statut, createdAt',
+    });
+
+    // v2 — ajout table ventes (cache pour rapports offline)
+    this.version(2).stores({
+      produits: '_id, tenantId, nom, codeBarres',
+      agents: '_id, tenantId, nom',
+      stats: 'id, tenantId',
+      ventesPending: '++id, tenantId, statut, createdAt',
+      ventes: '_id, tenantId, createdAt, numeroTicket',
+    });
+
+    // v3 — panier persisté (iOS) + produits pending (offline création)
     this.version(3).stores({
       produits: '_id, tenantId, nom, codeBarres',
       agents: '_id, tenantId, nom',
       stats: 'id, tenantId',
       ventesPending: '++id, tenantId, statut, createdAt',
       ventes: '_id, tenantId, createdAt, numeroTicket',
-      // v3 — nouvelles tables offline avancé
       cartItems: '++id, tenantId',
       produitsPending: '++id, tenantId, statut',
     });
