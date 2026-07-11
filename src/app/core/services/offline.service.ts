@@ -79,6 +79,7 @@ export interface CartItemPersisted {
   quantite: number;
   tenantId: string;
 }
+@Injectable({ providedIn: 'root' })
 export class OfflineService extends Dexie {
   produits!: Table<CachedProduit, string>;
   agents!: Table<CachedAgent, string>;
