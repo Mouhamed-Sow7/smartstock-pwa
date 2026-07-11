@@ -18,6 +18,10 @@ export class ThemeService {
     this.apply(this.isDark() ? 'light' : 'dark');
   }
 
+  set(theme: Theme): void {
+    this.apply(theme);
+  }
+
   private apply(theme: Theme): void {
     const html = document.documentElement;
     if (theme === 'light') {

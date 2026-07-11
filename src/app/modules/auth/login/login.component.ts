@@ -1,6 +1,13 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormBuilder, FormGroup, ReactiveFormsModule, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import {
+  FormBuilder,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+  AbstractControl,
+  ValidationErrors,
+} from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -9,6 +16,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
+import { ThemeService } from '../../../core/services/theme.service';
 
 // Regex permissive : accepte email classique + agents (@slug.sm) + téléphone sénégalais + identifiants admin courts
 function emailOuTelephone(ctrl: AbstractControl): ValidationErrors | null {
@@ -50,11 +58,13 @@ export class LoginComponent {
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
+    private theme: ThemeService,
   ) {
     this.loginForm = this.fb.group({
       identifiant: ['', [Validators.required, emailOuTelephone]],
       password: ['', [Validators.required, Validators.minLength(4)]],
     });
+    this.theme.set('dark');
   }
 
   onSubmit(): void {
@@ -78,9 +88,7 @@ export class LoginComponent {
     // ── Login standard patron / agent ─────────────────────────────────────────
     // Détecter si c'est un téléphone ou un email
     const isTelephone = /^(\+?221|00221)?[7][05678]\d{7}$/.test(raw.replace(/\s/g, ''));
-    const payload = isTelephone
-      ? { telephone: raw, password }
-      : { email: raw, password };
+    const payload = isTelephone ? { telephone: raw, password } : { email: raw, password };
 
     this.authService.loginRaw(payload).subscribe({
       next: () => {
