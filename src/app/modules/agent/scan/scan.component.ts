@@ -132,7 +132,9 @@ interface BarcodeDetectorLike {
 
       <p class="success" *ngIf="lastProductName">Ajouté : {{ lastProductName }}</p>
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
-      <p class="hint-enter" *ngIf="suggestions.length > 0">↵ Entrée ajoute "{{ suggestions[0].nom }}"</p>
+      <p class="hint-enter" *ngIf="suggestions.length > 0">
+        ↵ Entrée ajoute "{{ suggestions[0].nom }}"
+      </p>
 
       <div class="panier-row">
         <a routerLink="/agent/panier" class="panier-link">
@@ -152,7 +154,10 @@ interface BarcodeDetectorLike {
 
       <div class="cart-preview" *ngIf="showCartPreview && cartItems.length > 0">
         <div class="cart-preview-item" *ngFor="let item of cartItems">
-          <span class="cpi-nom">{{ item.produit?.nom || 'Produit' }} <span class="cpi-qte">x{{ item.quantite }}</span></span>
+          <span class="cpi-nom"
+            >{{ item.produit?.nom || 'Produit' }}
+            <span class="cpi-qte">x{{ item.quantite }}</span></span
+          >
           <span class="cpi-prix">{{ item.prix * item.quantite | number: '1.0-0' }} FCFA</span>
         </div>
         <div class="cart-preview-total">
@@ -311,8 +316,13 @@ interface BarcodeDetectorLike {
         opacity: 0;
       }
       @keyframes scanMove {
-        0%, 100% { top: 8%; }
-        50% { top: 92%; }
+        0%,
+        100% {
+          top: 8%;
+        }
+        50% {
+          top: 92%;
+        }
       }
 
       /* Overlay succès */
@@ -328,8 +338,14 @@ interface BarcodeDetectorLike {
         z-index: 10;
       }
       @keyframes overlayIn {
-        from { opacity: 0; transform: scale(0.95); }
-        to   { opacity: 1; transform: scale(1); }
+        from {
+          opacity: 0;
+          transform: scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
       }
       .scan-success-inner {
         background: rgba(0, 184, 148, 0.92);
@@ -341,7 +357,7 @@ interface BarcodeDetectorLike {
         color: #fff;
         font-weight: 700;
         font-size: 15px;
-        box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
       }
       .scan-success-inner mat-icon {
         font-size: 22px;
@@ -600,8 +616,14 @@ interface BarcodeDetectorLike {
         animation: previewIn 0.15s ease-out;
       }
       @keyframes previewIn {
-        from { opacity: 0; transform: translateY(-4px); }
-        to { opacity: 1; transform: translateY(0); }
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
       .cart-preview-item {
         display: flex;
@@ -735,7 +757,9 @@ export class ScanComponent implements OnInit, OnDestroy {
           const produits = res.data.map((p: any) => ({ ...p, tenantId }));
           try {
             await this.offline.cacheProduits(tenantId, produits);
-          } catch { /* silencieux si Dexie pas encore prête */ }
+          } catch {
+            /* silencieux si Dexie pas encore prête */
+          }
           this.allProduits = produits;
           this.cdr.detectChanges();
         }
@@ -822,7 +846,7 @@ export class ScanComponent implements OnInit, OnDestroy {
       return;
     }
     // Bloquer si déjà au max en panier
-    const enPanier = this.cartItems.find(i => i.produit?._id === produit._id)?.quantite ?? 0;
+    const enPanier = this.cartItems.find((i) => i.produit?._id === produit._id)?.quantite ?? 0;
     if (stock > 0 && enPanier >= stock) {
       this.errorMessage = `Stock max atteint pour "${produit.nom}" (${stock} unité${stock > 1 ? 's' : ''})`;
       setTimeout(() => (this.errorMessage = ''), 3000);
@@ -863,14 +887,14 @@ export class ScanComponent implements OnInit, OnDestroy {
         (await this.offline.getProduitByBarcode(code)) ||
         this.allProduits.find((p) => p.nom.toLowerCase() === code.toLowerCase());
     } catch {
-      fromCache = this.allProduits.find((p) =>
-        p.codeBarres === code || p.nom.toLowerCase() === code.toLowerCase()
+      fromCache = this.allProduits.find(
+        (p) => p.codeBarres === code || p.nom.toLowerCase() === code.toLowerCase(),
       );
     }
 
     if (fromCache) {
       const stock = Number(fromCache.stock ?? -1);
-      const enPanier = this.cartItems.find(i => i.produit?._id === fromCache._id)?.quantite ?? 0;
+      const enPanier = this.cartItems.find((i) => i.produit?._id === fromCache._id)?.quantite ?? 0;
       if (stock === 0) {
         this.errorMessage = `"${fromCache.nom}" est en rupture de stock`;
         this.isLoading = false;
@@ -900,7 +924,8 @@ export class ScanComponent implements OnInit, OnDestroy {
         .subscribe({
           next: (produit) => {
             const stock = Number(produit?.stock ?? -1);
-            const enPanier = this.cartItems.find(i => i.produit?._id === produit?._id)?.quantite ?? 0;
+            const enPanier =
+              this.cartItems.find((i) => i.produit?._id === produit?._id)?.quantite ?? 0;
             if (stock === 0) {
               this.errorMessage = `"${produit?.nom}" est en rupture de stock`;
               this.isLoading = false;
@@ -932,6 +957,7 @@ export class ScanComponent implements OnInit, OnDestroy {
   }
 
   // ─── Caméra ─────────────────────────────────────────────────
+  // ✅ OPTIMISÉ v2: BarcodeDetector throttle 80ms + ZXing crop 70%
 
   async demarrerScan(): Promise<void> {
     if (this.cameraActive || this.isStarting) return;
@@ -951,50 +977,112 @@ export class ScanComponent implements OnInit, OnDestroy {
       const video = this.videoRef.nativeElement;
       video.srcObject = this.mediaStream;
 
-      // Attendre que la vidéo soit prête avant de marquer actif
       await new Promise<void>((resolve) => {
         video.onloadedmetadata = () => resolve();
-        setTimeout(() => resolve(), 3000); // sécurité si l'event ne se déclenche pas
+        setTimeout(() => resolve(), 3000);
       });
       try {
         await video.play();
       } catch (playErr: any) {
-        // AbortError bénigne (ex: play() interrompu par un nouveau load) — on continue,
-        // le flux est déjà attaché via srcObject et jouera de toute façon.
         if (playErr?.name !== 'AbortError') throw playErr;
       }
       this.cameraActive = true;
       this.cdr.detectChanges();
 
       if (this.detector) {
-        this.scanInterval = setInterval(async () => {
-          if (!this.detector || this.isProcessingCameraCode || !this.cameraActive) return;
-          try {
-            const results = await this.detector.detect(video);
-            const code = results?.[0]?.rawValue?.trim();
-            if (code) this.onCameraCodeDetected(code);
-          } catch {}
-        }, 450);
+        // ── BarcodeDetector natif : requestAnimationFrame + throttle 80ms ──
+        // FIX: setInterval(450ms) → requestAnimationFrame + throttle 80ms
+        let rafId: number;
+        let lastDetect = 0;
+        const THROTTLE = 80; // ms min entre deux détections (12.5 fps)
+        const detectLoop = async (ts: number) => {
+          if (!this.cameraActive) return;
+
+          if (ts - lastDetect >= THROTTLE && !this.isProcessingCameraCode && !this.scanPaused) {
+            lastDetect = ts;
+            try {
+              const results = await this.detector!.detect(video);
+              const code = results?.[0]?.rawValue?.trim();
+              if (code) {
+                this.onCameraCodeDetected(code);
+                return;
+              }
+            } catch {
+              // NotSupported, NotFound = normal
+            }
+          }
+          rafId = requestAnimationFrame(detectLoop);
+        };
+        rafId = requestAnimationFrame(detectLoop);
+        this.zxingControls = { stop: () => cancelAnimationFrame(rafId) } as any;
       } else if (this.zxingReader) {
-        // Boucle canvas manuelle : contourne le bug de decodeFromVideoElement
+        // ── ZXing fallback : résolution native 1280px + crop central 70% ──
+        // FIX: scale 640px → native 1280px + crop central pour petits codes
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
         let stopLoop = false;
-        this.zxingControls = { stop: () => { stopLoop = true; } } as any;
+        let lastDetect = 0;
+        const THROTTLE = 80; // ms — synchronisé avec BarcodeDetector
+
+        this.zxingControls = {
+          stop: () => {
+            stopLoop = true;
+          },
+        } as any;
+
         const loop = () => {
           if (stopLoop || !this.cameraActive) return;
-          if (!this.scanPaused && video.readyState >= 2 && video.videoWidth > 0) {
+
+          const now = Date.now();
+          if (
+            now - lastDetect >= THROTTLE &&
+            !this.scanPaused &&
+            !this.isProcessingCameraCode &&
+            video.readyState >= 2 &&
+            video.videoWidth > 0
+          ) {
+            lastDetect = now;
             try {
-              // Réduire à 640px max pour accélérer ZXing (1280px = 4x plus de pixels à analyser)
-              const scale = Math.min(1, 640 / video.videoWidth);
-              canvas.width  = Math.round(video.videoWidth  * scale);
-              canvas.height = Math.round(video.videoHeight * scale);
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              // 1. Résolution native jusqu'à 1280px (pas de scale destructif)
+              const maxW = 1280;
+              let drawW = video.videoWidth;
+              let drawH = video.videoHeight;
+              if (video.videoWidth > maxW) {
+                drawW = maxW;
+                drawH = Math.round((maxW * video.videoHeight) / video.videoWidth);
+              }
+
+              // 2. Crop central 70% : meilleur focus + moins d'aberrations optiques
+              const cropW = Math.round(drawW * 0.7);
+              const cropH = Math.round(drawH * 0.7);
+              const cropX = (drawW - cropW) / 2;
+              const cropY = (drawH - cropH) / 2;
+
+              canvas.width = cropW;
+              canvas.height = cropH;
+              ctx.drawImage(
+                video,
+                cropX,
+                cropY,
+                cropW,
+                cropH, // source crop
+                0,
+                0,
+                cropW,
+                cropH, // destination (canvas entier)
+              );
+
+              // 3. Décoder le crop central uniquement
               const result = this.zxingReader!.decodeFromCanvas(canvas);
-              if (result?.getText()) this.onCameraCodeDetected(result.getText());
-            } catch { /* NotFound/Checksum/Format sont normales */ }
+              if (result?.getText()) {
+                this.onCameraCodeDetected(result.getText());
+                return;
+              }
+            } catch {
+              // NotFound/Checksum/Format = normal
+            }
           }
-          if (!stopLoop) setTimeout(loop, 120);
+          if (!stopLoop) setTimeout(loop, 10); // boucle rapide, throttle géré par lastDetect
         };
         loop();
       }
@@ -1004,13 +1092,15 @@ export class ScanComponent implements OnInit, OnDestroy {
       this.isStarting = false;
     }
   }
-
   private getCameraConstraints(): MediaStreamConstraints {
     return {
       video: {
         facingMode: { ideal: this.facingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
+        // Résolution native pour petits codes-barres
+        width: { min: 640, ideal: 1920, max: 3840 },
+        height: { min: 480, ideal: 1080, max: 2160 },
+        // Autofocus continu CRITIQUE pour codes éloignés/petits
+        advanced: [{ focusMode: 'continuous' } as any],
       },
     };
   }
