@@ -674,6 +674,8 @@ export class ScanComponent implements OnInit, OnDestroy {
   private zxingControls: IScannerControls | null = null;
   private mediaStream: MediaStream | null = null;
   private scanInterval: ReturnType<typeof setInterval> | null = null;
+  private scanRafId: number | null = null;
+  private lastDetectTs = 0;
   private isProcessingCameraCode = false;
   private destroy$ = new Subject<void>();
 
@@ -967,14 +969,22 @@ export class ScanComponent implements OnInit, OnDestroy {
       this.cdr.detectChanges();
 
       if (this.detector) {
-        this.scanInterval = setInterval(async () => {
-          if (!this.detector || this.isProcessingCameraCode || !this.cameraActive) return;
-          try {
-            const results = await this.detector.detect(video);
-            const code = results?.[0]?.rawValue?.trim();
-            if (code) this.onCameraCodeDetected(code);
-          } catch {}
-        }, 450);
+        // requestAnimationFrame pour la fluidité, throttlé à 150ms pour éviter
+        // de saturer detect() (qui est coûteux) tout en restant réactif.
+        this.lastDetectTs = 0;
+        const rafLoop = async (ts: number) => {
+          if (!this.cameraActive || !this.detector) return;
+          if (ts - this.lastDetectTs >= 150 && !this.isProcessingCameraCode) {
+            this.lastDetectTs = ts;
+            try {
+              const results = await this.detector.detect(video);
+              const code = results?.[0]?.rawValue?.trim();
+              if (code) this.onCameraCodeDetected(code);
+            } catch {}
+          }
+          this.scanRafId = requestAnimationFrame(rafLoop);
+        };
+        this.scanRafId = requestAnimationFrame(rafLoop);
       } else if (this.zxingReader) {
         // Boucle canvas manuelle : contourne le bug de decodeFromVideoElement
         const canvas = document.createElement('canvas');
@@ -985,8 +995,10 @@ export class ScanComponent implements OnInit, OnDestroy {
           if (stopLoop || !this.cameraActive) return;
           if (!this.scanPaused && video.readyState >= 2 && video.videoWidth > 0) {
             try {
-              // Réduire à 640px max pour accélérer ZXing (1280px = 4x plus de pixels à analyser)
-              const scale = Math.min(1, 640 / video.videoWidth);
+              // Résolution native conservée jusqu'à 1280px (plus de scale 640px
+              // qui écrasait les petits codes-barres). Au-delà on limite quand
+              // même pour ne pas surcharger decodeFromCanvas.
+              const scale = Math.min(1, 1280 / video.videoWidth);
               canvas.width  = Math.round(video.videoWidth  * scale);
               canvas.height = Math.round(video.videoHeight * scale);
               ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -994,7 +1006,7 @@ export class ScanComponent implements OnInit, OnDestroy {
               if (result?.getText()) this.onCameraCodeDetected(result.getText());
             } catch { /* NotFound/Checksum/Format sont normales */ }
           }
-          if (!stopLoop) setTimeout(loop, 120);
+          if (!stopLoop) setTimeout(loop, 80);
         };
         loop();
       }
@@ -1009,9 +1021,11 @@ export class ScanComponent implements OnInit, OnDestroy {
     return {
       video: {
         facingMode: { ideal: this.facingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
+        width: { min: 640, ideal: 1920, max: 3840 },
+        height: { min: 480, ideal: 1080, max: 2160 },
+        // @ts-ignore focusMode n'est pas encore dans le type MediaTrackConstraints standard
+        advanced: [{ focusMode: 'continuous' }],
+      } as MediaTrackConstraints,
     };
   }
 
@@ -1044,6 +1058,10 @@ export class ScanComponent implements OnInit, OnDestroy {
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
       this.scanInterval = null;
+    }
+    if (this.scanRafId !== null) {
+      cancelAnimationFrame(this.scanRafId);
+      this.scanRafId = null;
     }
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach((t) => t.stop());
