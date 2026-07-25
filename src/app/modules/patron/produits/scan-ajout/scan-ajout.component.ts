@@ -492,12 +492,17 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
           if (stopLoop || !this.cameraActive) return;
           try {
             if (video.readyState >= 2 && video.videoWidth > 0) {
-              // Résolution native conservée jusqu'à 1280px (plus le scale
-              // agressif qui écrasait les petits codes-barres).
-              const scale = Math.min(1, 1280 / video.videoWidth);
-              canvas.width = Math.round(video.videoWidth * scale);
-              canvas.height = Math.round(video.videoHeight * scale);
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              // Crop centré (zone du cadre de visée) plutôt que downscale de
+              // l'image entière : moins de pixels à décoder (plus rapide,
+              // important sur iOS où ZXing tourne au CPU) tout en gardant la
+              // résolution native 1:1 sur la zone utile.
+              const cropW = Math.round(video.videoWidth * 0.85);
+              const cropH = Math.round(video.videoHeight * 0.45);
+              const sx = Math.round((video.videoWidth - cropW) / 2);
+              const sy = Math.round((video.videoHeight - cropH) / 2);
+              canvas.width = cropW;
+              canvas.height = cropH;
+              ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
               const result = this.zxingReader!.decodeFromCanvas(canvas);
               if (result?.getText()) this.onCameraCodeDetected(result.getText());
             }
@@ -665,6 +670,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     }).afterClosed().subscribe(result => {
       if (result) this.produitsIndexesSession++;
       this.reprendreScan();
+      this.cdr.detectChanges();
     });
   }
 
@@ -675,6 +681,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     }).afterClosed().subscribe(result => {
       if (result) this.produitsIndexesSession++;
       this.reprendreScan();
+      this.cdr.detectChanges();
     });
   }
 

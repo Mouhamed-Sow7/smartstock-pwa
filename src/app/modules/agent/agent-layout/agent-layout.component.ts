@@ -116,6 +116,7 @@ import { SyncService } from '../../../core/services/sync.service';
         left: 0;
         right: 0;
         overflow-y: auto;
+        overscroll-behavior-y: contain;
         -webkit-overflow-scrolling: touch;
         background: var(--navy);
         padding: 16px;

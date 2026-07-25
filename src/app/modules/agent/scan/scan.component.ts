@@ -858,12 +858,17 @@ export class ScanComponent implements OnInit, OnDestroy {
     this.lastProductName = '';
     this.isLoading = true;
 
-    // 1. Chercher dans le cache local d'abord
+    // 1. Chercher dans le cache local d'abord (Dexie), puis en repli dans
+    // allProduits (source utilisée par la recherche manuelle, souvent plus à
+    // jour) — en comparant code-barres ET nom, pas seulement le nom, sinon
+    // un scan caméra ne matchait jamais alors que la recherche manuelle si.
     let fromCache;
     try {
       fromCache =
         (await this.offline.getProduitByBarcode(code)) ||
-        this.allProduits.find((p) => p.nom.toLowerCase() === code.toLowerCase());
+        this.allProduits.find(
+          (p) => p.codeBarres === code || p.nom.toLowerCase() === code.toLowerCase(),
+        );
     } catch {
       fromCache = this.allProduits.find((p) =>
         p.codeBarres === code || p.nom.toLowerCase() === code.toLowerCase()
@@ -995,13 +1000,18 @@ export class ScanComponent implements OnInit, OnDestroy {
           if (stopLoop || !this.cameraActive) return;
           if (!this.scanPaused && video.readyState >= 2 && video.videoWidth > 0) {
             try {
-              // Résolution native conservée jusqu'à 1280px (plus de scale 640px
-              // qui écrasait les petits codes-barres). Au-delà on limite quand
-              // même pour ne pas surcharger decodeFromCanvas.
-              const scale = Math.min(1, 1280 / video.videoWidth);
-              canvas.width  = Math.round(video.videoWidth  * scale);
-              canvas.height = Math.round(video.videoHeight * scale);
-              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+              // Crop centré (zone du cadre de visée affiché à l'écran) plutôt que
+              // downscale de l'image entière : moins de pixels à décoder (plus
+              // rapide, important sur iOS où ZXing tourne au CPU) tout en gardant
+              // la résolution native 1:1 sur la zone utile (meilleure lecture des
+              // petits codes-barres, sans le flou d'un redimensionnement).
+              const cropW = Math.round(video.videoWidth * 0.85);
+              const cropH = Math.round(video.videoHeight * 0.45);
+              const sx = Math.round((video.videoWidth - cropW) / 2);
+              const sy = Math.round((video.videoHeight - cropH) / 2);
+              canvas.width = cropW;
+              canvas.height = cropH;
+              ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, cropW, cropH);
               const result = this.zxingReader!.decodeFromCanvas(canvas);
               if (result?.getText()) this.onCameraCodeDetected(result.getText());
             } catch { /* NotFound/Checksum/Format sont normales */ }

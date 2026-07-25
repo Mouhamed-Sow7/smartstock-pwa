@@ -81,6 +81,10 @@ const CATEGORIES = [
               <input class="field-input" type="number" formControlName="stock" min="0" />
               <span class="field-suffix">unités</span>
             </div>
+            <div class="stock-warning" *ngIf="!data.isEdit && form.get('stock')?.value === 0">
+              <mat-icon>warning</mat-icon>
+              <span>Stock à 0 — le produit apparaîtra en rupture immédiatement</span>
+            </div>
           </div>
         </div>
 
@@ -197,6 +201,15 @@ const CATEGORIES = [
 
     /* Fields */
     .field-group { display: flex; flex-direction: column; gap: 6px; }
+    .stock-warning {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #f5a623;
+      margin-top: 2px;
+    }
+    .stock-warning mat-icon { font-size: 15px; width: 15px; height: 15px; }
     .field-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); }
     .req { color: #e74c3c; }
     .opt { color: #636e72; font-size: 10px; text-transform: none; letter-spacing: 0; font-weight: 400; margin-left: 4px; }

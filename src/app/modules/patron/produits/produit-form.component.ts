@@ -69,6 +69,9 @@ import { Produit, ProduitService } from './produit.service';
             <mat-form-field appearance="fill" class="field-half">
               <mat-label>Stock</mat-label>
               <input matInput type="number" formControlName="stock" placeholder="Quantité" />
+              <mat-hint *ngIf="!isEditMode && form.get('stock')?.value === 0" style="color:#f5a623">
+                ⚠ Stock à 0 — le produit apparaîtra en rupture immédiatement
+              </mat-hint>
             </mat-form-field>
           </div>
 
