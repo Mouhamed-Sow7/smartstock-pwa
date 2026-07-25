@@ -43,6 +43,18 @@ export class App implements OnInit {
     // Verifie aussi activement au demarrage (au cas ou le SW n'a pas encore
     // detecte de nouvelle version par lui-meme depuis le dernier deploiement).
     this.swUpdate.checkForUpdate().catch(() => {});
+
+    // Idem a chaque fois que l'app redevient visible (PWA standalone rouverte
+    // depuis l'ecran d'accueil apres etre restee en arriere-plan). Sans ca,
+    // une PWA iOS installee peut rester bloquee indefiniment sur une version
+    // cachee (index.html + bundle) meme des jours apres un nouveau deploiement,
+    // contrairement a un onglet Safari/Chrome classique qui recharge plus
+    // volontiers depuis le reseau.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.swUpdate.checkForUpdate().catch(() => {});
+      }
+    });
   }
 
   /** Ping fire-and-forget au démarrage pour réveiller Render (cold-start free tier) avant que l'utilisateur n'agisse. */
