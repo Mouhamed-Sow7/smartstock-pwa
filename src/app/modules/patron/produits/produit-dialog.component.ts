@@ -366,7 +366,12 @@ export class ProduitDialogComponent implements OnInit {
       .subscribe({
         next: (res) => {
           if (res.success) {
-            this.snackBar.open(this.data.isEdit ? 'Produit mis à jour' : 'Produit créé', 'OK', { duration: 2000 });
+            const message = this.data.isEdit
+              ? 'Produit mis à jour'
+              : res.offline
+                ? 'Produit enregistré hors ligne — sera synchronisé à la reconnexion'
+                : 'Produit créé';
+            this.snackBar.open(message, 'OK', { duration: res.offline ? 3500 : 2000 });
             this.dialogRef.close(res.data);
           } else {
             this.snackBar.open(res.message || 'Erreur', 'OK', { duration: 3000 });

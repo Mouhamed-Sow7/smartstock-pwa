@@ -57,6 +57,7 @@ export interface CachedVente {
 
 export interface ProduitPending {
   id?: number;
+  tempId?: string;
   tenantId: string;
   nom: string;
   prix: number;
@@ -65,6 +66,18 @@ export interface ProduitPending {
   seuilAlerte?: number;
   codeBarres?: string;
   categorie?: string;
+  statut: 'pending' | 'synced' | 'error';
+  createdAt: string;
+  errorMessage?: string;
+}
+
+export interface StockPending {
+  id?: number;
+  tenantId: string;
+  produitId: string;
+  nom: string;
+  quantite: number;
+  type: 'entree' | 'sortie';
   statut: 'pending' | 'synced' | 'error';
   createdAt: string;
   errorMessage?: string;
@@ -87,6 +100,7 @@ export class OfflineService extends Dexie {
   ventesPending!: Table<VentePending, number>;
   ventes!: Table<CachedVente, string>;
   produitsPending!: Table<ProduitPending, number>;
+  stocksPending!: Table<StockPending, number>;
   panier!: Table<CartItemPersisted, string>;
 
   private _produitsUpdated$ = new Subject<void>();
@@ -109,6 +123,17 @@ export class OfflineService extends Dexie {
       ventesPending: '++id, tenantId, statut, createdAt',
       ventes: '_id, tenantId, createdAt, numeroTicket',
       produitsPending: '++id, tenantId, statut, createdAt',
+      panier: 'produitId, tenantId',
+    });
+    // v4 : réassorts (ajustements de stock) créés offline (patron)
+    this.version(4).stores({
+      produits: '_id, tenantId, nom, codeBarres',
+      agents: '_id, tenantId, nom',
+      stats: 'id, tenantId',
+      ventesPending: '++id, tenantId, statut, createdAt',
+      ventes: '_id, tenantId, createdAt, numeroTicket',
+      produitsPending: '++id, tenantId, statut, createdAt',
+      stocksPending: '++id, tenantId, statut, createdAt, produitId',
       panier: 'produitId, tenantId',
     });
   }
@@ -149,6 +174,19 @@ export class OfflineService extends Dexie {
   /** Met à jour le stock d'un produit dans le cache Dexie local sans tout recharger */
   async updateProduitStock(tenantId: string, produitId: string, nouveauStock: number): Promise<void> {
     await this.produits.where('_id').equals(produitId).modify({ stock: nouveauStock });
+    this._produitsUpdated$.next();
+  }
+
+  /** Ajoute/remplace un seul produit dans le cache sans toucher aux autres (produit créé offline) */
+  async ajouterProduitCache(produit: CachedProduit): Promise<void> {
+    await this.produits.put(produit);
+    this._produitsUpdated$.next();
+  }
+
+  /** Remplace l'entrée temporaire (créée offline, id `temp_...`) par le vrai produit renvoyé par le serveur */
+  async remplacerProduitTemp(tempId: string, produitReel: CachedProduit): Promise<void> {
+    await this.produits.delete(tempId);
+    await this.produits.put(produitReel);
     this._produitsUpdated$.next();
   }
 
@@ -253,5 +291,39 @@ export class OfflineService extends Dexie {
   }
   async nettoyerProduitsSynced(): Promise<void> {
     await this.produitsPending.where('statut').equals('synced').delete();
+  }
+
+  /** Ajuste le stock d'un produit encore en attente de sync (id temporaire temp_...) directement dans sa fiche pending */
+  async ajusterStockProduitPendingParTempId(tempId: string, nouveauStock: number): Promise<boolean> {
+    const entree = await this.produitsPending.where('tempId').equals(tempId).first();
+    if (!entree?.id) return false;
+    await this.produitsPending.update(entree.id, { stock: nouveauStock });
+    return true;
+  }
+
+  // ─── Réassorts pending (ajustements stock offline, patron) ──
+  async ajouterStockPending(s: Omit<StockPending, 'id'>): Promise<number> {
+    return this.stocksPending.add(s);
+  }
+  async getStocksPending(tenantId: string): Promise<StockPending[]> {
+    return this.stocksPending
+      .where('statut').equals('pending')
+      .and((s) => s.tenantId === tenantId)
+      .toArray();
+  }
+  async marquerStockSynced(id: number): Promise<void> {
+    await this.stocksPending.update(id, { statut: 'synced' });
+  }
+  async marquerStockError(id: number, msg: string): Promise<void> {
+    await this.stocksPending.update(id, { statut: 'error', errorMessage: msg });
+  }
+  async compterStocksPending(tenantId: string): Promise<number> {
+    return this.stocksPending
+      .where('statut').equals('pending')
+      .and((s) => s.tenantId === tenantId)
+      .count();
+  }
+  async nettoyerStocksSynced(): Promise<void> {
+    await this.stocksPending.where('statut').equals('synced').delete();
   }
 }

@@ -69,16 +69,53 @@ export class ProduitService {
     return this.api.get(`produits/barcode/${encodeURIComponent(code)}`);
   }
 
+  /**
+   * Crée un produit. En ligne → API directe. Hors ligne (ou requête échouée) →
+   * mis en cache localement + queue de synchronisation (SyncService), pour que
+   * le patron voie le produit immédiatement et qu'il se synchronise seul au
+   * retour de la connexion.
+   */
   create(produit: Produit): Observable<any> {
-    return this.api.post('produits', produit);
+    const tenantId = this.auth.getTenantId() ?? '';
+    return from(
+      this.sync.creerProduit({
+        tenantId,
+        nom: produit.nom,
+        prix: produit.prix,
+        prixAchat: produit.prixAchat,
+        stock: produit.stock,
+        seuilAlerte: produit.seuilAlerte,
+        codeBarres: produit.codeBarres,
+        categorie: produit.categorie,
+      }),
+    ).pipe(
+      switchMap(({ statut, data }) =>
+        of({ success: true, data, offline: statut === 'offline' }),
+      ),
+    );
   }
 
   update(id: string, produit: Produit): Observable<any> {
     return this.api.put(`produits/${id}`, produit);
   }
 
-  updateStock(id: string, quantite: number, type: 'entree' | 'sortie'): Observable<any> {
-    return this.api.patch(`produits/${id}/stock`, { quantite, type });
+  /**
+   * Ajuste le stock (réassort). En ligne → API directe + mise à jour cache.
+   * Hors ligne (ou produit lui-même pas encore synchronisé) → mise à jour
+   * optimiste du cache + queue de synchronisation.
+   * `nom` et `stockActuel` sont nécessaires pour le calcul optimiste hors ligne.
+   */
+  updateStock(
+    id: string,
+    quantite: number,
+    type: 'entree' | 'sortie',
+    nom = '',
+    stockActuel = 0,
+  ): Observable<any> {
+    const tenantId = this.auth.getTenantId() ?? '';
+    return from(
+      this.sync.ajusterStock({ tenantId, produitId: id, nom, stockActuel, quantite, type }),
+    ).pipe(switchMap((statut) => of({ success: true, offline: statut === 'offline' })));
   }
 
   delete(id: string): Observable<any> {

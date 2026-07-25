@@ -412,14 +412,20 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   confirmerReappro(p: any): void {
     if (this.reapproSaving) return;
     this.reapproSaving = true;
-    this.produitService.updateStock(p._id, this.reapproQty, 'entree').subscribe({
-      next: () => {
+    this.produitService.updateStock(p._id, this.reapproQty, 'entree', p.nom, p.stock).subscribe({
+      next: (res) => {
         this.produits.update(list =>
           list.map(item => item._id === p._id ? { ...item, stock: item.stock + this.reapproQty } : item)
         );
         this.reapproId = null;
         this.reapproSaving = false;
-        this.snack.open(`+${this.reapproQty} unité(s) ajoutée(s)`, 'OK', { duration: 2500 });
+        this.snack.open(
+          res?.offline
+            ? `+${this.reapproQty} unité(s) enregistrée(s) hors ligne — sync à la reconnexion`
+            : `+${this.reapproQty} unité(s) ajoutée(s)`,
+          'OK',
+          { duration: 2500 },
+        );
       },
       error: () => {
         this.reapproSaving = false;

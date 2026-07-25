@@ -226,9 +226,12 @@ export class ProduitFormComponent implements OnInit {
       next: (res) => {
         this.isLoading = false;
         if (res.success) {
-          this.snackBar.open(this.isEditMode ? 'Produit mis à jour' : 'Produit ajouté', 'Fermer', {
-            duration: 3000,
-          });
+          const message = this.isEditMode
+            ? 'Produit mis à jour'
+            : res.offline
+              ? 'Produit enregistré hors ligne — sera synchronisé à la reconnexion'
+              : 'Produit ajouté';
+          this.snackBar.open(message, 'Fermer', { duration: res.offline ? 3500 : 3000 });
           this.router.navigate(['/patron/produits']);
         } else {
           this.snackBar.open(res.message || 'Impossible d’enregistrer le produit', 'Fermer', {

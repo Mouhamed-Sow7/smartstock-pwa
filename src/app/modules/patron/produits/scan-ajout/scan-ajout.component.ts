@@ -374,6 +374,8 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   private zxingControls: IScannerControls | null = null;
   private mediaStream: MediaStream | null = null;
   private scanInterval: ReturnType<typeof setInterval> | null = null;
+  private scanRafId: number | null = null;
+  private lastDetectTs = 0;
   private isProcessingCameraCode = false;
 
   constructor(
@@ -462,14 +464,22 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cdr.detectChanges();
 
       if (this.detector) {
-        this.scanInterval = setInterval(async () => {
-          if (!this.detector || this.isProcessingCameraCode || !this.cameraActive) return;
-          try {
-            const results = await this.detector.detect(video);
-            const code = results?.[0]?.rawValue?.trim();
-            if (code) this.onCameraCodeDetected(code);
-          } catch {}
-        }, 450);
+        // requestAnimationFrame pour la fluidité, throttlé à 150ms pour éviter
+        // de saturer detect() (coûteux) tout en restant réactif.
+        this.lastDetectTs = 0;
+        const rafLoop = async (ts: number) => {
+          if (!this.cameraActive || !this.detector) return;
+          if (ts - this.lastDetectTs >= 150 && !this.isProcessingCameraCode) {
+            this.lastDetectTs = ts;
+            try {
+              const results = await this.detector.detect(video);
+              const code = results?.[0]?.rawValue?.trim();
+              if (code) this.onCameraCodeDetected(code);
+            } catch {}
+          }
+          this.scanRafId = requestAnimationFrame(rafLoop);
+        };
+        this.scanRafId = requestAnimationFrame(rafLoop);
       } else if (this.zxingReader) {
         // Boucle canvas manuelle : contourne le bug de decodeFromVideoElement
         // (playVideoOnLoadAsync vérifie currentTime>0 qui vaut 0 juste après play()
@@ -482,14 +492,17 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
           if (stopLoop || !this.cameraActive) return;
           try {
             if (video.readyState >= 2 && video.videoWidth > 0) {
-              canvas.width = video.videoWidth;
-              canvas.height = video.videoHeight;
-              ctx.drawImage(video, 0, 0);
+              // Résolution native conservée jusqu'à 1280px (plus le scale
+              // agressif qui écrasait les petits codes-barres).
+              const scale = Math.min(1, 1280 / video.videoWidth);
+              canvas.width = Math.round(video.videoWidth * scale);
+              canvas.height = Math.round(video.videoHeight * scale);
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
               const result = this.zxingReader!.decodeFromCanvas(canvas);
               if (result?.getText()) this.onCameraCodeDetected(result.getText());
             }
           } catch { /* NotFound/Checksum/Format sont normales */ }
-          if (!stopLoop) setTimeout(loop, 300);
+          if (!stopLoop) setTimeout(loop, 80);
         };
         loop();
       }
@@ -511,9 +524,11 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     return {
       video: {
         facingMode: { ideal: this.facingMode },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-      },
+        width: { min: 640, ideal: 1920, max: 3840 },
+        height: { min: 480, ideal: 1080, max: 2160 },
+        // @ts-ignore focusMode n'est pas encore dans le type MediaTrackConstraints standard
+        advanced: [{ focusMode: 'continuous' }],
+      } as MediaTrackConstraints,
     };
   }
 
@@ -537,6 +552,10 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.scanInterval) {
       clearInterval(this.scanInterval);
       this.scanInterval = null;
+    }
+    if (this.scanRafId !== null) {
+      cancelAnimationFrame(this.scanRafId);
+      this.scanRafId = null;
     }
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(t => t.stop());
@@ -604,24 +623,38 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   confirmerEntreeStock(): void {
     if (!this.produitTrouve?._id || this.quantiteEntree <= 0) return;
     this.isLoading = true;
-    this.produitService.updateStock(this.produitTrouve._id, this.quantiteEntree, 'entree').subscribe({
-      next: (res) => {
-        this.isLoading = false;
-        if (res?.success) {
-          this.snackBar.open(`Stock mis a jour : ${res.data.stock} unites`, 'Fermer', { duration: 2500 });
-          this.produitsIndexesSession++;
-          this.reprendreScan();
-        } else {
-          this.errorMessage = res?.message || 'Erreur mise a jour stock';
-        }
-        this.cdr.detectChanges();
-      },
-      error: () => {
-        this.isLoading = false;
-        this.errorMessage = 'Erreur reseau';
-        this.cdr.detectChanges();
-      },
-    });
+    this.produitService
+      .updateStock(
+        this.produitTrouve._id!,
+        this.quantiteEntree,
+        'entree',
+        this.produitTrouve.nom,
+        this.produitTrouve.stock,
+      )
+      .subscribe({
+        next: (res) => {
+          this.isLoading = false;
+          if (res?.success) {
+            this.snackBar.open(
+              res?.offline
+                ? 'Stock mis à jour hors ligne — sera synchronisé à la reconnexion'
+                : `Stock mis à jour : ${this.produitTrouve!.stock + this.quantiteEntree} unités`,
+              'Fermer',
+              { duration: 2500 },
+            );
+            this.produitsIndexesSession++;
+            this.reprendreScan();
+          } else {
+            this.errorMessage = res?.message || 'Erreur mise a jour stock';
+          }
+          this.cdr.detectChanges();
+        },
+        error: () => {
+          this.isLoading = false;
+          this.errorMessage = 'Erreur reseau';
+          this.cdr.detectChanges();
+        },
+      });
   }
 
   ouvrirEdition(): void {
