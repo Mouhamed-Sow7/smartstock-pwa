@@ -544,27 +544,17 @@ a {
 }
 
 /* ── iOS PWA safe areas ────────────────────────────────────────────────────
-   En mode standalone (app ajoutée à l'écran d'accueil), iOS réserve
-   env(safe-area-inset-top) pour la barre de statut et
-   env(safe-area-inset-bottom) pour la barre Home (iPhone X+).
-   Sans ces paddings, le contenu passe sous ces zones. */
-.topbar, app-root > * > .topbar {
-  padding-top: env(safe-area-inset-top, 0px) !important;
-  padding-top: constant(safe-area-inset-top, 0px) !important;
-  height: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)) !important;
-  height: calc(var(--topbar-h) + constant(safe-area-inset-top, 0px)) !important;
-}
-.bottom-nav {
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  padding-bottom: constant(safe-area-inset-bottom, 0px) !important;
-  height: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px)) !important;
-  height: calc(var(--nav-h) + constant(safe-area-inset-bottom, 0px)) !important;
-}
-/* Contenu principal : pousser sous la topbar agrandie */
-.main-content, .page-content, .agent-content, .patron-content {
-  padding-top: calc(var(--topbar-h) + env(safe-area-inset-top, 0px)) !important;
-  padding-top: calc(var(--topbar-h) + constant(safe-area-inset-top, 0px)) !important;
-}
+   La gestion des safe-areas (env(safe-area-inset-*)) est déjà faite au niveau
+   des composants agent-layout / patron-layout via les variables --safe-top et
+   --safe-bot (elles-mêmes dérivées de env(safe-area-inset-*) dans :root).
+   NE PAS dupliquer la compensation ici : un ancien correctif ajoutait un
+   second padding-top/height !important sur .topbar/.main-content en plus du
+   top/height déjà posé par les composants, ce qui provoquait une DOUBLE
+   compensation de la safe-area (topbar qui déborde sur le contenu, contenu
+   poussé trop bas / coupé en bas) — c'est la cause du bug "PWA standalone
+   contractée" constaté en prod. Si un nouveau composant a besoin de gérer
+   sa propre safe-area, utiliser directement var(--safe-top) / var(--safe-bot)
+   une seule fois, dans le composant, jamais en plus ici. */
 /* Login hero iOS PWA : min-height correct sans débordement */
 @media (max-width: 768px) {
   .login-page {
