@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, computed, inject, signal, ViewEncapsulation } from '@angular/core';
+import { Component, OnInit, OnDestroy, NgZone, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -365,6 +365,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
   private snack = inject(MatSnackBar);
   private produitService = inject(ProduitService);
+  private zone = inject(NgZone);
 
   searchQuery = signal('');
   reapproId: string | null = null;
@@ -412,8 +413,11 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   confirmerReappro(p: any): void {
     if (this.reapproSaving) return;
     this.reapproSaving = true;
+    // updateStock() passe par SyncService/Dexie (IndexedDB) : callbacks non
+    // garantis dans la zone Angular sur certains navigateurs → zone.run()
+    // (meme cause que le "modal fantome" de produit-dialog/scan-ajout).
     this.produitService.updateStock(p._id, this.reapproQty, 'entree', p.nom, p.stock).subscribe({
-      next: (res) => {
+      next: (res) => this.zone.run(() => {
         this.produits.update(list =>
           list.map(item => item._id === p._id ? { ...item, stock: item.stock + this.reapproQty } : item)
         );
@@ -426,11 +430,11 @@ export class ProduitsComponent implements OnInit, OnDestroy {
           'OK',
           { duration: 2500 },
         );
-      },
-      error: () => {
+      }),
+      error: () => this.zone.run(() => {
         this.reapproSaving = false;
         this.snack.open('Erreur réapprovisionnement', 'X', { duration: 2500 });
-      }
+      }),
     });
   }
 
@@ -462,7 +466,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
       width: '540px',
       maxWidth: '100vw',
       panelClass: 'produit-dialog-panel',
-    }).afterClosed().subscribe(result => { if (result) this.chargerProduits(); });
+    }).afterClosed().subscribe(result => this.zone.run(() => { if (result) this.chargerProduits(); }));
   }
 
   openEditDialog(produit: any) {
@@ -471,7 +475,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
       width: '540px',
       maxWidth: '100vw',
       panelClass: 'produit-dialog-panel',
-    }).afterClosed().subscribe(result => { if (result) this.chargerProduits(); });
+    }).afterClosed().subscribe(result => this.zone.run(() => { if (result) this.chargerProduits(); }));
   }
 
   openDeleteDialog(produit: any) {

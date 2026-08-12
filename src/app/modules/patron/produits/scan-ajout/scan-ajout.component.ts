@@ -6,6 +6,7 @@ import {
   AfterViewInit,
   ViewChild,
   ChangeDetectorRef,
+  NgZone,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -383,6 +384,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private cdr: ChangeDetectorRef,
+    private zone: NgZone,
   ) {
     if (this.cameraSupported) {
       const DetectorClass = (window as any).BarcodeDetector;
@@ -585,8 +587,11 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dernierCode = c;
     this.isLoading = true;
 
+    // getByBarcode() passe par le cache Dexie hors ligne : ses callbacks
+    // peuvent s'executer hors de la zone Angular sur certains navigateurs,
+    // d'ou le zone.run() (voir explication detaillee dans produit-dialog.component.ts).
     this.produitService.getByBarcode(c).subscribe({
-      next: (res) => {
+      next: (res) => this.zone.run(() => {
         this.isLoading = false;
         if (res?.success && res?.data) {
           this.produitTrouve = res.data;
@@ -598,8 +603,8 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.manualCode = '';
         this.cdr.detectChanges();
-      },
-      error: (err) => {
+      }),
+      error: (err) => this.zone.run(() => {
         this.isLoading = false;
         if (err?.status === 404) {
           this.afficherNouveau();
@@ -608,7 +613,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
         }
         this.manualCode = '';
         this.cdr.detectChanges();
-      },
+      }),
     });
   }
 
@@ -637,7 +642,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
         this.produitTrouve.stock,
       )
       .subscribe({
-        next: (res) => {
+        next: (res) => this.zone.run(() => {
           this.isLoading = false;
           if (res?.success) {
             this.snackBar.open(
@@ -653,12 +658,12 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
             this.errorMessage = res?.message || 'Erreur mise a jour stock';
           }
           this.cdr.detectChanges();
-        },
-        error: () => {
+        }),
+        error: () => this.zone.run(() => {
           this.isLoading = false;
           this.errorMessage = 'Erreur reseau';
           this.cdr.detectChanges();
-        },
+        }),
       });
   }
 
@@ -667,22 +672,22 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dialog.open(ProduitDialogComponent, {
       width: '500px',
       data: { produit: this.produitTrouve, isEdit: true },
-    }).afterClosed().subscribe(result => {
+    }).afterClosed().subscribe(result => this.zone.run(() => {
       if (result) this.produitsIndexesSession++;
       this.reprendreScan();
       this.cdr.detectChanges();
-    });
+    }));
   }
 
   ouvrirCreation(): void {
     this.dialog.open(ProduitDialogComponent, {
       width: '500px',
       data: { produit: { codeBarres: this.dernierCode } as Produit, isEdit: false },
-    }).afterClosed().subscribe(result => {
+    }).afterClosed().subscribe(result => this.zone.run(() => {
       if (result) this.produitsIndexesSession++;
       this.reprendreScan();
       this.cdr.detectChanges();
-    });
+    }));
   }
 
   private playSound(freq: number): void {

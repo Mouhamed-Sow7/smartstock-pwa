@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectorRef, signal } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef, NgZone, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
@@ -301,6 +301,7 @@ export class ProduitDialogComponent implements OnInit {
   private produitService = inject(ProduitService);
   private snackBar = inject(MatSnackBar);
   private cdr = inject(ChangeDetectorRef);
+  private zone = inject(NgZone);
 
   categories = CATEGORIES;
   selectedCat: string | null = null;
@@ -375,9 +376,17 @@ export class ProduitDialogComponent implements OnInit {
     const request = this.data.isEdit && this.data.produit?._id
       ? this.produitService.update(this.data.produit._id, produit)
       : this.produitService.create(produit);
-    request.pipe(finalize(() => { this.isLoading = false; this.cdr.detectChanges(); }))
+    // create()/update() passent par SyncService, qui fait des await sur Dexie
+    // (IndexedDB). Ces callbacks ne sont pas patchés par Zone.js sur certains
+    // navigateurs (iOS notamment — même souci que agent-layout.onRefresh()) :
+    // le code qui suit peut s'exécuter EN DEHORS de la zone Angular, auquel cas
+    // dialogRef.close() est bien appelé mais Angular Material ne déclenche pas
+    // le nettoyage visuel de l'overlay tant qu'aucune interaction ne relance le
+    // change detection → le dialog reste affiché malgré la création réussie.
+    // zone.run() garantit que tout ce bloc s'exécute dans la zone Angular.
+    request.pipe(finalize(() => this.zone.run(() => { this.isLoading = false; this.cdr.detectChanges(); })))
       .subscribe({
-        next: (res) => {
+        next: (res) => this.zone.run(() => {
           if (res.success) {
             const message = this.data.isEdit
               ? 'Produit mis à jour'
@@ -389,8 +398,9 @@ export class ProduitDialogComponent implements OnInit {
           } else {
             this.snackBar.open(res.message || 'Erreur', 'OK', { duration: 3000 });
           }
-        },
-        error: () => this.snackBar.open('Erreur réseau', 'OK', { duration: 3000 }),
+        }),
+        error: () => this.zone.run(() =>
+          this.snackBar.open('Erreur réseau', 'OK', { duration: 3000 })),
       });
   }
 }
