@@ -12,6 +12,11 @@ interface RelanceClient {
   prochaineEcheance: string; boutique: string; joursRestants: number;
   statut: 'a_venir' | 'en_retard';
 }
+interface AbonnementARelancer {
+  _id: string; nom: string; email: string; telephone?: string; boutique: string;
+  actif: boolean; prochainPaiement: string; joursRestants: number;
+  statut: 'a_venir' | 'en_retard';
+}
 
 @Component({
   selector: 'app-admin',
@@ -64,6 +69,10 @@ interface RelanceClient {
       <button class="tab" [class.on]="tab==='relances'" (click)="tab='relances'; loadRelances()">
         <mat-icon>notifications</mat-icon>Relances
         <span class="tab-badge" *ngIf="relances().length > 0">{{ relances().length }}</span>
+      </button>
+      <button class="tab" [class.on]="tab==='abonnements'" (click)="tab='abonnements'; loadAbonnements()">
+        <mat-icon>event_available</mat-icon>Abonnements
+        <span class="tab-badge" *ngIf="abonnements().length > 0">{{ abonnements().length }}</span>
       </button>
       <button class="tab" [class.on]="tab==='creer'"   (click)="tab='creer'"  ><mat-icon>person_add</mat-icon>Créer</button>
       <button class="tab" [class.on]="tab==='outils'"  (click)="tab='outils'" ><mat-icon>build</mat-icon>Outils</button>
@@ -178,6 +187,35 @@ interface RelanceClient {
           <span class="relance-statut" [class.retard]="r.statut === 'en_retard'">
             {{ r.statut === 'en_retard' ? ('en retard de ' + (-r.joursRestants) + 'j') : ('dans ' + r.joursRestants + 'j') }}
           </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── ABONNEMENTS (SaaS patrons) ── -->
+    <section *ngIf="tab==='abonnements'">
+      <div class="sec-head">
+        <h3>Abonnements à relancer <span class="sub">(échéance ≤ 3j ou en retard)</span></h3>
+      </div>
+      <div class="loading-row" *ngIf="abonnementsLoading()"><mat-icon class="spin">autorenew</mat-icon> Chargement…</div>
+      <div class="empty-row" *ngIf="!abonnementsLoading() && abonnements().length === 0">
+        <mat-icon>check_circle</mat-icon> Tous les abonnements sont à jour.
+      </div>
+      <div class="relance-row" *ngFor="let a of abonnements()" [class.retard]="a.statut === 'en_retard'">
+        <div class="relance-main">
+          <b>{{ a.boutique || a.nom }}</b>
+          <span class="relance-boutique" *ngIf="!a.actif" style="background:rgba(231,76,60,.15);color:#e74c3c;">désactivé</span>
+        </div>
+        <div class="relance-info">
+          <span>{{ a.nom }}</span>
+          <span>{{ a.email }}</span>
+          <span *ngIf="a.telephone">{{ a.telephone }}</span>
+          <span class="relance-statut" [class.retard]="a.statut === 'en_retard'">
+            {{ a.statut === 'en_retard' ? ('en retard de ' + (-a.joursRestants) + 'j') : ('dans ' + a.joursRestants + 'j') }}
+          </span>
+        </div>
+        <div class="relance-actions">
+          <a *ngIf="a.telephone" class="btn-relance-call" [href]="'tel:' + a.telephone"><mat-icon>call</mat-icon>Appeler</a>
+          <button class="btn-relance-ok" (click)="confirmerPaiementAbonnement(a)"><mat-icon>check</mat-icon>Paiement reçu</button>
         </div>
       </div>
     </section>
@@ -309,6 +347,14 @@ interface RelanceClient {
     .relance-info{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#8892a4;align-items:center;}
     .relance-statut{margin-left:auto;font-weight:700;color:#f39c12;}
     .relance-statut.retard{color:#e74c3c;}
+    .relance-actions{display:flex;gap:8px;margin-top:8px;}
+    .relance-actions a,.relance-actions button{
+      display:flex;align-items:center;gap:4px;font-size:11px;font-weight:700;
+      padding:6px 12px;border-radius:9px;border:none;cursor:pointer;text-decoration:none;
+    }
+    .relance-actions mat-icon{font-size:14px;width:14px;height:14px;}
+    .btn-relance-call{background:rgba(46,204,113,.15);color:#2ecc71;}
+    .btn-relance-ok{background:rgba(0,184,148,.15);color:#00b894;}
 
     /* Search */
     .adm-inp.search{width:100%;margin-bottom:12px;}
@@ -456,7 +502,7 @@ export class AdminComponent implements OnInit {
   equipeLoading = false;
 
   // Onglet
-  tab: 'patrons' | 'relances' | 'creer' | 'outils' = 'patrons';
+  tab: 'patrons' | 'relances' | 'abonnements' | 'creer' | 'outils' = 'patrons';
 
   // Relances (échéances de paiement à venir/en retard, toutes boutiques)
   private _relances = signal<RelanceClient[]>([]);
@@ -464,6 +510,12 @@ export class AdminComponent implements OnInit {
   private _relancesLoading = signal(false);
   readonly relancesLoading = this._relancesLoading.asReadonly();
   private relancesChargeesUneFois = false;
+
+  // Abonnements SaaS (patrons à relancer pour le paiement mensuel)
+  private _abonnements = signal<AbonnementARelancer[]>([]);
+  readonly abonnements = this._abonnements.asReadonly();
+  private _abonnementsLoading = signal(false);
+  readonly abonnementsLoading = this._abonnementsLoading.asReadonly();
 
   // Créer
   nv = { nom: '', boutique: '', email: '', telephone: '', password: '' };
@@ -516,10 +568,10 @@ export class AdminComponent implements OnInit {
   logout(): void {
     sessionStorage.removeItem(this.SK);
     this._ok.set(false); this.keyInput = '';
-    this._stats.set(null); this._patrons.set([]); this._relances.set([]);
+    this._stats.set(null); this._patrons.set([]); this._relances.set([]); this._abonnements.set([]);
   }
 
-  loadAll(): void { this.loadStats(); this.loadPatrons(); this.loadRelances(); }
+  loadAll(): void { this.loadStats(); this.loadPatrons(); this.loadRelances(); this.loadAbonnements(); }
 
   loadStats(): void {
     this.http.get<any>(`${this.base}/stats`, { headers: this.h() }).subscribe({
@@ -545,6 +597,22 @@ export class AdminComponent implements OnInit {
       error: () => { this._relancesLoading.set(false); this.cdr.detectChanges(); },
     });
     this.relancesChargeesUneFois = true;
+  }
+
+  loadAbonnements(): void {
+    this._abonnementsLoading.set(true);
+    this.http.get<any>(`${this.base}/abonnements`, { headers: this.h() }).subscribe({
+      next: (r) => { this._abonnements.set(r.data || []); this._abonnementsLoading.set(false); this.cdr.detectChanges(); },
+      error: () => { this._abonnementsLoading.set(false); this.cdr.detectChanges(); },
+    });
+  }
+
+  confirmerPaiementAbonnement(a: AbonnementARelancer): void {
+    if (!confirm(`Confirmer le paiement reçu de ${a.boutique || a.nom} ? La prochaine échéance sera dans 30 jours.`)) return;
+    this.http.patch<any>(`${this.base}/users/${a._id}/renouveler-abonnement`, {}, { headers: this.h() }).subscribe({
+      next: () => { this.loadAbonnements(); },
+      error: () => { alert('Échec de la mise à jour, réessaie.'); },
+    });
   }
 
   togglePatron(p: Patron): void {

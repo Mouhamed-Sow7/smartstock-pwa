@@ -7,6 +7,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { ClientsService } from '../../../core/services/clients.service';
+import { AbonnementService } from '../../../core/services/abonnement.service';
 
 @Component({
   selector: 'app-patron-layout',
@@ -45,7 +46,22 @@ import { ClientsService } from '../../../core/services/clients.service';
         class="sync-btn" (click)="sync.synchroniser()">Synchroniser</button>
     </div>
 
-    <main class="main-content" [class.with-banner]="sync.afficherBandeau()">
+    <!-- Bandeau abonnement SaaS : discret, informatif, jamais bloquant -->
+    <div class="abo-banner" [class.retard]="abonnement.statut()?.statut === 'en_retard'"
+      [class.stacked]="sync.afficherBandeau()"
+      *ngIf="abonnement.statut()?.alerte && !abonnement.bandeauFerme()">
+      <mat-icon>event_available</mat-icon>
+      <span *ngIf="abonnement.statut()?.statut === 'a_venir'">
+        Ton abonnement SmartStock arrive à échéance dans {{ abonnement.statut()?.joursRestants }} jour(s) — pense à renouveler.
+      </span>
+      <span *ngIf="abonnement.statut()?.statut === 'en_retard'">
+        Ton abonnement SmartStock est en retard de {{ -(abonnement.statut()?.joursRestants ?? 0) }} jour(s) — contacte-nous pour régulariser.
+      </span>
+      <button class="abo-close" (click)="abonnement.fermerBandeau()"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <main class="main-content" [class.with-banner]="sync.afficherBandeau()"
+      [class.with-abo-banner]="abonnement.statut()?.alerte && !abonnement.bandeauFerme()">
       <router-outlet></router-outlet>
     </main>
 
@@ -140,6 +156,32 @@ import { ClientsService } from '../../../core/services/clients.service';
       cursor: pointer;
     }
 
+    .abo-banner {
+      position: fixed;
+      top: calc(var(--safe-top) + var(--topbar-h));
+      left: 0; right: 0;
+      z-index: 98;
+      background: rgba(52,152,219,.12);
+      border-bottom: 1px solid rgba(52,152,219,.25);
+      color: #74b9ff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    /* Stacked : le bandeau sync est déjà affiché au-dessus, donc on se pose en dessous */
+    .abo-banner.stacked { top: calc(var(--safe-top) + var(--topbar-h) + 33px); }
+    .abo-banner.retard { background: rgba(231,76,60,.12); border-color: rgba(231,76,60,.3); color: #e74c3c; }
+    .abo-banner mat-icon:first-child { font-size: 16px; width: 16px; height: 16px; flex-shrink: 0; }
+    .abo-close {
+      margin-left: auto;
+      background: transparent; border: none; color: inherit; cursor: pointer;
+      display: flex; align-items: center; padding: 2px;
+    }
+    .abo-close mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
     .main-content {
       position: fixed;
       top: calc(var(--safe-top) + var(--topbar-h));
@@ -152,9 +194,9 @@ import { ClientsService } from '../../../core/services/clients.service';
       background: var(--navy);
       padding: 16px;
     }
-    .main-content.with-banner {
-      top: calc(var(--safe-top) + var(--topbar-h) + 33px);
-    }
+    .main-content.with-banner { top: calc(var(--safe-top) + var(--topbar-h) + 33px); }
+    .main-content.with-abo-banner { top: calc(var(--safe-top) + var(--topbar-h) + 33px); }
+    .main-content.with-banner.with-abo-banner { top: calc(var(--safe-top) + var(--topbar-h) + 66px); }
 
     .bottom-nav {
       position: fixed;
@@ -236,10 +278,12 @@ export class PatronLayoutComponent {
     public sync: SyncService,
     public theme: ThemeService,
     public clients: ClientsService,
+    public abonnement: AbonnementService,
     private router: Router,
   ) {
     this.user = this.auth.getUser();
     this.clients.rafraichirRelances();
+    this.abonnement.rafraichir();
   }
 
   logout() {
