@@ -46,15 +46,38 @@
           if (params.has('debug')) {
             localStorage.setItem('ss_debug', params.get('debug') === '0' ? '0' : '1');
           }
-          if (localStorage.getItem('ss_debug') !== '1') return;
+          // iOS isole le stockage entre Safari (onglet navigateur) et une app
+          // installée sur l'écran d'accueil (WKWebsiteDataStore séparé) : le
+          // flag localStorage posé depuis Safari ne traverse PAS vers le PWA
+          // déjà installé. Donc en plus du flag, on affiche automatiquement
+          // le panneau dès qu'on tourne en mode standalone (= justement le
+          // cas qu'on veut diagnostiquer), sans dépendre du localStorage.
+          var isStandalone = window.navigator.standalone === true ||
+            window.matchMedia('(display-mode: standalone)').matches;
+          if (localStorage.getItem('ss_debug') !== '1' && !isStandalone) return;
+          if (sessionStorage.getItem('ss_debug_dismissed') === '1') return;
 
           var box = document.createElement('div');
           box.style.cssText =
             'position:fixed;left:8px;right:8px;bottom:8px;z-index:999999;' +
             'background:rgba(0,0,0,.88);color:#0f0;font:11px/1.5 monospace;' +
-            'padding:8px 10px;border-radius:8px;white-space:pre-wrap;' +
-            'pointer-events:none;max-height:45vh;overflow:auto;';
+            'padding:8px 10px;padding-right:34px;border-radius:8px;white-space:pre-wrap;' +
+            'max-height:45vh;overflow:auto;';
           document.body.appendChild(box);
+
+          var closeBtn = document.createElement('button');
+          closeBtn.textContent = '✕';
+          closeBtn.style.cssText =
+            'position:fixed;right:12px;bottom:12px;z-index:1000000;' +
+            'background:#c0392b;color:#fff;border:none;border-radius:50%;' +
+            'width:26px;height:26px;font-size:13px;line-height:1;';
+          closeBtn.onclick = function () {
+            sessionStorage.setItem('ss_debug_dismissed', '1');
+            box.remove();
+            closeBtn.remove();
+            probe.remove();
+          };
+          document.body.appendChild(closeBtn);
 
           var probe = document.createElement('div');
           probe.style.cssText =
@@ -71,7 +94,7 @@
             var navRect = bottomNav ? bottomNav.getBoundingClientRect() : null;
             var vv = window.visualViewport;
             var lines = [
-              '=== SmartStock debug (?debug=0 pour désactiver) ===',
+              '=== SmartStock debug (tapez ✕ pour fermer) ===',
               'standalone (iOS) : ' + (window.navigator.standalone === true),
               'display-mode standalone : ' + window.matchMedia('(display-mode: standalone)').matches,
               'env(safe-area-inset-top)    : ' + cs.paddingTop,
