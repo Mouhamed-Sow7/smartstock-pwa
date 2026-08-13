@@ -156,7 +156,13 @@ import { ThemeService } from '../../../core/services/theme.service';
       left: 0;
       right: 0;
       height: calc(var(--nav-h) + var(--safe-bot));
-      padding-bottom: var(--safe-bot);
+      /* Avant : padding-bottom: var(--safe-bot) poussait toute la safe-area
+         en bande vide sous les icônes (grid stretch remplit nav-h, le padding
+         mange le reste) — visuellement une bande "morte" collée en bas, gâchis
+         d'espace comparé à Android qui n'a pas cette zone. Fix : pas de padding,
+         on laisse les items grid s'étirer sur la hauteur totale (nav-h + safe-bot)
+         et on centre leur contenu verticalement dedans (voir .bottom-nav a),
+         donc l'espace de la safe-area est réparti au lieu d'être mort en bas. */
       background: var(--navy-light);
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);

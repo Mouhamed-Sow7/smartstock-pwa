@@ -145,7 +145,10 @@ import { SyncService } from '../../../core/services/sync.service';
         left: 0;
         right: 0;
         height: calc(var(--nav-h) + var(--safe-bot));
-        padding-bottom: var(--safe-bot);
+        /* Pas de padding-bottom : voir patron-layout.component.ts pour l'explication —
+           on laisse les items grid s'étirer sur nav-h + safe-bot et se centrer
+           verticalement dedans, au lieu de coller toute la safe-area en bande
+           morte sous les icônes. */
         background: var(--navy-light);
         backdrop-filter: blur(16px);
         -webkit-backdrop-filter: blur(16px);
