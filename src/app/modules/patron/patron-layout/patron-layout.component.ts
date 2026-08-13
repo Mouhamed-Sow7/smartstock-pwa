@@ -6,6 +6,7 @@ import { CommonModule } from '@angular/common';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
 import { ThemeService } from '../../../core/services/theme.service';
+import { ClientsService } from '../../../core/services/clients.service';
 
 @Component({
   selector: 'app-patron-layout',
@@ -64,6 +65,11 @@ import { ThemeService } from '../../../core/services/theme.service';
       <a routerLink="/patron/ventes" routerLinkActive="active">
         <mat-icon>receipt_long</mat-icon>
         <span>Ventes</span>
+      </a>
+      <a routerLink="/patron/relances" routerLinkActive="active" class="relances-link">
+        <span class="relances-badge" *ngIf="clients.relancesCount() > 0">{{ clients.relancesCount() }}</span>
+        <mat-icon>notifications</mat-icon>
+        <span>Relances</span>
       </a>
     </nav>
   `,
@@ -168,7 +174,7 @@ import { ThemeService } from '../../../core/services/theme.service';
       -webkit-backdrop-filter: blur(16px);
       border-top: 1px solid var(--navy-border);
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
+      grid-template-columns: repeat(5, 1fr);
       z-index: 100;
     }
     .bottom-nav a {
@@ -185,6 +191,24 @@ import { ThemeService } from '../../../core/services/theme.service';
       position: relative;
     }
     .bottom-nav a.active { color: var(--accent); }
+    .relances-link { position: relative; }
+    .relances-badge {
+      position: absolute;
+      top: 2px;
+      right: calc(50% - 20px);
+      background: #e74c3c;
+      color: #fff;
+      font-size: 9px;
+      font-weight: 800;
+      min-width: 15px;
+      height: 15px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 3px;
+      line-height: 1;
+    }
     .bottom-nav a.active::before {
       content: '';
       position: absolute;
@@ -211,9 +235,11 @@ export class PatronLayoutComponent {
     private auth: AuthService,
     public sync: SyncService,
     public theme: ThemeService,
+    public clients: ClientsService,
     private router: Router,
   ) {
     this.user = this.auth.getUser();
+    this.clients.rafraichirRelances();
   }
 
   logout() {

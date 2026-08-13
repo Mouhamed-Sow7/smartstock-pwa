@@ -47,6 +47,13 @@ const routes: Routes = [
         path: 'ventes',
         loadComponent: () => import('./ventes/ventes.component').then((m) => m.VentesComponent),
       },
+      {
+        path: 'relances',
+        loadComponent: () =>
+          import('../../shared/components/relances/relances.component').then(
+            (m) => m.RelancesComponent,
+          ),
+      },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },

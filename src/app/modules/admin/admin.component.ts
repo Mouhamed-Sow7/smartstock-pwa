@@ -7,6 +7,11 @@ import { environment } from '../../../environments/environment';
 
 interface Patron { _id: string; nom: string; email: string; telephone?: string; boutique?: string; tenantId: string; actif: boolean; }
 interface Agent  { _id: string; nom: string; prenom?: string; email?: string; telephone?: string; actif: boolean; }
+interface RelanceClient {
+  _id: string; nom: string; telephone?: string; soldeDu: number;
+  prochaineEcheance: string; boutique: string; joursRestants: number;
+  statut: 'a_venir' | 'en_retard';
+}
 
 @Component({
   selector: 'app-admin',
@@ -56,6 +61,10 @@ interface Agent  { _id: string; nom: string; prenom?: string; email?: string; te
     <!-- Tabs -->
     <div class="tabs">
       <button class="tab" [class.on]="tab==='patrons'" (click)="tab='patrons'"><mat-icon>storefront</mat-icon>Patrons</button>
+      <button class="tab" [class.on]="tab==='relances'" (click)="tab='relances'; loadRelances()">
+        <mat-icon>notifications</mat-icon>Relances
+        <span class="tab-badge" *ngIf="relances().length > 0">{{ relances().length }}</span>
+      </button>
       <button class="tab" [class.on]="tab==='creer'"   (click)="tab='creer'"  ><mat-icon>person_add</mat-icon>Créer</button>
       <button class="tab" [class.on]="tab==='outils'"  (click)="tab='outils'" ><mat-icon>build</mat-icon>Outils</button>
     </div>
@@ -146,6 +155,30 @@ interface Agent  { _id: string; nom: string; prenom?: string; email?: string; te
           <mat-icon>{{ nvBusy ? 'hourglass_empty' : 'person_add' }}</mat-icon>
           {{ nvBusy ? 'Création…' : 'Créer le patron' }}
         </button>
+      </div>
+    </section>
+
+    <!-- ── RELANCES ── -->
+    <section *ngIf="tab==='relances'">
+      <div class="sec-head">
+        <h3>Clients à relancer <span class="sub">(échéance ≤ 3j ou en retard, toutes boutiques)</span></h3>
+      </div>
+      <div class="loading-row" *ngIf="relancesLoading()"><mat-icon class="spin">autorenew</mat-icon> Chargement…</div>
+      <div class="empty-row" *ngIf="!relancesLoading() && relances().length === 0">
+        <mat-icon>check_circle</mat-icon> Aucun client à relancer actuellement.
+      </div>
+      <div class="relance-row" *ngFor="let r of relances()" [class.retard]="r.statut === 'en_retard'">
+        <div class="relance-main">
+          <b>{{ r.nom }}</b>
+          <span class="relance-boutique">{{ r.boutique }}</span>
+        </div>
+        <div class="relance-info">
+          <span>{{ r.soldeDu | number:'1.0-0' }} FCFA</span>
+          <span *ngIf="r.telephone">{{ r.telephone }}</span>
+          <span class="relance-statut" [class.retard]="r.statut === 'en_retard'">
+            {{ r.statut === 'en_retard' ? ('en retard de ' + (-r.joursRestants) + 'j') : ('dans ' + r.joursRestants + 'j') }}
+          </span>
+        </div>
       </div>
     </section>
 
@@ -255,13 +288,27 @@ interface Agent  { _id: string; nom: string; prenom?: string; email?: string; te
 
     /* Tabs */
     .tabs{display:flex;gap:4px;background:#0f1b2d;border-radius:12px;padding:4px;margin-bottom:20px;}
-    .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 6px;border:none;background:transparent;color:#8892a4;border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;transition:.15s;}
+    .tab{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;padding:8px 6px;border:none;background:transparent;color:#8892a4;border-radius:9px;cursor:pointer;font-size:12px;font-weight:600;transition:.15s;position:relative;}
     .tab mat-icon{font-size:15px;width:15px;height:15px;}
     .tab.on{background:#14243d;color:#00b894;}
+    .tab-badge{position:absolute;top:2px;right:8px;background:#e74c3c;color:#fff;font-size:9px;font-weight:800;min-width:15px;height:15px;border-radius:8px;display:flex;align-items:center;justify-content:center;padding:0 3px;line-height:1;}
 
     /* Section header */
     .sec-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
     .sec-head h3{flex:1;font-size:15px;font-weight:700;color:#e8eaf0;}
+    .sec-head .sub{font-size:11px;font-weight:400;color:#4a5568;}
+
+    /* Relances */
+    .loading-row,.empty-row{display:flex;align-items:center;gap:8px;color:#8892a4;font-size:13px;padding:24px 0;justify-content:center;}
+    .empty-row mat-icon{color:#00b894;}
+    .relance-row{background:#0f1b2d;border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:12px 14px;margin-bottom:8px;}
+    .relance-row.retard{border-color:rgba(231,76,60,.4);background:rgba(231,76,60,.06);}
+    .relance-main{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;}
+    .relance-main b{color:#e8eaf0;font-size:14px;}
+    .relance-boutique{font-size:11px;color:#74b9ff;background:rgba(116,185,255,.12);padding:2px 8px;border-radius:10px;}
+    .relance-info{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:#8892a4;align-items:center;}
+    .relance-statut{margin-left:auto;font-weight:700;color:#f39c12;}
+    .relance-statut.retard{color:#e74c3c;}
 
     /* Search */
     .adm-inp.search{width:100%;margin-bottom:12px;}
@@ -409,7 +456,14 @@ export class AdminComponent implements OnInit {
   equipeLoading = false;
 
   // Onglet
-  tab: 'patrons' | 'creer' | 'outils' = 'patrons';
+  tab: 'patrons' | 'relances' | 'creer' | 'outils' = 'patrons';
+
+  // Relances (échéances de paiement à venir/en retard, toutes boutiques)
+  private _relances = signal<RelanceClient[]>([]);
+  readonly relances = this._relances.asReadonly();
+  private _relancesLoading = signal(false);
+  readonly relancesLoading = this._relancesLoading.asReadonly();
+  private relancesChargeesUneFois = false;
 
   // Créer
   nv = { nom: '', boutique: '', email: '', telephone: '', password: '' };
@@ -462,10 +516,10 @@ export class AdminComponent implements OnInit {
   logout(): void {
     sessionStorage.removeItem(this.SK);
     this._ok.set(false); this.keyInput = '';
-    this._stats.set(null); this._patrons.set([]);
+    this._stats.set(null); this._patrons.set([]); this._relances.set([]);
   }
 
-  loadAll(): void { this.loadStats(); this.loadPatrons(); }
+  loadAll(): void { this.loadStats(); this.loadPatrons(); this.loadRelances(); }
 
   loadStats(): void {
     this.http.get<any>(`${this.base}/stats`, { headers: this.h() }).subscribe({
@@ -480,6 +534,17 @@ export class AdminComponent implements OnInit {
       next: (r) => { this._patrons.set(r.data || []); this._loading.set(false); this.cdr.detectChanges(); },
       error: () => { this._loading.set(false); this.cdr.detectChanges(); },
     });
+  }
+
+  loadRelances(): void {
+    // Rechargé à chaque clic sur l'onglet (données qui bougent vite : un
+    // paiement encaissé côté patron doit disparaître de la liste rapidement).
+    this._relancesLoading.set(true);
+    this.http.get<any>(`${this.base}/relances`, { headers: this.h() }).subscribe({
+      next: (r) => { this._relances.set(r.data || []); this._relancesLoading.set(false); this.cdr.detectChanges(); },
+      error: () => { this._relancesLoading.set(false); this.cdr.detectChanges(); },
+    });
+    this.relancesChargeesUneFois = true;
   }
 
   togglePatron(p: Patron): void {
