@@ -1028,11 +1028,19 @@ export class ScanComponent implements OnInit, OnDestroy {
   }
 
   private getCameraConstraints(): MediaStreamConstraints {
+    // BarcodeDetector natif (Chrome/Android) : décodage matériel, la haute
+    // résolution ne coûte quasi rien. ZXing (fallback Safari/iOS — l'API
+    // BarcodeDetector n'existe pas dans WebKit) : décodage CPU pur en JS,
+    // donc chaque pixel en plus ralentit directement la boucle de détection.
+    // On demande une résolution plus basse dans ce cas pour rester réactif
+    // sur des appareils comme l'iPhone 11 — largement suffisant pour lire
+    // un code-barres (pas besoin de détail photo, juste du contraste net).
+    const surZxing = !this.detector;
     return {
       video: {
         facingMode: { ideal: this.facingMode },
-        width: { min: 640, ideal: 1920, max: 3840 },
-        height: { min: 480, ideal: 1080, max: 2160 },
+        width: surZxing ? { min: 640, ideal: 1280, max: 1920 } : { min: 640, ideal: 1920, max: 3840 },
+        height: surZxing ? { min: 480, ideal: 720, max: 1080 } : { min: 480, ideal: 1080, max: 2160 },
         // @ts-ignore focusMode n'est pas encore dans le type MediaTrackConstraints standard
         advanced: [{ focusMode: 'continuous' }],
       } as MediaTrackConstraints,

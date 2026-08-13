@@ -528,11 +528,15 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private getCameraConstraints(): MediaStreamConstraints {
+    // Voir scan.component.ts (agent) pour l'explication complète : résolution
+    // plus basse pour le fallback ZXing (Safari/iOS, pas de BarcodeDetector
+    // natif) — le décodage est CPU pur, moins de pixels = boucle plus réactive.
+    const surZxing = !this.detector;
     return {
       video: {
         facingMode: { ideal: this.facingMode },
-        width: { min: 640, ideal: 1920, max: 3840 },
-        height: { min: 480, ideal: 1080, max: 2160 },
+        width: surZxing ? { min: 640, ideal: 1280, max: 1920 } : { min: 640, ideal: 1920, max: 3840 },
+        height: surZxing ? { min: 480, ideal: 720, max: 1080 } : { min: 480, ideal: 1080, max: 2160 },
         // @ts-ignore focusMode n'est pas encore dans le type MediaTrackConstraints standard
         advanced: [{ focusMode: 'continuous' }],
       } as MediaTrackConstraints,

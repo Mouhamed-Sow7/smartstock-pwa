@@ -85,8 +85,17 @@ interface Agent  { _id: string; nom: string; prenom?: string; email?: string; te
               <mat-icon>{{ toggling[p._id] ? 'hourglass_empty' : (p.actif ? 'toggle_on' : 'toggle_off') }}</mat-icon>
             </button>
             <button class="btn-ico" title="Modifier" (click)="openEdit(p)"><mat-icon>edit</mat-icon></button>
+            <button class="btn-ico" title="Réinitialiser mdp" [disabled]="resetBusyId===p._id || !p.email" (click)="resetUserPassword(p._id, p.email, p)">
+              <mat-icon>{{ resetBusyId===p._id ? 'hourglass_empty' : 'key' }}</mat-icon>
+            </button>
             <button class="btn-ico" title="Équipe" (click)="toggleEquipe(p)"><mat-icon>group</mat-icon></button>
             <button class="btn-ico danger" title="Supprimer" (click)="deletePatron(p)"><mat-icon>delete</mat-icon></button>
+          </div>
+
+          <!-- Mdp temporaire du patron, affiché une seule fois après reset -->
+          <div class="ok-msg" *ngIf="resetResult[p._id]">
+            <mat-icon>check_circle</mat-icon>
+            Nouveau mdp : <b>{{ resetResult[p._id] }}</b> <em>(à communiquer, non récupérable ensuite)</em>
           </div>
 
           <!-- Équipe inline -->
@@ -98,6 +107,14 @@ interface Agent  { _id: string; nom: string; prenom?: string; email?: string; te
               <span>{{ a.prenom||'' }} {{ a.nom }}</span>
               <span class="eq-contact">{{ a.telephone || a.email || '' }}</span>
               <span class="pill" [class.on]="a.actif">{{ a.actif?'Actif':'Inactif' }}</span>
+              <button class="btn-ico" title="Réinitialiser mdp" [disabled]="resetBusyId===a._id || !a.email" (click)="resetUserPassword(a._id, a.email, a)">
+                <mat-icon>{{ resetBusyId===a._id ? 'hourglass_empty' : 'key' }}</mat-icon>
+              </button>
+            </div>
+            <!-- Mdp temporaire de l'agent concerné, affiché une seule fois après reset -->
+            <div class="ok-msg" *ngFor="let a of equipe" [hidden]="!resetResult[a._id]">
+              <mat-icon>check_circle</mat-icon>
+              {{ a.prenom||'' }} {{ a.nom }} — nouveau mdp : <b>{{ resetResult[a._id] }}</b> <em>(à communiquer, non récupérable ensuite)</em>
             </div>
           </div>
         </div>
@@ -410,6 +427,10 @@ export class AdminComponent implements OnInit {
   resetMail = ''; resetPass = ''; resetBusy = false; resetOk = ''; resetErr = '';
   purgeBusy = false; purgeOk = ''; purgeErr = '';
 
+  // Reset mdp par ligne (bouton clé sur un patron ou un agent dans l'équipe)
+  resetBusyId: string | null = null;
+  resetResult: Record<string, string> = {};
+
   constructor(private http: HttpClient, private cdr: ChangeDetectorRef) {}
 
   ngOnInit(): void {
@@ -556,6 +577,28 @@ export class AdminComponent implements OnInit {
         this.resetBusy = false; this.cdr.detectChanges();
       },
       error: (e) => { this.resetErr = e.error?.message || 'Erreur'; this.resetBusy = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  /**
+   * Reset mdp depuis le bouton "clé" sur une ligne patron ou agent (dropdown équipe).
+   * Réutilise le même endpoint /reset-password que l'outil global (par email), auto-génère
+   * un nouveau mdp, et l'affiche une seule fois inline à côté de la ligne concernée —
+   * jamais l'ancien mdp, jamais stocké au-delà de l'affichage (voir note sécurité :
+   * les mdp sont hashés côté backend, donc irrécupérables — seul un reset est possible).
+   */
+  resetUserPassword(id: string, email: string | undefined, entite: Patron | Agent): void {
+    if (this.resetBusyId || !email) return;
+    this.resetBusyId = id;
+    delete this.resetResult[id];
+    this.http.post<any>(`${this.base}/reset-password`, { email }, { headers: this.h() }).subscribe({
+      next: (r) => {
+        const mdp = r.nouveauMotDePasse || r.data?.nouveauMotDePasse || '—';
+        this.resetResult[id] = mdp;
+        this.resetBusyId = null;
+        this.cdr.detectChanges();
+      },
+      error: () => { this.resetBusyId = null; this.cdr.detectChanges(); },
     });
   }
 

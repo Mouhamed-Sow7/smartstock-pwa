@@ -348,9 +348,17 @@ body {
    100dvh (dynamic viewport height) au lieu de 100vh : sur iOS Safari/PWA standalone,
    100vh ne tient pas compte du redimensionnement dynamique de la barre d'adresse/outils,
    ce qui clippe le contenu et casse le scroll interne. dvh corrige ça (repli 100vh
-   pour les anciens navigateurs qui ne le supportent pas). */
+   pour les anciens navigateurs qui ne le supportent pas).
+   position:fixed + inset:0 en plus de la hauteur : en PWA standalone iOS (WKWebView,
+   pas Safari — le support de dvh peut y être légèrement en retard/buggé sur la prise
+   en compte de la safe-area basse), une hauteur calculée en dvh peut sous-estimer
+   l'espace réel disponible et laisser une bande non peinte (fond système, souvent noir)
+   entre le bas de l'app et le bord physique de l'écran. inset:0 ancre le conteneur
+   directement aux 4 bords du viewport visuel, indépendamment du calcul de hauteur. */
 app-agent-layout, app-patron-layout {
   display: block;
+  position: fixed;
+  inset: 0;
   height: 100vh;
   height: 100dvh;
   overflow: hidden;

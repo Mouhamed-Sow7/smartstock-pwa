@@ -31,6 +31,15 @@ function emailOuTelephone(ctrl: AbstractControl): ValidationErrors | null {
   return emailOk || telOk ? null : { emailOuTelephone: true };
 }
 
+// Doit rester rigoureusement identique à normaliserTelephone() dans
+// register.component.ts : le login envoie exactement le même format que
+// celui stocké à l'inscription, quelle que soit la façon dont l'utilisateur
+// tape son numéro (avec/sans espaces, avec/sans +221).
+function normaliserTelephone(v: string): string {
+  const digits = (v || '').replace(/\D/g, '');
+  return digits.length > 9 ? digits.slice(-9) : digits;
+}
+
 @Component({
   selector: 'app-login',
   standalone: true,
@@ -88,7 +97,7 @@ export class LoginComponent {
     // ── Login standard patron / agent ─────────────────────────────────────────
     // Détecter si c'est un téléphone ou un email
     const isTelephone = /^(\+?221|00221)?[7][05678]\d{7}$/.test(raw.replace(/\s/g, ''));
-    const payload = isTelephone ? { telephone: raw, password } : { email: raw, password };
+    const payload = isTelephone ? { telephone: normaliserTelephone(raw), password } : { email: raw, password };
 
     this.authService.loginRaw(payload).subscribe({
       next: () => {

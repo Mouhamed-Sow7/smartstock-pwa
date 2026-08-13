@@ -17,6 +17,18 @@ function telephoneValidator(ctrl: AbstractControl): ValidationErrors | null {
   return /^(\+?221|00221)?[7][05678]\d{7}$/.test(v) ? null : { invalidPhone: true };
 }
 
+// Normalise vers 9 chiffres locaux (ex: "+221 77 123 45 67", "00221771234567",
+// "77 123 45 67" -> "771234567"). Sans ça, le numéro est envoyé au backend
+// exactement comme tapé (espaces compris) : si l'utilisateur le retape
+// différemment au login (avec/sans espaces, avec/sans +221), la comparaison
+// échoue côté backend et la connexion est refusée alors que le compte existe
+// bien — c'est la cause du "je ne peux pas me connecter avec mon numéro
+// après inscription". Utiliser exactement la même fonction au login.
+function normaliserTelephone(v: string): string {
+  const digits = (v || '').replace(/\D/g, '');
+  return digits.length > 9 ? digits.slice(-9) : digits;
+}
+
 function passwordMatch(form: AbstractControl): ValidationErrors | null {
   const pwd = form.get('password')?.value;
   const confirm = form.get('passwordConfirm')?.value;
@@ -309,8 +321,9 @@ export class RegisterComponent {
     this.isLoading = true;
     this.errorMessage = '';
     const { nom, boutique, email, telephone, password } = this.form.value;
+    const telephoneNormalise = telephone ? normaliserTelephone(telephone) : '';
 
-    this.http.post(`${environment.apiUrl}/auth/register`, { nom, boutique, email, telephone, password })
+    this.http.post(`${environment.apiUrl}/auth/register`, { nom, boutique, email, telephone: telephoneNormalise, password })
       .subscribe({
         next: (res: any) => {
           this.isLoading = false;
