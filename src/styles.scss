@@ -366,6 +366,12 @@ app-agent-layout, app-patron-layout {
 
 * {
   box-sizing: border-box;
+  /* Retire le flash bleu translucide par défaut d'iOS/Android au tap sur tout
+     élément cliquable (boutons, liens, cartes) — sans ça, chaque interaction
+     affiche un highlight bleu système qui ne suit pas le thème de l'app et
+     rend les animations (ex: bouton refresh) très "cheap". Le retour tactile
+     est repris proprement via :active dans chaque composant à la place. */
+  -webkit-tap-highlight-color: transparent;
 }
 h1,
 h2,

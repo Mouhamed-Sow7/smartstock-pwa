@@ -27,7 +27,7 @@ import { SyncService } from '../../../core/services/sync.service';
     <div class="topbar">
       <span class="app-title">SmartStock Agent</span>
       <span class="status-badge">{{ user?.boutique || 'Boutique' }}</span>
-      <button mat-icon-button (click)="onRefresh()" style="color:var(--text-2)" [class.spin]="isSyncing || sync.estEnSync()" aria-label="Rafraîchir">
+      <button mat-icon-button (click)="onRefresh()" class="refresh-btn" [class.spin]="isSyncing || sync.estEnSync()" aria-label="Rafraîchir">
         <mat-icon>autorenew</mat-icon>
       </button>
       <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)">
@@ -39,8 +39,8 @@ import { SyncService } from '../../../core/services/sync.service';
     </div>
 
     <!-- Bandeau offline / sync en attente -->
-    <div class="sync-banner" *ngIf="sync.afficherBandeau()">
-      <mat-icon>{{ sync.estEnLigne() ? (sync.estEnSync() ? 'sync' : 'cloud_queue') : 'wifi_off' }}</mat-icon>
+    <div class="sync-banner" [class.is-offline]="!sync.estEnLigne()" *ngIf="sync.afficherBandeau()">
+      <mat-icon [class.icon-syncing]="sync.estEnLigne() && sync.estEnSync()">{{ sync.estEnLigne() ? (sync.estEnSync() ? 'sync' : 'cloud_queue') : 'wifi_off' }}</mat-icon>
       <span *ngIf="!sync.estEnLigne()">Hors ligne — données sauvegardées localement</span>
       <span *ngIf="sync.estEnLigne() && sync.estEnSync()">Synchronisation en cours...</span>
       <span *ngIf="sync.estEnLigne() && !sync.estEnSync() && sync.totalPendingCount() > 0">
@@ -125,18 +125,34 @@ import { SyncService } from '../../../core/services/sync.service';
       /* Bandeau offline/sync */
       .sync-banner {
         display: flex; align-items: center; gap: 8px;
-        background: rgba(243,156,18,.15);
-        border-bottom: 1px solid rgba(243,156,18,.3);
-        color: #f59e0b;
+        background: rgba(0,182,148,.10);
+        border-bottom: 1px solid rgba(0,182,148,.22);
+        color: var(--accent);
         font-size: 12px; font-weight: 600;
         padding: 7px 16px;
       }
-      .sync-banner mat-icon { font-size: 16px; width: 16px; height: 16px; }
-      .sync-now-btn {
-        margin-left: auto; padding: 3px 10px; border-radius: 8px;
-        border: 1px solid rgba(243,156,18,.4); background: rgba(243,156,18,.15);
-        color: #f59e0b; font-size: 11px; font-weight: 700; cursor: pointer;
+      .sync-banner.is-offline {
+        background: rgba(148,163,184,.10);
+        border-bottom-color: rgba(148,163,184,.22);
+        color: var(--text-2);
       }
+      .sync-banner mat-icon { font-size: 16px; width: 16px; height: 16px; }
+      .sync-banner .icon-syncing { animation: sync-pulse 1.4s ease-in-out infinite; }
+      @keyframes sync-pulse {
+        0%, 100% { opacity: .55; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.12); }
+      }
+      .sync-now-btn {
+        margin-left: auto; padding: 4px 14px; border-radius: 20px;
+        border: none; background: var(--accent);
+        color: #fff; font-size: 11px; font-weight: 700; cursor: pointer;
+        transition: transform .1s, opacity .15s;
+      }
+      .sync-now-btn:active { transform: scale(0.94); opacity: .85; }
+
+      .refresh-btn { color: var(--text-2); transition: color .15s; }
+      .refresh-btn.spin { color: var(--accent); }
+      .refresh-btn.spin mat-icon { animation: spin 1s linear infinite; }
 
       /* ─── Bottom Nav ───────────────────────────────────── */
       .bottom-nav {
@@ -198,11 +214,6 @@ import { SyncService } from '../../../core/services/sync.service';
         100% {
           transform: rotate(360deg);
         }
-      }
-
-      .spin {
-        animation: spin 1s linear infinite;
-        display: inline-block;
       }
     `,
   ],

@@ -151,12 +151,17 @@ import { AuthService } from '../../../core/services/auth.service';
       width: 36px; height: 36px; border-radius: 10px; border: none;
       background: rgba(255,255,255,.06); color: var(--text-2);
       display: flex; align-items: center; justify-content: center;
-      cursor: pointer; transition: background .15s;
+      cursor: pointer; transition: background .15s, color .15s, transform .1s;
       margin-left: auto;
     }
     .reload-btn:hover { background: rgba(255,255,255,.12); color: var(--accent); }
+    .reload-btn:active { transform: scale(0.92); background: rgba(255,255,255,.16); }
     .reload-btn mat-icon { font-size: 20px; width: 20px; height: 20px; }
-    .reload-btn.spinning mat-icon { animation: spin 0.8s linear infinite; }
+    /* Rotation posée (1s, cohérente avec le rythme des autres transitions de
+       l'app) + couleur accent le temps de la synchro, pour un retour visuel
+       clair sans à-coup. */
+    .reload-btn.spinning { color: var(--accent); background: rgba(0,182,148,.12); }
+    .reload-btn.spinning mat-icon { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ── KPI grid glass ── */

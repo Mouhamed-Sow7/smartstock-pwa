@@ -9,8 +9,10 @@ export class ThemeService {
 
   constructor() {
     const saved = localStorage.getItem(this.KEY) as Theme | null;
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const initial: Theme = saved ?? (prefersDark ? 'dark' : 'light');
+    // Clair par défaut pour tout nouvel utilisateur (pas de préférence
+    // enregistrée) — on ne suit plus prefers-color-scheme, qui faisait
+    // souvent démarrer l'app en sombre selon le réglage système du téléphone.
+    const initial: Theme = saved ?? 'light';
     this.apply(initial);
   }
 

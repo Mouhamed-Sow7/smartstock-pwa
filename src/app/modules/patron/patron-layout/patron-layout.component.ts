@@ -36,8 +36,8 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
     </div>
 
     <!-- Bandeau sync -->
-    <div class="sync-banner" *ngIf="sync.afficherBandeau()">
-      <mat-icon>{{ sync.estEnLigne() ? 'sync' : 'wifi_off' }}</mat-icon>
+    <div class="sync-banner" [class.is-offline]="!sync.estEnLigne()" *ngIf="sync.afficherBandeau()">
+      <mat-icon [class.icon-syncing]="sync.estEnLigne()">{{ sync.estEnLigne() ? 'sync' : 'wifi_off' }}</mat-icon>
       <span *ngIf="!sync.estEnLigne()">Mode hors ligne — les ventes seront synchronisées à la reconnexion</span>
       <span *ngIf="sync.estEnLigne() && sync.ventesPendingCount() > 0">
         {{ sync.ventesPendingCount() }} vente(s) en attente de synchronisation
@@ -133,28 +133,44 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
       top: calc(var(--safe-top) + var(--topbar-h));
       left: 0; right: 0;
       z-index: 99;
-      background: rgba(243,156,18,.12);
-      border-bottom: 1px solid rgba(243,156,18,.25);
-      color: var(--warning);
+      background: rgba(0,182,148,.10);
+      border-bottom: 1px solid rgba(0,182,148,.22);
+      color: var(--accent);
       font-size: 12px;
       font-weight: 600;
-      padding: 6px 16px;
+      padding: 7px 16px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
+    /* Hors ligne : couleur neutre distincte du statut "synchro en cours",
+       pour que l'oeil différencie tout de suite les deux cas sans lire le texte. */
+    .sync-banner.is-offline {
+      background: rgba(148,163,184,.10);
+      border-bottom-color: rgba(148,163,184,.22);
+      color: var(--text-2);
+    }
     .sync-banner mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    /* Icône "sync" : légère pulsation au lieu d'une rotation complète —
+       plus posé, moins "chargement bricolé". */
+    .sync-banner .icon-syncing { animation: sync-pulse 1.4s ease-in-out infinite; }
+    @keyframes sync-pulse {
+      0%, 100% { opacity: .55; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.12); }
+    }
     .sync-btn {
       margin-left: auto;
-      padding: 4px 12px;
+      padding: 4px 14px;
       border-radius: 20px;
-      background: var(--warning);
-      color: #000;
+      background: var(--accent);
+      color: #fff;
       border: none;
       font-size: 11px;
       font-weight: 700;
       cursor: pointer;
+      transition: transform .1s, opacity .15s;
     }
+    .sync-btn:active { transform: scale(0.94); opacity: .85; }
 
     .abo-banner {
       position: fixed;
