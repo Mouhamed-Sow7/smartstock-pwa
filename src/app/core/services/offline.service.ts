@@ -190,6 +190,33 @@ export class OfflineService extends Dexie {
     this._produitsUpdated$.next();
   }
 
+  /**
+   * Remplace toute référence à un produit temp_ (produitId) par son vrai
+   * _id serveur dans les ventes et réassorts DÉJÀ en attente de sync.
+   *
+   * Sans ça : une vente faite hors ligne juste après la création offline
+   * d'un produit garde `produitId: "temp_xxx"` en mémoire pour toujours.
+   * Même une fois le produit synchronisé (temp_xxx -> vrai _id Mongo), la
+   * vente en attente n'était jamais mise à jour -> à chaque tentative de
+   * sync, le backend recevait "temp_xxx" comme produitId, Mongoose levait
+   * une CastError (ObjectId invalide) -> 500 permanent, retenté à l'infini
+   * (le frontend traite les 500 comme des erreurs réseau temporaires, donc
+   * ne s'arrête jamais) alors que le produit existe bien côté serveur.
+   */
+  async remapProduitIdDansPending(tempId: string, realId: string): Promise<void> {
+    const ventesAMettreAJour = await this.ventesPending
+      .filter((v) => v.statut === 'pending' && v.lignes.some((l) => l.produitId === tempId))
+      .toArray();
+    for (const v of ventesAMettreAJour) {
+      const lignes = v.lignes.map((l) => (l.produitId === tempId ? { ...l, produitId: realId } : l));
+      await this.ventesPending.update(v.id!, { lignes });
+    }
+
+    await this.stocksPending
+      .where('produitId').equals(tempId)
+      .modify({ produitId: realId });
+  }
+
   // ─── Agents ─────────────────────────────────────────────────
   async cacheAgents(tenantId: string, agents: CachedAgent[]): Promise<void> {
     await this.agents.where('tenantId').equals(tenantId).delete();

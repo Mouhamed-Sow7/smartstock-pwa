@@ -127,8 +127,11 @@ export class SyncService {
       );
       await this.offline.marquerProduitSynced(p.id!);
       // Remplace l'entrée temporaire du cache (temp_...) par le vrai produit serveur
+      // + met à jour toute vente/réassort déjà en attente qui référençait ce temp_id
+      // (voir remapProduitIdDansPending pour le détail du bug que ça corrige).
       if (p.tempId && res?.data?._id) {
         await this.offline.remplacerProduitTemp(p.tempId, { ...res.data, tenantId: p.tenantId });
+        await this.offline.remapProduitIdDansPending(p.tempId, res.data._id);
       }
     } catch (err: any) {
       const status = err?.status ?? 0;
