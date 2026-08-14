@@ -40,7 +40,17 @@ export class SyncService {
     window.addEventListener('online', async () => {
       this.estEnLigne.set(true);
       // Attendre 1.2s que le réseau soit stable avant de tenter la sync
-      setTimeout(() => this.synchroniser(), 1200);
+      setTimeout(() => {
+        this.synchroniser();
+        // Pull immédiat des produits en plus du push des ventes/stocks en
+        // attente : sans ça, un produit créé ailleurs (autre session/appareil)
+        // pendant qu'on était hors ligne restait invisible pour le scan tant
+        // que le polling 60s ou une réouverture d'écran ne l'avait pas repris.
+        const tenantId = this.auth.getTenantId();
+        if (tenantId && tenantId !== 'default') {
+          this.offline.syncProduitsFromServer(tenantId);
+        }
+      }, 1200);
     });
 
     window.addEventListener('offline', () => {
