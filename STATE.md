@@ -4,7 +4,7 @@
 > **Toute IA (Claude, Copilot, Cline...) qui reprend ce projet doit lire ce fichier + `ARCHITECTURE.md` + `AUTH-FLOW.md` avant de commencer.**
 > Historique détaillé des fixes → voir `CHANGELOG.md` (ne pas charger sauf besoin d'investiguer une régression).
 
-**Dernière mise à jour** : 2026-08-15 — dernier commit `d104c7d`
+**Dernière mise à jour** : 2026-08-15 — dernier commit `aefc766`
 
 ---
 
@@ -25,14 +25,17 @@ _Aucun bug bloquant connu actuellement côté frontend._
 ## Tâches en attente (non bloquantes)
 
 1. **Thème lié au compte, pas au localStorage seul** — pas commencé. Nécessite : champ `theme` sur le modèle `User` (backend), endpoint de mise à jour, adapter `ThemeService` pour lire/écrire via l'API en plus du cache local (garder le cache pour la dispo offline, backend = source de vérité).
-2. **⏳ À confirmer visuellement par l'utilisateur sur `smartstock.digitalesf.com`** (impossible à tester en sandbox — pas de build) :
-   - Fix `d104c7d` : script anti-FOUC dans `index.html` censé supprimer le flash sombre au démarrage/refresh (cause racine : `ThemeService` ne s'instanciait qu'au premier composant l'injectant, donc après le premier paint).
-   - Fix `d104c7d` : retrait du bandeau offline/sync dupliqué dans `app.html` (ancien design orange/rotation, empilé avec celui — correct — des layouts patron/agent). À vérifier qu'un seul bandeau (teal/pulse) s'affiche désormais en mode hors ligne ou en sync sur les pages patron/agent.
-   - Reste aussi à confirmer : rendu du thème clair par défaut lui-même (item historique, probablement déjà bon mais jamais formellement confirmé depuis le fix CORS `7df4f5c`).
+2. **⏳ À confirmer visuellement par l'utilisateur sur `smartstock.digitalesf.com`** (déployé, commit `aefc766` — impossible à tester en sandbox, pas de build) :
+   - **Cause racine du thème toujours sombre trouvée et corrigée** : `login.component.ts` appelait `this.theme.set('dark')` à chaque passage sur `/login` (connexion ET déconnexion), écrasant silencieusement le thème clair sauvegardé pour toute l'app. Ce n'était pas un problème de cache/déploiement — retiré (la page login est 100% codée en dur en sombre, ce `set()` n'avait aucun effet visuel sur elle, il ne servait qu'à casser le reste de l'app).
+   - Modal produit (création/édition) : largeur corrigée (`width:100%; max-width:540px` au lieu de `min(540px,96vw)`, à la fois en CSS et dans la config `MatDialog`) — plus d'espace vide à gauche sur mobile.
+   - Modal produit : fond moins transparent (`--dlg-bg` dédié, quasi-opaque en sombre) pour la lisibilité — scopé au composant, `--navy-card` global inchangé ailleurs.
+   - Bandeau sync : animation de l'icône remplacée (fondu seul au lieu de opacity+scale, cadence ralentie) — moins "saccadée".
+   - Item historique : rendu du bandeau offline/sync dédupliqué (fix `d104c7d`, toujours à confirmer visuellement en conditions réelles hors ligne).
 
 ## Pièges déjà creusés — ne pas rouvrir sauf nouveau signal clair
 
 - **"Les changements ne s'affichent jamais"** : longue investigation (service worker figé ? mauvais domaine Vercel ?). Conclusion : déploiement Vercel vérifié OK, cause = cache navigateur/service worker tenace au moment du test. Considérer le déploiement Vercel comme fiable. Détails → `CHANGELOG.md`.
+- **"L'app démarre en sombre"** : NE PAS réinvestiguer côté cache/service worker/anti-FOUC — cause racine trouvée et corrigée (voir ci-dessus, `login.component.ts`). Si le problème persiste après confirmation utilisateur, vérifier d'abord si `localStorage.ss_theme` contient encore `'dark'` dans le navigateur de test (résidu d'avant le fix) avant de rouvrir une investigation.
 
 ## Convention de travail (résumé — détail complet dans `.github/copilot-instructions.md`)
 
