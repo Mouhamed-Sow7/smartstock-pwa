@@ -4,7 +4,7 @@
 > **Toute IA (Claude, Copilot, Cline...) qui reprend ce projet doit lire ce fichier + `ARCHITECTURE.md` + `AUTH-FLOW.md` avant de commencer.**
 > Historique détaillé des fixes → voir `CHANGELOG.md` (ne pas charger sauf besoin d'investiguer une régression).
 
-**Dernière mise à jour** : 2026-08-15 — dernier commit `51ab39d`
+**Dernière mise à jour** : 2026-08-15 — dernier commit `be0bfd7`
 
 ---
 
@@ -25,13 +25,14 @@ _Aucun bug bloquant connu actuellement côté frontend._
 ## Tâches en attente (non bloquantes)
 
 1. **Thème lié au compte, pas au localStorage seul** — pas commencé. Nécessite : champ `theme` sur le modèle `User` (backend), endpoint de mise à jour, adapter `ThemeService` pour lire/écrire via l'API en plus du cache local (garder le cache pour la dispo offline, backend = source de vérité).
-2. **⏳ À confirmer visuellement par l'utilisateur sur `smartstock.digitalesf.com`** (déployé, commit `51ab39d` — impossible à tester en sandbox, pas de build) :
-   - **Régression détectée puis corrigée le même jour** : suite au retrait de `theme.set('dark')` (voir ci-dessous), le formulaire de login devenait un rectangle blanc illisible en thème clair. Cause : `.form-card` et `.hero-badge` (classes du template login) matchent par accident les sélecteurs génériques `[class*="card"]` / `[class*="badge"]` du thème clair (destinés aux cartes/badges du reste de l'app), qui posent des couleurs littérales en `!important` — la protection "login toujours sombre" existante ne réinitialise que des *variables* CSS, donc ne pouvait pas bloquer ça. Fix `51ab39d` : exclusion explicite de `app-login` de ces deux sélecteurs génériques.
-   - ⚠️ **Piège à surveiller pour toute nouvelle classe ajoutée au login (ou ailleurs)** : `styles.scss` a plusieurs sélecteurs génériques par sous-chaîne (`[class*="card"]`, `[class*="Card"]`, `[class*="badge"]`, `[class*="Badge"]`) qui s'appliquent à toute classe contenant ces mots, même par coïncidence de nommage. Si un futur bug de style "clair" bizarre apparaît sur un composant dont le nom de classe contient "card"/"badge" (ou variantes), regarder ces règles en premier.
-   - Cause racine du thème toujours sombre (précédent) : `login.component.ts` appelait `this.theme.set('dark')` à chaque passage sur `/login` (connexion ET déconnexion), écrasant silencieusement le thème clair sauvegardé pour toute l'app. Retiré (`aefc766`) — la page login est 100% codée en dur en sombre, ce `set()` n'avait aucun effet visuel sur elle, il ne servait qu'à casser le reste de l'app.
-   - Modal produit (création/édition) : largeur corrigée (`width:100%; max-width:540px` au lieu de `min(540px,96vw)`, à la fois en CSS et dans la config `MatDialog`) — plus d'espace vide à gauche sur mobile.
-   - Modal produit : fond moins transparent (`--dlg-bg` dédié, quasi-opaque en sombre) pour la lisibilité — scopé au composant, `--navy-card` global inchangé ailleurs.
-   - Bandeau sync : animation de l'icône remplacée (fondu seul au lieu de opacity+scale, cadence ralentie) — moins "saccadée".
+2. **⏳ À confirmer visuellement par l'utilisateur sur `smartstock.digitalesf.com`** (déployé, commit `be0bfd7` — impossible à tester en sandbox, pas de build) :
+   - **Session à retaper à chaque ouverture de la PWA installée, résolu** : ce n'était pas un problème d'expiration de token (JWT valide 7j, déjà en localStorage) mais une route par défaut (`''`) qui redirigeait TOUJOURS vers `/login` sans jamais vérifier si une session valide existait déjà. Nouveau `guestGuard` sur `/login`/`/register` : redirige direct vers `/patron` ou `/agent` si un token valide est présent. À tester : fermer complètement la PWA installée puis la rouvrir dans les 7 jours suivant la dernière connexion → doit arriver directement sur le dashboard, sans repasser par le formulaire.
+   - **Notif de fin de sync ajoutée** : un snackbar (vert/teal si tout est passé, rouge si des éléments sont en erreur) s'affiche désormais à la fin d'une synchronisation offline→online (ventes/produits/stocks en attente). À tester : faire une vente en mode offline (DevTools → throttling → offline), revenir en ligne, vérifier qu'un toast de confirmation apparaît une fois la sync terminée.
+   - Régression détectée puis corrigée le même jour (`51ab39d`) : suite au retrait de `theme.set('dark')`, le formulaire de login devenait un rectangle blanc illisible en thème clair. Cause : `.form-card`/`.hero-badge` matchaient par accident des sélecteurs génériques `[class*="card"]`/`[class*="badge"]` du thème clair. Corrigé.
+   - ⚠️ **Piège à surveiller pour toute nouvelle classe ajoutée au login (ou ailleurs)** : `styles.scss` a plusieurs sélecteurs génériques par sous-chaîne (`[class*="card"]`, `[class*="Card"]`, `[class*="badge"]`, `[class*="Badge"]`) qui s'appliquent à toute classe contenant ces mots, même par coïncidence de nommage.
+   - Cause racine du thème toujours sombre (précédent, `aefc766`) : `login.component.ts` appelait `this.theme.set('dark')` à chaque passage sur `/login`, écrasant silencieusement le thème clair sauvegardé pour toute l'app. Retiré.
+   - Modal produit (création/édition) : largeur corrigée (`width:100%; max-width:540px`) — plus d'espace vide à gauche sur mobile. Fond moins transparent (`--dlg-bg` dédié) pour la lisibilité.
+   - Bandeau sync : animation de l'icône remplacée (fondu seul, cadence ralentie) — moins "saccadée".
    - Item historique : rendu du bandeau offline/sync dédupliqué (fix `d104c7d`, toujours à confirmer visuellement en conditions réelles hors ligne).
 
 ## Pièges déjà creusés — ne pas rouvrir sauf nouveau signal clair
