@@ -1,18 +1,11 @@
-<!-- Bandeau offline -->
-@if (sync.afficherBandeau()) {
-  <div class="bandeau-offline" [class.syncing]="sync.estEnSync()">
-    @if (!sync.estEnLigne()) {
-      <span>📵 Mode hors ligne</span>
-    } @else {
-      <span>📶 Connexion rétablie</span>
-    }
-    @if (sync.ventesPendingCount() > 0) {
-      <span class="badge"> {{ sync.ventesPendingCount() }} vente(s) en attente de sync </span>
-    }
-    @if (sync.estEnSync()) {
-      <span class="sync-anim">⟳ Synchronisation...</span>
-    }
-  </div>
-}
-
+<!--
+  Le bandeau offline/sync vit désormais uniquement dans patron-layout et
+  agent-layout (design teal/pulse, commit b96d0e4). Il y avait auparavant
+  un second bandeau ici même, à la racine, qui s'affichait en plus de celui
+  des layouts (même condition sync.afficherBandeau()) avec un ancien design
+  jamais mis à jour (orange, icône qui tourne) -> les deux bandeaux étaient
+  visibles empilés en même temps sur les pages patron/agent. Retiré pour de
+  bon ; login et admin n'ont pas besoin de bandeau offline (pas d'usage
+  offline-first sur ces espaces).
+-->
 <router-outlet></router-outlet>

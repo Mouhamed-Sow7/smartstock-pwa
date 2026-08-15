@@ -7,6 +7,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
     <meta name="theme-color" content="#0f1b2d" />
+    <!--
+      Anti-FOUC thème : applique data-theme AVANT le premier paint, avant même
+      qu'Angular ne démarre. Sans ce script, le CSS :root (sombre) s'affiche
+      un instant à chaque chargement/refresh le temps qu'Angular bootstrap,
+      charge le module de la route, construise un composant qui injecte
+      ThemeService, et exécute son constructeur -> flash sombre visible,
+      perçu comme "l'app démarre en sombre" même quand le thème clair est
+      actif. Logique identique à ThemeService (clé localStorage "ss_theme",
+      clair par défaut si rien de sauvegardé) : à maintenir en synchro si
+      ThemeService change.
+    -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('ss_theme');
+          if (saved !== 'dark') {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {
+          // localStorage indisponible (navigation privée, quota...) -> on
+          // laisse le thème sombre par défaut du CSS, ThemeService reprendra
+          // la main normalement une fois Angular démarré.
+        }
+      })();
+    </script>
     <!-- iOS PWA -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
