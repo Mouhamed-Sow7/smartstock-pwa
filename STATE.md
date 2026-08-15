@@ -4,7 +4,7 @@
 > **Toute IA (Claude, Copilot, Cline...) qui reprend ce projet doit lire ce fichier + `ARCHITECTURE.md` + `AUTH-FLOW.md` avant de commencer.**
 > Historique détaillé des fixes → voir `CHANGELOG.md` (ne pas charger sauf besoin d'investiguer une régression).
 
-**Dernière mise à jour** : 2026-08-15 — dernier commit `aefc766`
+**Dernière mise à jour** : 2026-08-15 — dernier commit `51ab39d`
 
 ---
 
@@ -25,8 +25,10 @@ _Aucun bug bloquant connu actuellement côté frontend._
 ## Tâches en attente (non bloquantes)
 
 1. **Thème lié au compte, pas au localStorage seul** — pas commencé. Nécessite : champ `theme` sur le modèle `User` (backend), endpoint de mise à jour, adapter `ThemeService` pour lire/écrire via l'API en plus du cache local (garder le cache pour la dispo offline, backend = source de vérité).
-2. **⏳ À confirmer visuellement par l'utilisateur sur `smartstock.digitalesf.com`** (déployé, commit `aefc766` — impossible à tester en sandbox, pas de build) :
-   - **Cause racine du thème toujours sombre trouvée et corrigée** : `login.component.ts` appelait `this.theme.set('dark')` à chaque passage sur `/login` (connexion ET déconnexion), écrasant silencieusement le thème clair sauvegardé pour toute l'app. Ce n'était pas un problème de cache/déploiement — retiré (la page login est 100% codée en dur en sombre, ce `set()` n'avait aucun effet visuel sur elle, il ne servait qu'à casser le reste de l'app).
+2. **⏳ À confirmer visuellement par l'utilisateur sur `smartstock.digitalesf.com`** (déployé, commit `51ab39d` — impossible à tester en sandbox, pas de build) :
+   - **Régression détectée puis corrigée le même jour** : suite au retrait de `theme.set('dark')` (voir ci-dessous), le formulaire de login devenait un rectangle blanc illisible en thème clair. Cause : `.form-card` et `.hero-badge` (classes du template login) matchent par accident les sélecteurs génériques `[class*="card"]` / `[class*="badge"]` du thème clair (destinés aux cartes/badges du reste de l'app), qui posent des couleurs littérales en `!important` — la protection "login toujours sombre" existante ne réinitialise que des *variables* CSS, donc ne pouvait pas bloquer ça. Fix `51ab39d` : exclusion explicite de `app-login` de ces deux sélecteurs génériques.
+   - ⚠️ **Piège à surveiller pour toute nouvelle classe ajoutée au login (ou ailleurs)** : `styles.scss` a plusieurs sélecteurs génériques par sous-chaîne (`[class*="card"]`, `[class*="Card"]`, `[class*="badge"]`, `[class*="Badge"]`) qui s'appliquent à toute classe contenant ces mots, même par coïncidence de nommage. Si un futur bug de style "clair" bizarre apparaît sur un composant dont le nom de classe contient "card"/"badge" (ou variantes), regarder ces règles en premier.
+   - Cause racine du thème toujours sombre (précédent) : `login.component.ts` appelait `this.theme.set('dark')` à chaque passage sur `/login` (connexion ET déconnexion), écrasant silencieusement le thème clair sauvegardé pour toute l'app. Retiré (`aefc766`) — la page login est 100% codée en dur en sombre, ce `set()` n'avait aucun effet visuel sur elle, il ne servait qu'à casser le reste de l'app.
    - Modal produit (création/édition) : largeur corrigée (`width:100%; max-width:540px` au lieu de `min(540px,96vw)`, à la fois en CSS et dans la config `MatDialog`) — plus d'espace vide à gauche sur mobile.
    - Modal produit : fond moins transparent (`--dlg-bg` dédié, quasi-opaque en sombre) pour la lisibilité — scopé au composant, `--navy-card` global inchangé ailleurs.
    - Bandeau sync : animation de l'icône remplacée (fondu seul au lieu de opacity+scale, cadence ralentie) — moins "saccadée".
