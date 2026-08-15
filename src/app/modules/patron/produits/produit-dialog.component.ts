@@ -147,22 +147,44 @@ const CATEGORIES = [
   styles: [`
     :host { display: block; }
     .dialog-wrap {
-      background: var(--navy-card);
+      /* Fond dédié quasi-opaque en sombre : --navy-card (~6% blanc, effet
+         "glass" voulu ailleurs dans l'app) rendait la carte à peine
+         différenciable du backdrop flouté derrière -> peu lisible sur ce
+         modal en particulier, qui contient beaucoup de champs de texte.
+         Overridé seulement ici (styles scopés au composant), pas touché
+         globalement : --navy-card reste inchangé pour les 26 autres usages
+         dans l'app. */
+      --dlg-bg: rgba(15, 27, 45, .97);
+      background: var(--dlg-bg);
       border: 1px solid var(--navy-border);
       border-radius: 20px;
       overflow: hidden;
-      width: min(540px, 96vw);
+      /* width: 100% (au lieu de min(540px,96vw)) : sur certains viewports
+         mobiles/émulés, le calcul en vw ne correspondait pas exactement à
+         la largeur réelle disponible dans le panel CDK (padding/centrage
+         des wrappers d'overlay Material), laissant un espace vide visible
+         à gauche. width:100% fait remplir le parent directement, quelle
+         que soit sa largeur réelle -> plus fiable sur tous les appareils.
+         max-width garde le plafond desktop existant. */
+      width: 100%;
+      max-width: 540px;
       display: flex; flex-direction: column;
       max-height: 90vh;
       max-height: 92dvh;
       box-shadow: 0 24px 60px rgba(0,0,0,.4);
+    }
+    [data-theme="light"] .dialog-wrap {
+      /* Thème clair : --navy-card est déjà #ffffff opaque, pas de problème
+         de transparence -> on garde exactement ce fond, pas de changement
+         visuel en clair. */
+      --dlg-bg: #ffffff;
     }
     /* Header */
     .dlg-header {
       display: flex; align-items: center; gap: 12px;
       padding: 20px 20px 16px;
       border-bottom: 1px solid var(--navy-border);
-      background: var(--navy-card);
+      background: var(--dlg-bg);
     }
     .dlg-icon {
       width: 40px; height: 40px; border-radius: 10px;
@@ -182,7 +204,7 @@ const CATEGORIES = [
     .dlg-close mat-icon { font-size: 18px; }
 
     /* Body */
-    .dlg-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; background: var(--navy-card); }
+    .dlg-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; flex: 1; background: var(--dlg-bg); }
     @media (max-width: 600px) {
       .dlg-body { padding: 12px 14px; gap: 10px; }
       .fields-row { flex-direction: column; gap: 10px; }

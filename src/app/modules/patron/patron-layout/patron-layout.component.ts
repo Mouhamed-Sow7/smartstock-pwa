@@ -153,10 +153,14 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
     .sync-banner mat-icon { font-size: 16px; width: 16px; height: 16px; }
     /* Icône "sync" : légère pulsation au lieu d'une rotation complète —
        plus posé, moins "chargement bricolé". */
-    .sync-banner .icon-syncing { animation: sync-pulse 1.4s ease-in-out infinite; }
+    /* Icône "sync" : fondu doux façon "respiration", sans effet d'échelle —
+       le scale(1 -> 1.12) sur une icône de 16px donnait un mouvement un peu
+       saccadé/nerveux (perçu comme "moche"). Courbe cubic-bezier standard
+       (celle de Tailwind's animate-pulse), cadence ralentie à 1.8s. */
+    .sync-banner .icon-syncing { animation: sync-pulse 1.8s cubic-bezier(.4,0,.6,1) infinite; }
     @keyframes sync-pulse {
-      0%, 100% { opacity: .55; transform: scale(1); }
-      50% { opacity: 1; transform: scale(1.12); }
+      0%, 100% { opacity: 1; }
+      50% { opacity: .45; }
     }
     .sync-btn {
       margin-left: auto;

@@ -16,7 +16,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/services/auth.service';
-import { ThemeService } from '../../../core/services/theme.service';
 
 // Regex permissive : accepte email classique + agents (@slug.sm) + téléphone sénégalais + identifiants admin courts
 function emailOuTelephone(ctrl: AbstractControl): ValidationErrors | null {
@@ -67,13 +66,19 @@ export class LoginComponent {
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
-    private theme: ThemeService,
   ) {
     this.loginForm = this.fb.group({
       identifiant: ['', [Validators.required, emailOuTelephone]],
       password: ['', [Validators.required, Validators.minLength(4)]],
     });
-    this.theme.set('dark');
+    // ⚠️ Ne PAS appeler this.theme.set('dark') ici : la page login est
+    // entièrement codée en dur en sombre (couleurs hex directes, voir
+    // login.component.scss), donc ça n'avait aucun effet visuel sur cette
+    // page. En revanche ThemeService.set() écrit dans localStorage ->
+    // ça écrasait silencieusement le thème clair (ou tout choix utilisateur)
+    // pour TOUT le reste de l'app (patron/agent) à chaque passage sur /login,
+    // y compris à chaque déconnexion. C'était la vraie cause racine du "l'app
+    // démarre toujours en sombre" — pas un problème de cache/déploiement.
   }
 
   onSubmit(): void {

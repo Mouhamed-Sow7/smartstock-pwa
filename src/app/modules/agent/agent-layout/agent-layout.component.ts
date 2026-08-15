@@ -137,10 +137,12 @@ import { SyncService } from '../../../core/services/sync.service';
         color: var(--text-2);
       }
       .sync-banner mat-icon { font-size: 16px; width: 16px; height: 16px; }
-      .sync-banner .icon-syncing { animation: sync-pulse 1.4s ease-in-out infinite; }
+      /* Fondu doux façon "respiration", sans scale (voir patron-layout pour
+         le détail) — cohérence entre les deux espaces. */
+      .sync-banner .icon-syncing { animation: sync-pulse 1.8s cubic-bezier(.4,0,.6,1) infinite; }
       @keyframes sync-pulse {
-        0%, 100% { opacity: .55; transform: scale(1); }
-        50% { opacity: 1; transform: scale(1.12); }
+        0%, 100% { opacity: 1; }
+        50% { opacity: .45; }
       }
       .sync-now-btn {
         margin-left: auto; padding: 4px 14px; border-radius: 20px;

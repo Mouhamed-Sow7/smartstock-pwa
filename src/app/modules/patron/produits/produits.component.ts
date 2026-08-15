@@ -463,8 +463,8 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   openAddDialog() {
     this.dialog.open(ProduitDialogComponent, {
       data: { isEdit: false },
-      width: '540px',
-      maxWidth: '100vw',
+      width: '100%',
+      maxWidth: '540px',
       panelClass: 'produit-dialog-panel',
     }).afterClosed().subscribe(result => this.zone.run(() => { if (result) this.chargerProduits(); }));
   }
@@ -472,8 +472,8 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   openEditDialog(produit: any) {
     this.dialog.open(ProduitDialogComponent, {
       data: { produit, isEdit: true },
-      width: '540px',
-      maxWidth: '100vw',
+      width: '100%',
+      maxWidth: '540px',
       panelClass: 'produit-dialog-panel',
     }).afterClosed().subscribe(result => this.zone.run(() => { if (result) this.chargerProduits(); }));
   }
