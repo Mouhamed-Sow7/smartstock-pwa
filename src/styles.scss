@@ -603,3 +603,21 @@ a {
   --text-3: rgba(255,255,255,.3);
   --accent: #00b894;
 }
+
+/* Trou dans la protection ci-dessus : le reset de variables ne protège que
+   les propriétés qui utilisent var(--xxx). Or .form-card et .hero-badge
+   matchent par accident les sélecteurs génériques [class*="card"] /
+   [class*="badge"] plus haut dans ce fichier (destinés aux cartes/badges du
+   reste de l'app), qui posent un background:#ffffff !important littéral,
+   pas une variable → le reset ci-dessus ne peut pas l'empêcher. Résultat :
+   depuis que le login n'écrase plus this.theme.set('dark') (voir
+   login.component.ts), le formulaire devenait un rectangle blanc illisible
+   dès que le thème global était clair. Neutralisé explicitement ici. */
+[data-theme="light"] app-login .form-card {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+[data-theme="light"] app-login .hero-badge {
+  border-color: rgba(255,255,255,.1) !important;
+}
