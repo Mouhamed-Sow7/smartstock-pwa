@@ -453,6 +453,13 @@ a {
   font-weight: 600;
 }
 
+/* Snackbar sync réussie — vert/teal discret, même logique que snack-warn */
+.snack-success .mdc-snackbar__surface {
+  background: #064e3b !important;
+  color: #6ee7b7 !important;
+  font-weight: 600;
+}
+
 /* ── Dialog produit responsive ── */
 .produit-dialog-panel .mat-mdc-dialog-container {
   padding: 0 !important;

@@ -1,5 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import { MatSnackBar } from '@angular/material/snack-bar';
 import { firstValueFrom } from 'rxjs';
 import { OfflineService, VentePending, ProduitPending, StockPending, CachedProduit } from './offline.service';
 import { AuthService } from './auth.service';
@@ -26,6 +27,7 @@ export class SyncService {
     private http: HttpClient,
     private offline: OfflineService,
     private auth: AuthService,
+    private snack: MatSnackBar,
   ) {
     this.ecouterConnexion();
     this.rafraichirCompteur();
@@ -90,29 +92,71 @@ export class SyncService {
 
     this.estEnSync.set(true);
 
+    // Tracking pour la notif de fin de sync (le bandeau qui disparaît tout
+    // seul n'était pas assez visible — l'utilisateur ne savait jamais si sa
+    // vente offline avait vraiment fini par partir). undefined (retry réseau
+    // temporaire) n'est ni un succès ni un échec définitif -> ignoré ici.
+    let ok = 0;
+    let echecs = 0;
+    const compter = (r: boolean | undefined) => {
+      if (r === true) ok++;
+      else if (r === false) echecs++;
+    };
+
     // 1. Sync produits en premier (les réassorts/ventes peuvent référencer ces produits)
     for (const p of produits) {
-      await this.syncProduit(p);
+      compter(await this.syncProduit(p));
     }
     await this.offline.nettoyerProduitsSynced();
 
     // 2. Sync réassorts (ajustements de stock patron)
     for (const s of stocks) {
-      await this.syncStock(s);
+      compter(await this.syncStock(s));
     }
     await this.offline.nettoyerStocksSynced();
 
     // 3. Sync ventes
     for (const v of ventes) {
-      await this.syncVente(v);
+      compter(await this.syncVente(v));
     }
     await this.offline.nettoyerVentesSynced();
 
     await this.rafraichirCompteur();
     this.estEnSync.set(false);
+    this.notifierResultatSync(ok, echecs);
   }
 
-  private async syncProduit(p: ProduitPending): Promise<void> {
+  // ─── Notification de fin de sync ──────────────────────────────
+  // `undefined` en cas d'échec réseau temporaire (retry au prochain cycle,
+  // pas encore un vrai échec) : on ne compte que succès et échecs définitifs
+  // dans le message, pour ne pas alarmer sur une simple reconnexion en cours.
+  private notifierResultatSync(ok: number, echecs: number): void {
+    if (ok === 0 && echecs === 0) return; // rien à synchroniser, silence total
+    if (echecs === 0) {
+      this.snack.open(
+        `✓ ${ok} vente${ok > 1 ? 's' : ''}/élément${ok > 1 ? 's' : ''} synchronisé${ok > 1 ? 's' : ''}`,
+        '✕',
+        { duration: 3500, panelClass: 'snack-success' },
+      );
+    } else if (ok === 0) {
+      this.snack.open(
+        `⚠ ${echecs} élément${echecs > 1 ? 's' : ''} en erreur de synchronisation`,
+        '✕',
+        { duration: 5000, panelClass: 'snack-warn' },
+      );
+    } else {
+      this.snack.open(
+        `${ok} synchronisé${ok > 1 ? 's' : ''}, ${echecs} en erreur`,
+        '✕',
+        { duration: 5000, panelClass: 'snack-warn' },
+      );
+    }
+  }
+
+  // Retourne true (synchronisé), false (échec définitif, ne reboucle plus),
+  // ou undefined (erreur réseau temporaire, reste 'pending' pour retry —
+  // ne doit pas compter comme un échec dans la notif de fin de sync).
+  private async syncProduit(p: ProduitPending): Promise<boolean | undefined> {
     try {
       const res: any = await firstValueFrom(
         this.http.post(`${environment.apiUrl}/produits`, {
@@ -133,16 +177,19 @@ export class SyncService {
         await this.offline.remplacerProduitTemp(p.tempId, { ...res.data, tenantId: p.tenantId });
         await this.offline.remapProduitIdDansPending(p.tempId, res.data._id);
       }
+      return true;
     } catch (err: any) {
       const status = err?.status ?? 0;
       if (status >= 400 && status < 500) {
         await this.offline.marquerProduitError(p.id!, err?.error?.message || 'Erreur');
+        return false;
       }
       // Erreur réseau temporaire → reste 'pending', on retente au prochain cycle
+      return undefined;
     }
   }
 
-  private async syncStock(s: StockPending): Promise<void> {
+  private async syncStock(s: StockPending): Promise<boolean | undefined> {
     try {
       await firstValueFrom(
         this.http.patch(`${environment.apiUrl}/produits/${s.produitId}/stock`, {
@@ -151,17 +198,20 @@ export class SyncService {
         }),
       );
       await this.offline.marquerStockSynced(s.id!);
+      return true;
     } catch (err: any) {
       const status = err?.status ?? 0;
       if (status >= 400 && status < 500) {
         // Produit introuvable / erreur métier définitive → ne pas reboucler indéfiniment
         await this.offline.marquerStockError(s.id!, err?.error?.message || 'Erreur');
+        return false;
       }
       // Erreur réseau temporaire → reste 'pending'
+      return undefined;
     }
   }
 
-  private async syncVente(vente: VentePending): Promise<void> {
+  private async syncVente(vente: VentePending): Promise<boolean | undefined> {
     try {
       await firstValueFrom(
         this.http.post(`${environment.apiUrl}/ventes`, {
@@ -172,6 +222,7 @@ export class SyncService {
         }),
       );
       await this.offline.marquerVenteSynced(vente.id!);
+      return true;
     } catch (err: any) {
       const status = err?.status ?? 0;
       // Erreur métier définitive (400, 422) → marquer en erreur pour ne pas
@@ -179,8 +230,10 @@ export class SyncService {
       if (status === 400 || status === 422) {
         const msg = err?.error?.message || 'Données invalides';
         await this.offline.marquerVenteError(vente.id!, msg);
+        return false;
       }
       // Erreur réseau temporaire → on garde statut 'pending' pour retry
+      return undefined;
     }
   }
 
