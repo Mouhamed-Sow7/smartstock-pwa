@@ -4,7 +4,7 @@
 > **Toute IA (Claude, Copilot, Cline...) qui reprend ce projet doit lire ce fichier + `ARCHITECTURE.md` + `AUTH-FLOW.md` avant de commencer.**
 > Historique détaillé des fixes → voir `CHANGELOG.md` (ne pas charger sauf besoin d'investiguer une régression).
 
-**Dernière mise à jour** : 2026-08-15 — dernier commit `8c447f5`
+**Dernière mise à jour** : 2026-08-15 — dernier commit `d104c7d`
 
 ---
 
@@ -25,7 +25,10 @@ _Aucun bug bloquant connu actuellement côté frontend._
 ## Tâches en attente (non bloquantes)
 
 1. **Thème lié au compte, pas au localStorage seul** — pas commencé. Nécessite : champ `theme` sur le modèle `User` (backend), endpoint de mise à jour, adapter `ThemeService` pour lire/écrire via l'API en plus du cache local (garder le cache pour la dispo offline, backend = source de vérité).
-2. **Confirmation utilisateur en attente** : le nouveau bandeau offline/sync (couleurs thème teal + pulsation douce) et le thème clair par défaut doivent être re-vérifiés visuellement sur `smartstock.digitalesf.com` — le dernier retour utilisateur datait d'avant le fix CORS (`7df4f5c`), donc pas encore confirmé.
+2. **⏳ À confirmer visuellement par l'utilisateur sur `smartstock.digitalesf.com`** (impossible à tester en sandbox — pas de build) :
+   - Fix `d104c7d` : script anti-FOUC dans `index.html` censé supprimer le flash sombre au démarrage/refresh (cause racine : `ThemeService` ne s'instanciait qu'au premier composant l'injectant, donc après le premier paint).
+   - Fix `d104c7d` : retrait du bandeau offline/sync dupliqué dans `app.html` (ancien design orange/rotation, empilé avec celui — correct — des layouts patron/agent). À vérifier qu'un seul bandeau (teal/pulse) s'affiche désormais en mode hors ligne ou en sync sur les pages patron/agent.
+   - Reste aussi à confirmer : rendu du thème clair par défaut lui-même (item historique, probablement déjà bon mais jamais formellement confirmé depuis le fix CORS `7df4f5c`).
 
 ## Pièges déjà creusés — ne pas rouvrir sauf nouveau signal clair
 
