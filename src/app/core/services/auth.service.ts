@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap } from 'rxjs/operators';
+import { tap, catchError } from 'rxjs/operators';
+import { of } from 'rxjs';
 import { environment } from '../../../environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -73,5 +74,26 @@ export class AuthService {
 
   getTenantId(): string {
     return this.getUser()?.tenantId || 'default';
+  }
+
+  // Ré-interroge le profil serveur et rafraîchit le cache localStorage.
+  // Cause racine du bug "l'admin change le nom de boutique mais le patron/
+  // agent ne le voit jamais" : user?.boutique est lu depuis un snapshot
+  // localStorage figé au moment du login (ss_user), jamais revalidé tant
+  // que la session reste ouverte. Le backend avait déjà un endpoint
+  // GET /auth/me pour ça (auth.controller.js getProfile), mais rien côté
+  // frontend ne l'appelait. Appelé au chargement de chaque layout
+  // (patron/agent) pour rattraper tout changement fait côté admin entre
+  // deux sessions, sans attendre une déconnexion/reconnexion.
+  // Retourne l'utilisateur à jour (ou le cache existant si offline/erreur —
+  // ne casse jamais le mode offline-first pour un simple souci réseau).
+  refreshUser() {
+    return this.http.get<any>(`${this.baseUrl}/me`).pipe(
+      tap((res) => {
+        const user = res?.data || res;
+        if (user) localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+      }),
+      catchError(() => of(this.getUser())),
+    );
   }
 }

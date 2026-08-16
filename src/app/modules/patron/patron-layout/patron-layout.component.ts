@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -26,7 +26,7 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
       <span class="pending-badge" *ngIf="sync.ventesPendingCount() > 0">
         {{ sync.ventesPendingCount() }} en attente
       </span>
-      <span class="tenant-name">{{ user?.boutique || 'Ma boutique' }}</span>
+      <span class="tenant-name">{{ user()?.boutique || 'Ma boutique' }}</span>
       <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)" [title]="theme.isDark() ? 'Mode clair' : 'Mode sombre'">
         <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
@@ -291,7 +291,10 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
   `]
 })
 export class PatronLayoutComponent {
-  user: any;
+  // Signal (pas un champ classique) : app zoneless, voir la note dans
+  // login.component.ts pour le détail. Sans ça, la mise à jour après
+  // refreshUser() ci-dessous ne se répercuterait jamais sur la vue.
+  user = signal<any>(null);
 
   constructor(
     private auth: AuthService,
@@ -301,9 +304,15 @@ export class PatronLayoutComponent {
     public abonnement: AbonnementService,
     private router: Router,
   ) {
-    this.user = this.auth.getUser();
+    this.user.set(this.auth.getUser());
     this.clients.rafraichirRelances();
     this.abonnement.rafraichir();
+    // Rattrape tout changement fait côté admin depuis le dernier login
+    // (ex: renommage de boutique) — voir AuthService.refreshUser() pour
+    // le détail de la cause racine corrigée.
+    this.auth.refreshUser().subscribe((user) => {
+      if (user) this.user.set(user);
+    });
   }
 
   logout() {

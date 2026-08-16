@@ -109,17 +109,17 @@
           </span>
         </div>
 
-        <div class="error-banner" *ngIf="errorMessage">
+        <div class="error-banner" *ngIf="errorMessage()">
           <i class="fa-solid fa-circle-exclamation"></i>
-          {{ errorMessage }}
+          {{ errorMessage() }}
         </div>
 
-        <button type="submit" class="btn-submit" [disabled]="loginForm.invalid || isLoading">
-          <span *ngIf="!isLoading">
+        <button type="submit" class="btn-submit" [disabled]="loginForm.invalid || isLoading()">
+          <span *ngIf="!isLoading()">
             <i class="fa-solid fa-right-to-bracket"></i>
             Se connecter
           </span>
-          <span *ngIf="isLoading" class="loading-dots">
+          <span *ngIf="isLoading()" class="loading-dots">
             <i class="fa-solid fa-spinner fa-spin"></i>
             Connexion...
           </span>

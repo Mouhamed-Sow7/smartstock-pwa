@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import {
   FormBuilder,
@@ -58,9 +58,20 @@ function normaliserTelephone(v: string): string {
 })
 export class LoginComponent {
   loginForm: FormGroup;
-  isLoading = false;
+  // Signals (pas de simples booléens/strings) : l'app tourne sans zone.js
+  // (zoneless, voir app.config.ts — aucune dépendance zone.js dans
+  // package.json). Muter un champ de classe classique depuis un callback
+  // async (ex: subscribe() d'une requête HTTP) ne déclenche PAS de
+  // rafraîchissement automatique de la vue en zoneless -> c'était la cause
+  // du bug "ça charge indéfiniment jusqu'à ce que je clique sur la page"
+  // (le clic forçait un cycle de détection qui révélait l'état déjà à
+  // jour, calculé silencieusement depuis la réponse HTTP). Un signal, lui,
+  // notifie le scheduler automatiquement à chaque mutation, peu importe le
+  // contexte (même pattern déjà utilisé correctement dans ThemeService et
+  // SyncService).
+  isLoading = signal(false);
   showPassword = false;
-  errorMessage = '';
+  errorMessage = signal('');
 
   constructor(
     private fb: FormBuilder,
@@ -83,8 +94,8 @@ export class LoginComponent {
 
   onSubmit(): void {
     if (this.loginForm.invalid) return;
-    this.isLoading = true;
-    this.errorMessage = '';
+    this.isLoading.set(true);
+    this.errorMessage.set('');
     const { identifiant, password } = this.loginForm.value;
     const raw = (identifiant || '').trim();
 
@@ -94,7 +105,7 @@ export class LoginComponent {
     const ADMIN_IDENTIFIANTS = ['admin', 'smartstock-admin', 'admin@smartstock.sn'];
     if (ADMIN_IDENTIFIANTS.includes(raw.toLowerCase())) {
       sessionStorage.setItem('ss_admin_key', password);
-      this.isLoading = false;
+      this.isLoading.set(false);
       this.router.navigate(['/admin']);
       return;
     }
@@ -106,7 +117,7 @@ export class LoginComponent {
 
     this.authService.loginRaw(payload).subscribe({
       next: () => {
-        this.isLoading = false;
+        this.isLoading.set(false);
         const user = this.authService.getUser();
         if (user?.role === 'patron') {
           this.router.navigate(['/patron']);
@@ -117,8 +128,8 @@ export class LoginComponent {
         }
       },
       error: (error: any) => {
-        this.isLoading = false;
-        this.errorMessage = error.error?.message || 'Identifiant ou mot de passe incorrect';
+        this.isLoading.set(false);
+        this.errorMessage.set(error.error?.message || 'Identifiant ou mot de passe incorrect');
       },
     });
   }

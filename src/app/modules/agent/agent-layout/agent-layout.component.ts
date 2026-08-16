@@ -1,4 +1,4 @@
-import { Component, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Component, NgZone, ChangeDetectorRef, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
@@ -26,7 +26,7 @@ import { SyncService } from '../../../core/services/sync.service';
   template: `
     <div class="topbar">
       <span class="app-title">SmartStock Agent</span>
-      <span class="status-badge">{{ user?.boutique || 'Boutique' }}</span>
+      <span class="status-badge">{{ user()?.boutique || 'Boutique' }}</span>
       <button mat-icon-button (click)="onRefresh()" class="refresh-btn" [class.spin]="isSyncing || sync.estEnSync()" aria-label="Rafraîchir">
         <mat-icon>autorenew</mat-icon>
       </button>
@@ -221,7 +221,8 @@ import { SyncService } from '../../../core/services/sync.service';
   ],
 })
 export class AgentLayoutComponent {
-  user: any = null;
+  // Signal : voir la note équivalente dans patron-layout.component.ts.
+  user = signal<any>(null);
   isSyncing = false;
 
   constructor(
@@ -234,7 +235,12 @@ export class AgentLayoutComponent {
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef,
   ) {
-    this.user = this.auth.getUser();
+    this.user.set(this.auth.getUser());
+    // Rattrape tout changement fait côté admin depuis le dernier login (ex:
+    // renommage de boutique par le patron — voir AuthService.refreshUser()).
+    this.auth.refreshUser().subscribe((user) => {
+      if (user) this.user.set(user);
+    });
   }
 
   async onRefresh(): Promise<void> {
