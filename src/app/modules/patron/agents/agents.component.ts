@@ -135,16 +135,16 @@ export class BoutiqueDialogComponent {
             </div>
           </div>
           <div class="f-group">
-            <label>Téléphone <span class="opt">optionnel — identifiant de connexion alternatif</span></label>
+            <label>Téléphone <span class="req">*</span></label>
             <input formControlName="telephone" placeholder="77 123 45 67" type="tel" />
-            <span class="f-hint">Avec ou sans indicatif 221, peu importe le format.</span>
+            <span class="f-hint">Avec ou sans indicatif 221, peu importe le format. C'est l'identifiant de connexion de l'agent.</span>
           </div>
         </form>
-        <div class="login-preview" *ngIf="form.get('prenom')?.value && form.get('nom')?.value">
+        <div class="login-preview" *ngIf="form.get('telephone')?.value">
           <mat-icon>info</mat-icon>
           <div>
             <div class="lp-title">Identifiant de connexion</div>
-            <div class="lp-email">{{ getEmailPreview() }}</div>
+            <div class="lp-email">{{ form.get('telephone')?.value }}</div>
             <div class="lp-mdp">Un mot de passe sera généré automatiquement — il ne sera affiché qu'une seule fois.</div>
           </div>
         </div>
@@ -158,10 +158,6 @@ export class BoutiqueDialogComponent {
         </div>
         <div class="cred-card">
           <div class="cred-row">
-            <span class="cred-label">Email</span>
-            <span class="cred-value">{{ resultat.email }}</span>
-          </div>
-          <div class="cred-row" *ngIf="resultat.telephone">
             <span class="cred-label">Téléphone</span>
             <span class="cred-value">{{ resultat.telephone }}</span>
           </div>
@@ -259,13 +255,10 @@ export class AgentCreateDialogComponent {
   form = this.fb.group({
     prenom: ['', Validators.required],
     nom: ['', Validators.required],
-    telephone: [''],
+    telephone: ['', Validators.required],
   });
-  getEmailPreview(): string {
-    const p = (this.form.get('prenom')?.value || '').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
-    const n = (this.form.get('nom')?.value || '').toLowerCase().replace(/\s+/g, '.').replace(/[^a-z0-9.]/g, '');
-    return `${p}.${n}@${this.data.boutique.slug}.sm`;
-  }
+  // getEmailPreview() retiré : l'agent n'a plus d'email généré, l'aperçu
+  // dans le template affiche directement form.get('telephone').value.
   save() {
     if (this.form.invalid) return;
     this.loading = true;
@@ -291,8 +284,7 @@ export class AgentCreateDialogComponent {
   }
   copier() {
     if (!this.resultat) return;
-    const lines = [`Email: ${this.resultat.email}`, `Mot de passe: ${this.resultat.motDePasseGenere}`];
-    if (this.resultat.telephone) lines.splice(1, 0, `Téléphone: ${this.resultat.telephone}`);
+    const lines = [`Téléphone: ${this.resultat.telephone}`, `Mot de passe: ${this.resultat.motDePasseGenere}`];
     navigator.clipboard?.writeText(lines.join('\n'));
   }
   fermer() { this.ref.close(this.resultat || null); }
@@ -318,6 +310,10 @@ export class AgentCreateDialogComponent {
           <div class="cred-row" *ngIf="data.email">
             <span class="cred-label">Email</span>
             <span class="cred-value">{{ data.email }}</span>
+          </div>
+          <div class="cred-row" *ngIf="data.telephone">
+            <span class="cred-label">Téléphone</span>
+            <span class="cred-value">{{ data.telephone }}</span>
           </div>
           <div class="cred-row highlight">
             <span class="cred-label">Nouveau mot de passe</span>
@@ -369,10 +365,11 @@ export class PasswordResultDialogComponent {
   ref = inject(MatDialogRef<PasswordResultDialogComponent>);
   data: any = inject(MAT_DIALOG_DATA);
   copier() {
-    const text = this.data.email
-      ? `Email: ${this.data.email}\nMot de passe: ${this.data.motDePasseGenere}`
-      : `Mot de passe: ${this.data.motDePasseGenere}`;
-    navigator.clipboard?.writeText(text);
+    const lignes = [];
+    if (this.data.email) lignes.push(`Email: ${this.data.email}`);
+    if (this.data.telephone) lignes.push(`Téléphone: ${this.data.telephone}`);
+    lignes.push(`Mot de passe: ${this.data.motDePasseGenere}`);
+    navigator.clipboard?.writeText(lignes.join('\n'));
   }
 }
 
@@ -716,8 +713,9 @@ export class AgentsComponent implements OnInit, OnDestroy {
         this.api.patch(`boutiques/agents/${agent._id}/reset-password`, {}).subscribe({
           next: (r: any) => {
             this.dialog.open(PasswordResultDialogComponent, {
-              data: { nom: `${agent.prenom} ${agent.nom}`, email: agent.email, motDePasseGenere: r.data?.motDePasseGenere },
+              data: { nom: `${agent.prenom} ${agent.nom}`, email: agent.email, telephone: agent.telephone, motDePasseGenere: r.data?.motDePasseGenere },
               maxWidth: '100vw', panelClass: 'produit-dialog-panel',
+              disableClose: true,
             });
           },
           error: () => this.snack.open('Erreur lors de la réinitialisation', 'OK', { duration: 3000 })
