@@ -600,7 +600,12 @@ a {
 [data-theme="light"] app-login .login-page,
 [data-theme="light"] app-login .form-side,
 [data-theme="light"] app-login .input-wrap,
-[data-theme="light"] app-login .hero {
+[data-theme="light"] app-login .hero,
+[data-theme="light"] app-register,
+[data-theme="light"] app-register .register-page,
+[data-theme="light"] app-register .form-col,
+[data-theme="light"] app-register .input-wrap,
+[data-theme="light"] app-register .hero {
   --navy: #0a1628;
   --navy-light: #0f1b2d;
   --navy-card: #0f1b2d;

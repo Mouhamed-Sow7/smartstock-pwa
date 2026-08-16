@@ -266,19 +266,12 @@ function passwordMatch(form: AbstractControl): ValidationErrors | null {
     .cgu { margin-top: 16px; font-size: 11px; color: var(--text-3); text-align: center; }
     .cgu a { color: #00b894; text-decoration: none; }
 
-    /* ── Light mode ── */
-    [data-theme="light"] .hero {
-      background: linear-gradient(145deg, #0f2340 0%, #1a3a5c 60%, #163055 100%);
-    }
-    [data-theme="light"] .form-col { background: #ffffff; }
-    [data-theme="light"] .input-wrap {
-      background: #f0f4f8; border-color: #c5d0df;
-    }
-    [data-theme="light"] .input-wrap i { color: #9aafc4; }
-    [data-theme="light"] .input-wrap input { color: #0d1b2a; }
-    [data-theme="light"] .input-wrap input::placeholder { color: #b0c0d0; }
-    [data-theme="light"] .input-wrap:focus-within { border-color: #00966e; }
-    [data-theme="light"] .toggle-pwd { color: #9aafc4; }
+    /* Page toujours sombre, quel que soit le thème global de l'app — voir
+       la protection de variables dans styles.scss (même principe que
+       app-login). L'ancien bloc "Light mode" ici est retiré : il forçait
+       cette page en clair quand le thème global l'était, ce que
+       l'utilisateur ne veut plus (préfère la cohérence visuelle avec le
+       login, toujours sombre). */
 
     /* ── Responsive mobile ── */
     @media (max-width: 768px) {
