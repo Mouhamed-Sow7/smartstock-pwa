@@ -176,6 +176,11 @@ export class BoutiqueDialogComponent {
         </div>
       </div>
 
+      <div class="dlg-error" *ngIf="erreur">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ erreur }}</span>
+      </div>
+
       <div class="dlg-foot" *ngIf="!resultat">
         <button class="btn-cancel" (click)="ref.close()">Annuler</button>
         <button class="btn-save" [disabled]="form.invalid || loading" (click)="save()">
@@ -231,6 +236,8 @@ export class BoutiqueDialogComponent {
     .cred-value.mono { font-family:monospace; font-size:20px; color:#00b894; letter-spacing:2px; word-break:break-all; font-weight:700; }
     .cred-warning { display:flex; gap:8px; align-items:flex-start; font-size:11px; color:#fdcb6e; background:rgba(253,203,110,.08); border:1px solid rgba(253,203,110,.2); border-radius:8px; padding:9px 11px; line-height:1.4; }
     .cred-warning mat-icon { font-size:15px; width:15px; height:15px; flex-shrink:0; margin-top:1px; }
+    .dlg-error { display:flex; gap:8px; align-items:flex-start; margin:0 18px; padding:10px 12px; background:rgba(231,76,60,.1); border:1px solid rgba(231,76,60,.25); border-radius:8px; color:#e74c3c; font-size:12px; line-height:1.4; }
+    .dlg-error mat-icon { font-size:16px; width:16px; height:16px; flex-shrink:0; margin-top:1px; }
     .dlg-foot { display:flex; gap:10px; padding:12px 18px; border-top:1px solid rgba(255,255,255,.07); }
     .btn-cancel { padding:9px 16px; border-radius:8px; border:1px solid rgba(255,255,255,.1); background:transparent; color:#8892a4; font-size:13px; cursor:pointer; display:flex; align-items:center; gap:5px; }
     .btn-cancel mat-icon { font-size:15px; width:15px; height:15px; }
@@ -248,6 +255,7 @@ export class AgentCreateDialogComponent {
   private cdr = inject(ChangeDetectorRef);
   loading = false;
   resultat: any = null;
+  erreur = '';
   form = this.fb.group({
     prenom: ['', Validators.required],
     nom: ['', Validators.required],
@@ -261,6 +269,7 @@ export class AgentCreateDialogComponent {
   save() {
     if (this.form.invalid) return;
     this.loading = true;
+    this.erreur = '';
     this.api.post(`boutiques/${this.data.boutique._id}/agents`, this.form.value).subscribe({
       next: (r: any) => {
         // NgZone.run() garantit qu'Angular detecte le changement meme quand
@@ -271,8 +280,12 @@ export class AgentCreateDialogComponent {
           this.cdr.detectChanges();
         });
       },
-      error: () => {
-        this.zone.run(() => { this.loading = false; this.cdr.detectChanges(); });
+      error: (err: any) => {
+        this.zone.run(() => {
+          this.loading = false;
+          this.erreur = err?.error?.message || "Erreur lors de la création de l'agent";
+          this.cdr.detectChanges();
+        });
       }
     });
   }

@@ -96,4 +96,22 @@ export class AuthService {
       catchError(() => of(this.getUser())),
     );
   }
+
+  // Page "Mon compte" patron : modifie nom/email/téléphone/boutique. Le
+  // backend cascade automatiquement un renommage de boutique (voir
+  // utils/boutiqueRename.js côté smartStock) -- la réponse peut inclure
+  // emailsChanges si des agents ont eu leur email relocalisé suite au
+  // changement de slug, à afficher clairement au patron pour qu'il prévienne
+  // son équipe (pas de notification automatique par email/SMS pour l'instant).
+  updateProfil(payload: { nom?: string; email?: string; telephone?: string; boutique?: string }) {
+    return this.http.patch<any>(`${this.baseUrl}/profil`, payload).pipe(
+      tap((res) => {
+        if (res?.data) localStorage.setItem(this.USER_KEY, JSON.stringify(res.data));
+      }),
+    );
+  }
+
+  changePassword(ancienMotDePasse: string, nouveauMotDePasse: string) {
+    return this.http.patch<any>(`${this.baseUrl}/change-password`, { ancienMotDePasse, nouveauMotDePasse });
+  }
 }
