@@ -677,7 +677,17 @@ export class AgentsComponent implements OnInit, OnDestroy {
   }
 
   ouvrirCreerAgent(boutique: any) {
-    this.dialog.open(AgentCreateDialogComponent, { data: { boutique }, maxWidth: '100vw', panelClass: 'produit-dialog-panel' })
+    this.dialog.open(AgentCreateDialogComponent, {
+      data: { boutique },
+      maxWidth: '100vw',
+      panelClass: 'produit-dialog-panel',
+      // Le mot de passe généré n'est affiché qu'une seule fois (voir
+      // creerAgent côté backend) -- un clic accidentel en dehors du modal
+      // ou une touche Échap ne doit jamais le faire disparaître avant que
+      // l'utilisateur ait pu le copier/noter. Fermeture uniquement via les
+      // boutons explicites du dialog (Annuler / Copier / J'ai noté, fermer).
+      disableClose: true,
+    })
       .afterClosed().subscribe(agent => {
         if (!agent) return;
         this.agentsMap.update(m => ({ ...m, [boutique._id]: [agent, ...(m[boutique._id] || [])] }));
