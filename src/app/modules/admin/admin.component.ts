@@ -194,13 +194,17 @@ interface AbonnementARelancer {
     <!-- ── ABONNEMENTS (SaaS patrons) ── -->
     <section *ngIf="tab==='abonnements'">
       <div class="sec-head">
-        <h3>Abonnements à relancer <span class="sub">(échéance ≤ 3j ou en retard)</span></h3>
+        <h3>Abonnements <span class="sub">{{ voirTousAbonnements() ? '(tout le portefeuille)' : '(échéance ≤ 3j ou en retard)' }}</span></h3>
+        <div class="abon-toggle">
+          <button [class.on]="!voirTousAbonnements()" (click)="basculerVueAbonnements(false)">À relancer</button>
+          <button [class.on]="voirTousAbonnements()" (click)="basculerVueAbonnements(true)">Tous les abonnés</button>
+        </div>
       </div>
       <div class="loading-row" *ngIf="abonnementsLoading()"><mat-icon class="spin">autorenew</mat-icon> Chargement…</div>
       <div class="empty-row" *ngIf="!abonnementsLoading() && abonnements().length === 0">
-        <mat-icon>check_circle</mat-icon> Tous les abonnements sont à jour.
+        <mat-icon>check_circle</mat-icon> {{ voirTousAbonnements() ? 'Aucun patron inscrit.' : 'Tous les abonnements sont à jour.' }}
       </div>
-      <div class="relance-row" *ngFor="let a of abonnements()" [class.retard]="a.statut === 'en_retard'">
+      <div class="relance-row" *ngFor="let a of abonnements()" [class.retard]="a.statut === 'en_retard'" [class.ok]="a.statut === 'ok'">
         <div class="relance-main">
           <b>{{ a.boutique || a.nom }}</b>
           <span class="relance-boutique" *ngIf="!a.actif" style="background:rgba(231,76,60,.15);color:#e74c3c;">désactivé</span>
@@ -209,7 +213,8 @@ interface AbonnementARelancer {
           <span>{{ a.nom }}</span>
           <span>{{ a.email }}</span>
           <span *ngIf="a.telephone">{{ a.telephone }}</span>
-          <span class="relance-statut" [class.retard]="a.statut === 'en_retard'">
+          <span class="relance-inscrit" *ngIf="voirTousAbonnements() && a.inscritLe">inscrit le {{ a.inscritLe | date:'dd/MM/yyyy' }}</span>
+          <span class="relance-statut" [class.retard]="a.statut === 'en_retard'" [class.ok]="a.statut === 'ok'">
             {{ a.statut === 'en_retard' ? ('en retard de ' + (-a.joursRestants) + 'j') : ('dans ' + a.joursRestants + 'j') }}
           </span>
         </div>
@@ -516,6 +521,9 @@ export class AdminComponent implements OnInit {
   readonly abonnements = this._abonnements.asReadonly();
   private _abonnementsLoading = signal(false);
   readonly abonnementsLoading = this._abonnementsLoading.asReadonly();
+  // false = seulement ceux à relancer (défaut) ; true = tout le portefeuille
+  private _voirTousAbonnements = signal(false);
+  readonly voirTousAbonnements = this._voirTousAbonnements.asReadonly();
 
   // Créer
   nv = { nom: '', boutique: '', email: '', telephone: '', password: '' };
@@ -601,10 +609,17 @@ export class AdminComponent implements OnInit {
 
   loadAbonnements(): void {
     this._abonnementsLoading.set(true);
-    this.http.get<any>(`${this.base}/abonnements`, { headers: this.h() }).subscribe({
+    const qs = this._voirTousAbonnements() ? '?tous=1' : '';
+    this.http.get<any>(`${this.base}/abonnements${qs}`, { headers: this.h() }).subscribe({
       next: (r) => { this._abonnements.set(r.data || []); this._abonnementsLoading.set(false); this.cdr.detectChanges(); },
       error: () => { this._abonnementsLoading.set(false); this.cdr.detectChanges(); },
     });
+  }
+
+  basculerVueAbonnements(tous: boolean): void {
+    if (this._voirTousAbonnements() === tous) return;
+    this._voirTousAbonnements.set(tous);
+    this.loadAbonnements();
   }
 
   confirmerPaiementAbonnement(a: AbonnementARelancer): void {
@@ -677,7 +692,7 @@ export class AdminComponent implements OnInit {
   toggleEquipe(p: Patron): void {
     if (this.equipeOuvert === p._id) { this.equipeOuvert = null; this.equipe = []; return; }
     this.equipeOuvert = p._id; this.equipe = []; this.equipeLoading = true;
-    this.http.get<any>(`${this.base}/team/${p.tenantId}`, { headers: this.h() }).subscribe({
+    this.http.get<any>(`${this.base}/tenants/${p.tenantId}/team`, { headers: this.h() }).subscribe({
       next: (r) => { this.equipe = r.data || []; this.equipeLoading = false; this.cdr.detectChanges(); },
       error: () => { this.equipeLoading = false; this.cdr.detectChanges(); },
     });

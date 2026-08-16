@@ -589,7 +589,7 @@ export class AgentsComponent implements OnInit, OnDestroy {
       telephone: this.editTelephone,
       resetPassword: this.editResetPassword,
     };
-    this.api.patch(`agents/${agent._id}`, body).subscribe({
+    this.api.patch(`boutiques/agents/${agent._id}`, body).subscribe({
       next: (res: any) => {
         this.editSaving = false;
         if (res?.data) {
