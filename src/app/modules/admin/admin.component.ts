@@ -15,7 +15,8 @@ interface RelanceClient {
 interface AbonnementARelancer {
   _id: string; nom: string; email: string; telephone?: string; boutique: string;
   actif: boolean; prochainPaiement: string; joursRestants: number;
-  statut: 'a_venir' | 'en_retard';
+  inscritLe?: string;
+  statut: 'ok' | 'a_venir' | 'en_retard';
 }
 
 @Component({
