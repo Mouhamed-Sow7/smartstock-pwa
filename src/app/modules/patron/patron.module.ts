@@ -48,12 +48,15 @@ const routes: Routes = [
         loadComponent: () => import('./ventes/ventes.component').then((m) => m.VentesComponent),
       },
       {
-        path: 'relances',
+        path: 'prets',
         loadComponent: () =>
-          import('../../shared/components/relances/relances.component').then(
-            (m) => m.RelancesComponent,
+          import('../../shared/components/prets-clients/prets-clients.component').then(
+            (m) => m.PretsClientsComponent,
           ),
       },
+      // Ancienne URL conservée en redirection (au cas où elle serait dans les
+      // favoris/raccourcis PWA de l'utilisateur) — même page, nouveau nom.
+      { path: 'relances', redirectTo: 'prets', pathMatch: 'full' },
       {
         path: 'compte',
         loadComponent: () =>

@@ -38,6 +38,10 @@ export interface VentePending {
   lignes: { produitId: string; nom: string; quantite: number; prixUnitaire: number }[];
   montantTotal: number;
   modePaiement: string;
+  // Obligatoire uniquement quand modePaiement === 'credit' (vente à crédit) :
+  // nom du client à qui la marchandise est prêtée, pour que le backend
+  // crée/retrouve sa fiche et incrémente son soldeDu.
+  clientNom?: string;
   createdAt: string;
   statut: 'pending' | 'synced' | 'error';
   errorMessage?: string;

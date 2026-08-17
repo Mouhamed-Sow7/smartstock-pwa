@@ -20,6 +20,7 @@ export interface SaleTicket {
   total: number;
   modePaiement: string;
   modeCreation?: 'online' | 'offline';
+  clientNom?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -146,7 +147,7 @@ export class PosService {
   }
 
   // ─── Validation avec fallback offline ──────────────────────
-  async validateSaleAsync(modePaiement = 'especes'): Promise<'online' | 'offline'> {
+  async validateSaleAsync(modePaiement = 'especes', clientNom?: string): Promise<'online' | 'offline'> {
     const tenantId = this.auth.getTenantId() ?? '';
     const snapshot = this.cartSnapshot; // capture avant clearCart()
     const lignes = snapshot.map((item) => ({
@@ -161,6 +162,7 @@ export class PosService {
       lignes,
       montantTotal: this.getTotal(),
       modePaiement,
+      ...(modePaiement === 'credit' && clientNom ? { clientNom } : {}),
     });
 
     // Décrémenter le stock dans le cache Dexie local après chaque vente
@@ -192,6 +194,7 @@ export class PosService {
       total: this.getTotal(),
       modePaiement,
       modeCreation: mode,
+      ...(modePaiement === 'credit' && clientNom ? { clientNom } : {}),
     });
 
     this.clearCart();
@@ -251,7 +254,7 @@ export class PosService {
       .join('');
 
     const modeLabel: Record<string, string> = {
-      especes: 'Espèces', wave: 'Wave', orange_money: 'Orange Money', free_money: 'Free Money'
+      especes: 'Espèces', wave: 'Wave', orange_money: 'Orange Money', free_money: 'Free Money', credit: 'Crédit'
     };
 
     const html = `<!DOCTYPE html>
@@ -319,7 +322,7 @@ export class PosService {
       <table>${itemsHtml}</table>
       <div class="sep"></div>
       <div class="total">Total : ${ticket.total.toLocaleString('fr-FR')} FCFA</div>
-      <div class="mode">${modeLabel[ticket.modePaiement] || ticket.modePaiement}</div>
+      <div class="mode">${modeLabel[ticket.modePaiement] || ticket.modePaiement}${ticket.clientNom ? ' — ' + ticket.clientNom : ''}</div>
       <div class="footer">Merci pour votre achat</div>
     </div>
     <button class="btn-print" onclick="window.print()">Imprimer</button>

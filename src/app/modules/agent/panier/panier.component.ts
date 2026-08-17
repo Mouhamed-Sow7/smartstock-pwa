@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { Router } from '@angular/router';
 import { Subject } from 'rxjs';
@@ -7,12 +8,12 @@ import { takeUntil } from 'rxjs/operators';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PosService, CartItem } from '../services/pos.service';
 
-type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money';
+type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit';
 
 @Component({
   selector: 'app-panier',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   template: `
     <div class="panier">
       <!-- Header -->
@@ -80,7 +81,24 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money';
           </div>
         </div>
 
-        <button class="validate-btn" (click)="validateSale()" [disabled]="isSaving">
+        <!-- Vente à crédit : nom du client obligatoire pour créer/retrouver sa fiche -->
+        <div class="credit-section" *ngIf="modePaiement === 'credit'">
+          <label class="credit-label">Nom du client</label>
+          <input
+            type="text"
+            class="credit-input"
+            [(ngModel)]="clientNom"
+            placeholder="Ex : Fatou Diop"
+            name="clientNom"
+          />
+          <p class="credit-hint">
+            <mat-icon>info</mat-icon>
+            Le client repart avec la marchandise sans payer. Le patron le retrouvera
+            dans « Prêts » pour suivre le remboursement — le client, lui, n'est pas notifié.
+          </p>
+        </div>
+
+        <button class="validate-btn" (click)="validateSale()" [disabled]="isSaving || !peutValider">
           <mat-icon>{{ isSaving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
           {{ isSaving ? 'Validation...' : 'Valider — ' + modeLabel }}
         </button>
@@ -172,6 +190,24 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money';
       color: var(--accent);
     }
 
+    .credit-section {
+      background: rgba(225,112,85,.08);
+      border: 1px solid rgba(225,112,85,.25);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 14px;
+    }
+    .credit-label { display: block; color: var(--text-2); font-size: 12px; font-weight: 600; margin-bottom: 6px; }
+    .credit-input {
+      width: 100%; background: var(--navy); border: 1px solid var(--navy-border);
+      border-radius: 8px; color: var(--text-1); padding: 10px 12px; font-size: 14px;
+    }
+    .credit-hint {
+      display: flex; align-items: flex-start; gap: 6px;
+      color: var(--text-3); font-size: 11px; margin-top: 8px; line-height: 1.4;
+    }
+    .credit-hint mat-icon { font-size: 15px; width: 15px; height: 15px; flex-shrink: 0; margin-top: 1px; }
+
     .validate-btn {
       width: 100%; padding: 14px; background: var(--accent); color: #fff;
       border: none; border-radius: 12px; font-size: 15px; font-weight: 700;
@@ -192,7 +228,16 @@ export class PanierComponent implements OnInit, OnDestroy {
   errorMessage = '';
   offlineMsg = '';
   modePaiement: ModePaiement = 'especes';
+  clientNom = '';
   private destroy$ = new Subject<void>();
+
+  // Vente à crédit : nom du client obligatoire (sinon le backend refuse la vente,
+  // impossible de créer/retrouver sa fiche sans nom). Tous les autres modes n'ont
+  // pas cette contrainte.
+  get peutValider(): boolean {
+    if (this.modePaiement === 'credit') return this.clientNom.trim().length > 0;
+    return true;
+  }
 
   private readonly _rawModes: { value: ModePaiement; label: string; svg: string }[] = [
     {
@@ -264,6 +309,15 @@ export class PanierComponent implements OnInit, OnDestroy {
         <text x="40" y="42" text-anchor="middle" fill="#333333" font-size="11" font-weight="bold" font-family="Arial,sans-serif" letter-spacing="2">MONEY</text>
       </svg>`
     },
+    {
+      value: 'credit', label: 'Crédit',
+      svg: `<svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+        <rect width="48" height="48" rx="10" fill="#2d3748"/>
+        <rect x="8" y="14" width="32" height="22" rx="3" fill="#e17055"/>
+        <rect x="8" y="19" width="32" height="4" fill="#2d3748"/>
+        <rect x="12" y="27" width="10" height="4" rx="1" fill="#fff" opacity=".85"/>
+      </svg>`
+    },
   ];
 
   get modeLabel(): string {
@@ -287,12 +341,17 @@ export class PanierComponent implements OnInit, OnDestroy {
   remove(item: CartItem): void    { this.pos.removeItem(item.produit._id); }
 
   validateSale(): void {
+    if (!this.peutValider) {
+      this.errorMessage = 'Le nom du client est requis pour une vente à crédit';
+      return;
+    }
     this.errorMessage = '';
     this.offlineMsg = '';
     this.isSaving = true;
-    this.pos.validateSaleAsync(this.modePaiement)
+    this.pos.validateSaleAsync(this.modePaiement, this.clientNom.trim())
       .then((mode) => {
         this.isSaving = false;
+        this.clientNom = '';
         if (mode === 'offline') {
           this.offlineMsg = 'Vente sauvegardée hors ligne — synchronisation automatique';
           setTimeout(() => this.router.navigate(['/agent/ticket']), 1800);

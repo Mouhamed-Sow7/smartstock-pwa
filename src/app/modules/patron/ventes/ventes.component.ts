@@ -49,6 +49,14 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
             <option *ngFor="let b of boutiques()" [value]="b._id">{{ b.nom }}</option>
           </select>
         </div>
+        <!-- Filtre agent — visible dès qu'il y a au moins un agent -->
+        <div class="boutique-filter" *ngIf="agents().length > 0">
+          <mat-icon class="boutique-icon">badge</mat-icon>
+          <select class="boutique-select" [(ngModel)]="agentSelectId" (change)="charger()">
+            <option value="">Tous les agents</option>
+            <option *ngFor="let a of agents()" [value]="a._id">{{ a.nom }}</option>
+          </select>
+        </div>
         <div class="date-range" *ngIf="periode === 'personnalise'">
           <input type="date" [(ngModel)]="dateDebut" (change)="charger()" />
           <span>→</span>
@@ -213,6 +221,12 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
         white-space: nowrap;
       }
       .date-range { margin-top: 0; flex-shrink: 0; }
+      .boutique-filter { margin-top: 0; flex-shrink: 0; }
+    }
+    /* Deux sélecteurs + onglets peuvent dépasser en largeur moyenne : on autorise
+       le retour à la ligne plutôt qu'un débordement horizontal caché */
+    @media (min-width: 1024px) and (max-width: 1300px) {
+      .filtres-card { flex-wrap: wrap; }
     }
 
     .kpi-row {
@@ -320,6 +334,8 @@ export class VentesComponent implements OnInit, OnDestroy {
   dateFin = '';
   boutiqueSelectId = '';   // '' = toutes les boutiques
   boutiques = signal<any[]>([]);
+  agentSelectId = '';      // '' = tous les agents
+  agents = signal<any[]>([]);
 
   periodes = [
     { value: 'aujourd_hui' as Periode, label: "Auj." },
@@ -339,6 +355,9 @@ export class VentesComponent implements OnInit, OnDestroy {
     // Charger les boutiques pour le sélecteur (silencieusement, si aucune = sélecteur caché)
     this.api.get('boutiques').pipe(takeUntil(this.destroy$))
       .subscribe({ next: (r: any) => { this.boutiques.set(r.data || []); }, error: () => {} });
+    // Charger les agents pour le sélecteur "par agent" (silencieusement)
+    this.rapport.getAgentsPourFiltre().pipe(takeUntil(this.destroy$))
+      .subscribe({ next: (r: any) => { this.agents.set(r.data || []); }, error: () => {} });
   }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
@@ -351,7 +370,7 @@ export class VentesComponent implements OnInit, OnDestroy {
     const { debut, fin } = this.getRange();
     if (!debut || !fin) return;
     this.isLoading.set(true);
-    this.rapport.getVentes(debut, fin, this.boutiqueSelectId || undefined).pipe(
+    this.rapport.getVentes(debut, fin, this.boutiqueSelectId || undefined, this.agentSelectId || undefined).pipe(
       timeout(15000),
       retry({ count: 3, delay: 4000 }),
       takeUntil(this.destroy$),

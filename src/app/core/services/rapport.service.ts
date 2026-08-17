@@ -19,10 +19,17 @@ export interface Vente {
 export class RapportService {
   constructor(private api: ApiService, private auth: AuthService) {}
 
-  getVentes(debut: string, fin: string, boutiqueId?: string): Observable<any> {
+  getVentes(debut: string, fin: string, boutiqueId?: string, agentId?: string): Observable<any> {
     let url = `ventes?debut=${debut}&fin=${fin}`;
     if (boutiqueId) url += `&boutiqueId=${boutiqueId}`;
+    // Le backend ignore/écrase ce paramètre pour un agent (il est forcé sur
+    // son propre id côté serveur) — utile seulement pour le filtre patron.
+    if (agentId) url += `&agentId=${agentId}`;
     return this.api.get(url);
+  }
+
+  getAgentsPourFiltre(): Observable<any> {
+    return this.api.get('ventes/agents');
   }
 
   async exportPDF(ventes: Vente[], label: string, boutique: string): Promise<void> {

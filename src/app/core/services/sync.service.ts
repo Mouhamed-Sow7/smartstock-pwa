@@ -218,6 +218,7 @@ export class SyncService {
           lignes: vente.lignes,
           montantTotal: vente.montantTotal,
           modePaiement: vente.modePaiement,
+          clientNom: vente.clientNom,
           createdAt: vente.createdAt,
         }),
       );

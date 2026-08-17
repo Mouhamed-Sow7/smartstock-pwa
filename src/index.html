@@ -39,6 +39,10 @@
     <!-- Android PWA -->
     <meta name="mobile-web-app-capable" content="yes" />
     <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <!-- Icône d'installation iOS (Ajouter à l'écran d'accueil) : sans ce lien explicite,
+         iOS ignore les icônes du manifest.webmanifest et prend une capture d'écran de
+         la page comme icône. Même glyphe que le logo de la page login. -->
+    <link rel="apple-touch-icon" href="apple-touch-icon.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
     <link

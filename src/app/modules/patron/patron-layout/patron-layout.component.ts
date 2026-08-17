@@ -85,10 +85,10 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
         <mat-icon>receipt_long</mat-icon>
         <span>Ventes</span>
       </a>
-      <a routerLink="/patron/relances" routerLinkActive="active" class="relances-link">
-        <span class="relances-badge" *ngIf="clients.relancesCount() > 0">{{ clients.relancesCount() }}</span>
-        <mat-icon>notifications</mat-icon>
-        <span>Relances</span>
+      <a routerLink="/patron/prets" routerLinkActive="active" class="relances-link">
+        <span class="relances-badge" *ngIf="clients.pretsNonRembourses() > 0">{{ clients.pretsNonRembourses() }}</span>
+        <mat-icon>checklist</mat-icon>
+        <span>Prêts</span>
       </a>
     </nav>
   `,
@@ -309,7 +309,7 @@ export class PatronLayoutComponent {
     private router: Router,
   ) {
     this.user.set(this.auth.getUser());
-    this.clients.rafraichirRelances();
+    this.clients.rafraichirCredits();
     this.abonnement.rafraichir();
     // Rattrape tout changement fait côté admin depuis le dernier login
     // (ex: renommage de boutique) — voir AuthService.refreshUser() pour
