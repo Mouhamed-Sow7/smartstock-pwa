@@ -54,6 +54,11 @@ const routes: Routes = [
             (m) => m.RelancesComponent,
           ),
       },
+      {
+        path: 'compte',
+        loadComponent: () =>
+          import('./compte/compte.component').then((m) => m.CompteComponent),
+      },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
     ],
   },

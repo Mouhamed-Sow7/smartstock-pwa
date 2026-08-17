@@ -27,6 +27,9 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
         {{ sync.ventesPendingCount() }} en attente
       </span>
       <span class="tenant-name">{{ user()?.boutique || 'Ma boutique' }}</span>
+      <a mat-icon-button routerLink="/patron/compte" routerLinkActive="active-icon" style="color:var(--text-2)" title="Mon compte">
+        <mat-icon>account_circle</mat-icon>
+      </a>
       <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)" [title]="theme.isDark() ? 'Mode clair' : 'Mode sombre'">
         <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
@@ -127,6 +130,7 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
       border: 1px solid rgba(0,184,148,.25);
       margin-right: 4px;
     }
+    a[mat-icon-button].active-icon { color: var(--accent) !important; }
 
     .sync-banner {
       position: fixed;
