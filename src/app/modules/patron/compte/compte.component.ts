@@ -78,11 +78,21 @@ import { AuthService } from '../../../core/services/auth.service';
 
         <div class="field-group">
           <label class="field-label">Mot de passe actuel</label>
-          <input class="field-input" type="password" formControlName="ancien" />
+          <div class="pwd-wrap">
+            <input class="field-input" [type]="showAncien() ? 'text' : 'password'" formControlName="ancien" />
+            <button type="button" class="pwd-toggle" (click)="showAncien.set(!showAncien())" [title]="showAncien() ? 'Masquer' : 'Afficher'">
+              <mat-icon>{{ showAncien() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </div>
         </div>
         <div class="field-group">
           <label class="field-label">Nouveau mot de passe</label>
-          <input class="field-input" type="password" formControlName="nouveau" placeholder="Au moins 6 caractères" />
+          <div class="pwd-wrap">
+            <input class="field-input" [type]="showNouveau() ? 'text' : 'password'" formControlName="nouveau" placeholder="Au moins 6 caractères" />
+            <button type="button" class="pwd-toggle" (click)="showNouveau.set(!showNouveau())" [title]="showNouveau() ? 'Masquer' : 'Afficher'">
+              <mat-icon>{{ showNouveau() ? 'visibility_off' : 'visibility' }}</mat-icon>
+            </button>
+          </div>
         </div>
 
         @if (pwdError()) {
@@ -136,6 +146,16 @@ import { AuthService } from '../../../core/services/auth.service';
     .fields-row { display: flex; gap: 10px; }
     .fields-row .field-group { flex: 1; min-width: 0; }
 
+    .pwd-wrap { position: relative; display: flex; }
+    .pwd-wrap .field-input { padding-right: 40px; }
+    .pwd-toggle {
+      position: absolute; right: 4px; top: 50%; transform: translateY(-50%);
+      background: transparent; border: none; cursor: pointer; padding: 6px;
+      display: flex; align-items: center; justify-content: center; color: var(--text-3);
+    }
+    .pwd-toggle mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .pwd-toggle:active { color: var(--accent); }
+
     .form-error { font-size: 13px; color: #e74c3c; background: rgba(231,76,60,.1); border-radius: 8px; padding: 8px 12px; }
     .form-success { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #00b894; }
     .form-success mat-icon { font-size: 18px; width: 18px; height: 18px; }
@@ -159,6 +179,8 @@ export class CompteComponent {
   pwdSaving = signal(false);
   pwdError = signal('');
   pwdSuccess = signal(false);
+  showAncien = signal(false);
+  showNouveau = signal(false);
 
   profilForm: FormGroup;
   pwdForm: FormGroup;
@@ -232,6 +254,8 @@ export class CompteComponent {
         this.pwdSaving.set(false);
         this.pwdSuccess.set(true);
         this.pwdForm.reset();
+        this.showAncien.set(false);
+        this.showNouveau.set(false);
         this.snack.open('✓ Mot de passe modifié', '✕', { duration: 3000, panelClass: 'snack-success' });
       },
       error: (err) => {
