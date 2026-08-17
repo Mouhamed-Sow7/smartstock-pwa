@@ -4,7 +4,7 @@
 > **Toute IA (Claude, Copilot, Cline...) qui reprend ce projet doit lire ce fichier + `ARCHITECTURE.md` + `AUTH-FLOW.md` avant de commencer.**
 > Historique détaillé des fixes → voir `CHANGELOG.md` (ne pas charger sauf besoin d'investiguer une régression).
 
-**Dernière mise à jour** : 2026-08-16 — dernier commit `98b3890`
+**Dernière mise à jour** : 2026-08-17 — dernier commit `aab628c`
 
 ---
 
@@ -28,14 +28,16 @@ Client réel en production sur `smartstock.digitalesf.com`. Toute modif à impac
 
 _Aucun bug bloquant connu actuellement._
 
-## Backlog — demandes utilisateur en attente (2026-08-16)
+## Backlog — demandes utilisateur en attente (2026-08-17)
 
-1. **⏳ Priorité suivante — page "Mon compte" patron pas encore branchée aux routes.**
-   `compte.component.ts` existe déjà (créé, complet : édition nom/email/téléphone/boutique + changement de mot de passe, cascade backend via `PATCH /auth/profil`), mais **pas encore ajouté à `app.routes.ts`** ni de lien dans `patron-layout.component.ts`. À faire : ajouter la route (ex: `/patron/compte`), le lien dans le menu patron, puis tester.
-2. **⏳ Rôles admin à clarifier/étendre** — l'utilisateur a mentionné vouloir un système équivalent pour les rôles admin, à préciser avec lui (pas de detail fourni au-delà de "pareil pour admin et ses rôles comme décrit en haut" — probablement lié à la gestion des patrons/abonnements, à reclarifier en début de prochaine session).
-3. **⏳ Carte "crédit" à la validation de vente** — demande initiale : ajouter une carte "crédit" au moment de valider une vente, pour enregistrer un prêt/crédit client. **Le système de crédit existe déjà côté backend** (modèles `Client`/`Paiement`, `modePaiement:'credit'` sur `Vente`, page `/patron/relances`) — pas encore vérifié si le flux de VALIDATION DE VENTE (POS agent) propose déjà cette option ou si l'UI manque. À investiguer en priorité avant de coder quoi que ce soit.
-4. **⏳ Date de création abonnement "via le réseau au Sénégal"** — demande de l'utilisateur de s'assurer que la date d'inscription d'un patron est fiable pour déclencher les rappels d'abonnement. Investigation faite : Sénégal = UTC+0 (pas de DST), donc pas de vrai problème de fuseau horaire technique ; `prochainPaiementAbonnement` est déjà posé automatiquement (+30j) via le schéma Mongoose dès l'inscription — **automatique, pas d'action requise**, sauf si l'utilisateur clarifie un besoin différent.
-5. **⏳ Email de récupération de mot de passe** — priorité la plus basse (déjà notée avant). Adresses dispo : `contact@digitalesf.com`/`noreply@digitalesf.com`. Nécessite Nodemailer + provider SMTP gratuit (Brevo/SendGrid) côté backend.
+1. **⏳ Rôles admin à clarifier/étendre** — l'utilisateur a mentionné vouloir un système équivalent pour les rôles admin, à préciser avec lui (pas de detail fourni au-delà de "pareil pour admin et ses rôles comme décrit en haut" — probablement lié à la gestion des patrons/abonnements, à reclarifier en début de prochaine session).
+2. **⏳ Carte "crédit" à la validation de vente** — demande initiale : ajouter une carte "crédit" au moment de valider une vente, pour enregistrer un prêt/crédit client. **Le système de crédit existe déjà côté backend** (modèles `Client`/`Paiement`, `modePaiement:'credit'` sur `Vente`, page `/patron/relances`) — pas encore vérifié si le flux de VALIDATION DE VENTE (POS agent) propose déjà cette option ou si l'UI manque. À investiguer en priorité avant de coder quoi que ce soit.
+3. **⏳ Date de création abonnement "via le réseau au Sénégal"** — demande de l'utilisateur de s'assurer que la date d'inscription d'un patron est fiable pour déclencher les rappels d'abonnement. Investigation faite : Sénégal = UTC+0 (pas de DST), donc pas de vrai problème de fuseau horaire technique ; `prochainPaiementAbonnement` est déjà posé automatiquement (+30j) via le schéma Mongoose dès l'inscription — **automatique, pas d'action requise**, sauf si l'utilisateur clarifie un besoin différent.
+4. **⏳ Email de récupération de mot de passe** — priorité la plus basse (déjà notée avant). Adresses dispo : `contact@digitalesf.com`/`noreply@digitalesf.com`. Nécessite Nodemailer + provider SMTP gratuit (Brevo/SendGrid) côté backend.
+
+## Résolu le 2026-08-17
+
+- Page "Mon compte" patron branchée : route `/patron/compte` ajoutée à `patron.module.ts`, lien d'accès en icône `account_circle` dans la topbar du `patron-layout.component.ts` (pas dans la bottom-nav, grille figée à 5 colonnes). Aucun changement backend nécessaire, endpoints `PATCH /auth/profil` et `PATCH /auth/change-password` déjà en place et vérifiés. Commit `aab628c`, build Vercel vérifié OK.
 
 ## Résolu cette session (2026-08-15 → 2026-08-16), pour référence rapide
 
