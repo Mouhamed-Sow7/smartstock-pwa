@@ -61,8 +61,8 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
 
           <!-- Placeholder superpose, retire des que la camera est active -->
           <div class="video-placeholder" *ngIf="!cameraActive">
-            <mat-icon>{{ isStarting ? 'hourglass_empty' : 'photo_camera' }}</mat-icon>
-            <span>{{ isStarting ? 'Demarrage...' : 'Appuyez sur Demarrer' }}</span>
+            <mat-icon>{{ resultat !== 'idle' ? 'pause_circle' : isStarting ? 'hourglass_empty' : 'photo_camera' }}</mat-icon>
+            <span>{{ resultat !== 'idle' ? 'En pause — reprend après validation' : isStarting ? 'Demarrage...' : 'Appuyez sur Demarrer' }}</span>
           </div>
 
           <!-- Cadre de scan -->
@@ -72,11 +72,6 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
             <div class="corner bl"></div>
             <div class="corner br"></div>
             <div class="scan-line"></div>
-          </div>
-
-          <!-- Overlay resultat -->
-          <div class="pause-overlay" *ngIf="resultat !== 'idle'">
-            <mat-icon>{{ resultat === 'trouve' ? 'check_circle' : 'new_releases' }}</mat-icon>
           </div>
         </div>
 
@@ -90,7 +85,7 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
           <button class="secondary" (click)="switchCamera()" [disabled]="!cameraActive">
             Basculer
           </button>
-          <button class="secondary" (click)="stopCameraScan()" [disabled]="!cameraActive">
+          <button class="secondary" (click)="arreterManuellement()" [disabled]="!cameraActive">
             Arreter
           </button>
         </div>
@@ -258,21 +253,6 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         0%, 100% { top: 10%; }
         50% { top: 90%; }
       }
-      .pause-overlay {
-        position: absolute;
-        inset: 0;
-        background: rgba(0,0,0,0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        z-index: 4;
-      }
-      .pause-overlay mat-icon {
-        font-size: 64px;
-        width: 64px;
-        height: 64px;
-        color: var(--accent);
-      }
       .camera-actions {
         margin-top: 10px;
         display: flex;
@@ -378,6 +358,11 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   private scanRafId: number | null = null;
   private lastDetectTs = 0;
   private isProcessingCameraCode = false;
+  // true seulement quand on a coupé la caméra automatiquement (résultat trouvé/
+  // nouveau, création du produit en cours) — permet de la rallumer toute seule
+  // une fois le produit créé. Reste false si le patron a appuyé sur "Arrêter"
+  // lui-même : dans ce cas on respecte son choix et on ne rallume rien.
+  private reouvertureAuto = false;
 
   constructor(
     private produitService: ProduitService,
@@ -558,6 +543,13 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     await this.startCameraScan();
   }
 
+  arreterManuellement(): void {
+    // Stop volontaire par le patron (bouton "Arrêter") : on ne doit PAS la
+    // rallumer automatiquement après ça, contrairement à une coupure auto.
+    this.reouvertureAuto = false;
+    this.stopCameraScan();
+  }
+
   stopCameraScan(): void {
     this.cameraActive = false;
     if (this.scanInterval) {
@@ -602,6 +594,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
           this.quantiteEntree = 1;
           this.resultat = 'trouve';
           this.playSound(880);
+          this.couperCameraPourTraitement();
         } else {
           this.afficherNouveau();
         }
@@ -625,6 +618,19 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.produitTrouve = null;
     this.resultat = 'nouveau';
     this.playSound(440);
+    this.couperCameraPourTraitement();
+  }
+
+  // Coupe le flux caméra pendant la création/modification du produit : le
+  // stream + la boucle de décodage tournaient jusque-là en arrière-plan
+  // inutilement (le résultat est déjà figé), consommant mémoire/CPU/batterie
+  // et ralentissant la fluidité pendant que le patron remplit le formulaire.
+  // reprendreScan() la rallume automatiquement une fois terminé.
+  private couperCameraPourTraitement(): void {
+    if (this.cameraActive) {
+      this.reouvertureAuto = true;
+      this.stopCameraScan();
+    }
   }
 
   reprendreScan(): void {
@@ -632,6 +638,14 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.produitTrouve = null;
     this.dernierCode = '';
     this.errorMessage = '';
+    // Redémarrage automatique uniquement si la caméra a été coupée par le
+    // système (pas par un clic volontaire du patron sur "Arrêter") — pour
+    // enchaîner les scans sans repasser par le bouton "Démarrer" à chaque
+    // produit indexé.
+    if (this.reouvertureAuto) {
+      this.reouvertureAuto = false;
+      this.startCameraScan();
+    }
   }
 
   confirmerEntreeStock(): void {

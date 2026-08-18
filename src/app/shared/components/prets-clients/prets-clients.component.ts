@@ -43,39 +43,45 @@ import { ClientsService, ClientCredit } from '../../../core/services/clients.ser
       <!-- À rembourser -->
       <div class="section" *ngIf="!chargement() && nonRembourses().length > 0">
         <div class="section-title">À rembourser</div>
-        <div class="client-row" *ngFor="let c of nonRembourses()">
-          <label class="check-wrap">
-            <input
-              type="checkbox"
-              [checked]="clientEnPaiement()?._id === c._id"
-              (change)="clientEnPaiement()?._id === c._id ? annulerPaiement(c) : ouvrirPaiement(c)"
-            />
-            <span class="check-box"></span>
-          </label>
-          <div class="row-body">
-            <div class="row-top">
+        <div class="client-card" *ngFor="let c of nonRembourses()">
+          <div class="card-top">
+            <div class="card-identity">
               <span class="nom">{{ c.nom }}</span>
-              <span class="solde">{{ c.soldeDu | number:'1.0-0' }} FCFA</span>
+              <a *ngIf="c.telephone" class="btn-call" [href]="'tel:' + c.telephone">
+                <mat-icon>call</mat-icon> {{ c.telephone }}
+              </a>
             </div>
-            <a *ngIf="c.telephone" class="btn-call" [href]="'tel:' + c.telephone">
-              <mat-icon>call</mat-icon> {{ c.telephone }}
-            </a>
+            <span class="solde">{{ c.soldeDu | number:'1.0-0' }} FCFA</span>
           </div>
 
-          <!-- Mini-formulaire d'encaissement, ouvert inline pour rester fluide (pas de modal) -->
+          <!-- Formulaire d'encaissement, ouvert inline pour rester fluide (pas de modal) -->
           <div class="pay-form" *ngIf="clientEnPaiement()?._id === c._id">
-            <input
-              type="number"
-              inputmode="numeric"
-              [(ngModel)]="montantSaisi"
-              placeholder="Montant reçu (FCFA)"
-              [max]="c.soldeDu"
-            />
-            <button class="btn-confirm" (click)="confirmerPaiement(c)" [disabled]="!montantSaisi || montantSaisi <= 0">
-              Valider
-            </button>
-            <button class="btn-cancel" (click)="annulerPaiement(c)">Annuler</button>
+            <label class="pay-label">Montant reçu</label>
+            <div class="pay-input-row">
+              <input
+                type="number"
+                inputmode="numeric"
+                [(ngModel)]="montantSaisi"
+                placeholder="Ex : {{ c.soldeDu }}"
+                [max]="c.soldeDu"
+              />
+              <span class="pay-unit">FCFA</span>
+            </div>
+            <div class="pay-actions">
+              <button class="btn-cancel" (click)="annulerPaiement(c)">Annuler</button>
+              <button class="btn-confirm" (click)="confirmerPaiement(c)" [disabled]="!montantSaisi || montantSaisi <= 0">
+                <mat-icon>check</mat-icon> Confirmer le paiement
+              </button>
+            </div>
           </div>
+
+          <button
+            class="btn-mark-paid"
+            *ngIf="clientEnPaiement()?._id !== c._id"
+            (click)="ouvrirPaiement(c)"
+          >
+            <mat-icon>task_alt</mat-icon> Marquer remboursé
+          </button>
         </div>
       </div>
 
@@ -85,15 +91,16 @@ import { ClientsService, ClientCredit } from '../../../core/services/clients.ser
           <mat-icon>{{ voirRembourses() ? 'expand_less' : 'expand_more' }}</mat-icon>
           {{ rembourses().length }} client(s) soldé(s)
         </button>
-        <div class="client-row done" *ngFor="let c of rembourses()" [class.hidden]="!voirRembourses()">
-          <span class="check-box checked"><mat-icon>check</mat-icon></span>
-          <div class="row-body">
-            <div class="row-top">
-              <span class="nom">{{ c.nom }}</span>
-              <span class="solde ok">Remboursé</span>
+        <ng-container *ngIf="voirRembourses()">
+          <div class="client-card done" *ngFor="let c of rembourses()">
+            <div class="card-top">
+              <div class="card-identity">
+                <span class="nom">{{ c.nom }}</span>
+              </div>
+              <span class="solde ok"><mat-icon>check_circle</mat-icon> Remboursé</span>
             </div>
           </div>
-        </div>
+        </ng-container>
       </div>
     </div>
   `,
@@ -122,53 +129,87 @@ import { ClientsService, ClientCredit } from '../../../core/services/clients.ser
       text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px;
     }
 
-    .client-row {
+    .client-card {
       background: var(--navy-card);
       border: 1px solid var(--navy-border);
       border-radius: 14px;
-      padding: 12px 14px;
-      margin-bottom: 8px;
+      padding: 14px;
+      margin-bottom: 10px;
+    }
+    .client-card.done { opacity: .65; }
+
+    .card-top {
       display: flex;
+      justify-content: space-between;
       align-items: flex-start;
-      gap: 12px;
+      gap: 10px;
     }
-    .client-row.done { opacity: .7; }
-    .client-row.hidden { display: none; }
-
-    .check-wrap { position: relative; display: flex; align-items: center; cursor: pointer; margin-top: 2px; }
-    .check-wrap input { position: absolute; opacity: 0; width: 22px; height: 22px; cursor: pointer; margin: 0; }
-    .check-box {
-      width: 22px; height: 22px; border-radius: 7px;
-      border: 2px solid var(--navy-border);
-      background: transparent;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
+    .card-identity { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .nom { color: var(--text-1); font-weight: 700; font-size: 15px; }
+    .solde { color: var(--warning, #f39c12); font-weight: 800; font-size: 15px; white-space: nowrap; flex-shrink: 0; }
+    .solde.ok {
+      display: inline-flex; align-items: center; gap: 4px;
+      color: var(--accent); font-size: 12px; font-weight: 600;
     }
-    .check-box.checked {
-      background: var(--accent); border-color: var(--accent); color: #04241c;
-    }
-    .check-box.checked mat-icon { font-size: 16px; width: 16px; height: 16px; }
-
-    .row-body { flex: 1; min-width: 0; }
-    .row-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .nom { color: var(--text-1); font-weight: 700; font-size: 14px; }
-    .solde { color: var(--warning, #f39c12); font-weight: 700; font-size: 13px; white-space: nowrap; }
-    .solde.ok { color: var(--accent); font-size: 12px; font-weight: 600; }
+    .solde.ok mat-icon { font-size: 15px; width: 15px; height: 15px; }
 
     .btn-call {
       display: inline-flex; align-items: center; gap: 4px;
-      color: #2ecc71; font-size: 12px; margin-top: 6px; text-decoration: none;
+      color: #2ecc71; font-size: 12px; text-decoration: none; width: fit-content;
     }
     .btn-call mat-icon { font-size: 14px; width: 14px; height: 14px; }
 
-    .pay-form { display: flex; gap: 8px; margin-top: 10px; width: 100%; }
-    .pay-form input {
-      flex: 1; background: var(--navy); border: 1px solid var(--navy-border);
-      border-radius: 8px; color: var(--text-1); padding: 8px 10px; font-size: 13px;
+    /* Bouton d'action principal, pleine largeur, sans ambiguïté (remplace
+       l'ancienne case à cocher qui se chevauchait avec le nom sur mobile) */
+    .btn-mark-paid {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; margin-top: 12px;
+      background: transparent;
+      border: 1.5px dashed var(--navy-border);
+      color: var(--text-2);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
     }
-    .btn-confirm { background: var(--accent); color: #000; border: none; border-radius: 8px; padding: 0 14px; font-weight: 700; font-size: 12px; }
+    .btn-mark-paid mat-icon { font-size: 17px; width: 17px; height: 17px; }
+    .btn-mark-paid:active { background: var(--navy); }
+
+    /* Formulaire de paiement : bloc pleine largeur sous le nom, jamais
+       collé à côté du texte pour rester lisible sur petit écran */
+    .pay-form {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid var(--navy-border);
+    }
+    .pay-label { display: block; color: var(--text-3); font-size: 11px; font-weight: 600; margin-bottom: 6px; }
+    .pay-input-row {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--navy); border: 1px solid var(--navy-border);
+      border-radius: 10px; padding: 2px 12px;
+    }
+    .pay-input-row input {
+      flex: 1; min-width: 0; background: transparent; border: none;
+      color: var(--text-1); padding: 10px 0; font-size: 15px; font-weight: 600;
+    }
+    .pay-input-row input:focus { outline: none; }
+    .pay-unit { color: var(--text-3); font-size: 12px; font-weight: 600; flex-shrink: 0; }
+
+    .pay-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-confirm {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      background: var(--accent); color: #04241c; border: none;
+      border-radius: 10px; padding: 11px; font-weight: 700; font-size: 13px;
+      cursor: pointer;
+    }
+    .btn-confirm mat-icon { font-size: 16px; width: 16px; height: 16px; }
     .btn-confirm:disabled { opacity: .4; }
-    .btn-cancel { background: transparent; color: var(--text-3); border: none; font-size: 12px; }
+    .btn-cancel {
+      background: transparent; color: var(--text-3);
+      border: 1px solid var(--navy-border); border-radius: 10px;
+      padding: 11px 16px; font-size: 13px; font-weight: 600; cursor: pointer;
+    }
 
     .toggle-rembourses {
       display: flex; align-items: center; gap: 4px;
