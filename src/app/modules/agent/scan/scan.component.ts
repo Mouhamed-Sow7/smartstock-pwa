@@ -20,6 +20,7 @@ import { PosService, CartItem } from '../services/pos.service';
 import { OfflineService, CachedProduit } from '../../../core/services/offline.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
+import { checksumEanValide } from '../../../core/utils/barcode-checksum';
 
 interface BarcodeDetectorLike {
   detect(source: ImageBitmapSource): Promise<Array<{ rawValue?: string }>>;
@@ -746,6 +747,10 @@ export class ScanComponent implements OnInit, OnDestroy {
   private scanRafId: number | null = null;
   private lastDetectTs = 0;
   private isProcessingCameraCode = false;
+  // Candidat en attente de confirmation (2 lectures identiques d'affilée) —
+  // voir onCameraCodeDetected().
+  private candidatCode = '';
+  private candidatCount = 0;
   private destroy$ = new Subject<void>();
 
   constructor(
@@ -1119,6 +1124,31 @@ export class ScanComponent implements OnInit, OnDestroy {
 
   private onCameraCodeDetected(code: string): void {
     if (this.isProcessingCameraCode || this.scanPaused || this.produitEnChoixType) return;
+
+    // Rejette tout de suite un code au checksum EAN/UPC invalide — presque
+    // toujours un chiffre mal lu par la caméra, jamais un vrai code-barres
+    // imprimé. Voir barcode-checksum.ts pour le détail.
+    if (!checksumEanValide(code)) {
+      this.candidatCode = '';
+      this.candidatCount = 0;
+      return;
+    }
+
+    // BUG CORRIGÉ : une seule lecture caméra suffisait à ajouter un produit
+    // au panier de vente — une lecture isolée peut se tromper sur un
+    // chiffre, ce qui ajoutait parfois le MAUVAIS produit à la vente (risque
+    // direct d'erreur de caisse, pas juste de confort). On exige maintenant
+    // la même lecture 2 fois de suite avant de valider.
+    if (code !== this.candidatCode) {
+      this.candidatCode = code;
+      this.candidatCount = 1;
+      return;
+    }
+    this.candidatCount++;
+    if (this.candidatCount < 2) return;
+    this.candidatCode = '';
+    this.candidatCount = 0;
+
     this.isProcessingCameraCode = true;
     this.scanPaused = true;
     this.barcode = code;

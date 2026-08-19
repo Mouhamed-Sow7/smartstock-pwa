@@ -20,6 +20,7 @@ import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 import { ProduitDialogComponent } from '../produit-dialog.component';
 import { ProduitService, Produit } from '../produit.service';
 import { ScanModeService } from '../../../../core/services/scan-mode.service';
+import { checksumEanValide } from '../../../../core/utils/barcode-checksum';
 
 interface BarcodeDetectorLike {
   detect(source: ImageBitmapSource): Promise<Array<{ rawValue?: string }>>;
@@ -410,6 +411,10 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   private scanRafId: number | null = null;
   private lastDetectTs = 0;
   private isProcessingCameraCode = false;
+  // Candidat en attente de confirmation (2 lectures identiques d'affilée) —
+  // voir onCameraCodeDetected().
+  private candidatCode = '';
+  private candidatCount = 0;
   // true seulement quand on a coupé la caméra automatiquement (résultat trouvé/
   // nouveau, création du produit en cours) — permet de la rallumer toute seule
   // une fois le produit créé. Reste false si le patron a appuyé sur "Arrêter"
@@ -583,6 +588,32 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private onCameraCodeDetected(code: string): void {
     if (this.isProcessingCameraCode || this.resultat !== 'idle') return;
+
+    // Rejette tout de suite un code au checksum EAN/UPC invalide — presque
+    // toujours un chiffre mal lu par la caméra (flou, reflet, angle), jamais
+    // un vrai code-barres imprimé. Évite de le compter comme candidat.
+    if (!checksumEanValide(code)) {
+      this.candidatCode = '';
+      this.candidatCount = 0;
+      return;
+    }
+
+    // BUG CORRIGÉ : une seule lecture caméra pouvait suffire à déclencher la
+    // recherche produit, alors qu'une lecture isolée se trompe parfois sur
+    // un chiffre — le code-barres "lu" ne correspondait alors plus à celui
+    // réellement imprimé sur le produit (mauvais produit affiché, ou
+    // "nouveau produit" affiché à tort pour un article déjà indexé).
+    // On exige maintenant la même lecture 2 fois de suite avant de valider.
+    if (code !== this.candidatCode) {
+      this.candidatCode = code;
+      this.candidatCount = 1;
+      return;
+    }
+    this.candidatCount++;
+    if (this.candidatCount < 2) return;
+
+    this.candidatCode = '';
+    this.candidatCount = 0;
     this.isProcessingCameraCode = true;
     this.traiterCode(code);
     setTimeout(() => (this.isProcessingCameraCode = false), 1500);
@@ -701,6 +732,8 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.produitTrouve = null;
     this.dernierCode = '';
     this.errorMessage = '';
+    this.candidatCode = '';
+    this.candidatCount = 0;
     // Redémarrage automatique uniquement si la caméra a été coupée par le
     // système (pas par un clic volontaire du patron sur "Arrêter") — pour
     // enchaîner les scans sans repasser par le bouton "Démarrer" à chaque

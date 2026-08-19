@@ -147,6 +147,18 @@ export class OfflineService extends Dexie {
     // v5 : panier — clé composite (produitId + typeVente) pour permettre au
     // même produit d'apparaître en deux lignes distinctes du panier (une en
     // détail, une en gros) — la clé "produitId" seule écrasait la 2e ligne.
+    //
+    // BUG CORRIGÉ : IndexedDB/Dexie ne permet PAS de changer la clé primaire
+    // (keyPath) d'une table existante en la redéclarant simplement dans
+    // stores() — ça lève "UpgradeError: Not yet support for changing
+    // primary key", qui faisait échouer l'OUVERTURE ENTIÈRE de la base
+    // (DatabaseClosedError), pas juste le panier. Toute fonctionnalité
+    // dépendant du cache offline (recherche produit par code-barres,
+    // détection scan, création de produit) tombait alors en erreur réseau
+    // ou devenait très lente (résolution du cache qui échouait puis
+    // retentait). La seule façon supportée de changer une clé primaire est
+    // de supprimer la table puis de la recréer dans une version ultérieure
+    // — d'où la séparation en deux étapes ci-dessous.
     this.version(5).stores({
       produits: '_id, tenantId, nom, codeBarres',
       agents: '_id, tenantId, nom',
@@ -155,17 +167,21 @@ export class OfflineService extends Dexie {
       ventes: '_id, tenantId, createdAt, numeroTicket',
       produitsPending: '++id, tenantId, statut, createdAt',
       stocksPending: '++id, tenantId, statut, createdAt, produitId',
+      panier: null, // supprime l'ancienne table (clé primaire produitId)
+    });
+    // v6 : recrée panier avec la nouvelle clé primaire composite. Un panier
+    // en cours (non encore validé) au moment de cette mise à jour est vidé
+    // une fois — sans impact sur les ventes déjà synchronisées ni sur le
+    // stock, il suffit de rescanner les articles.
+    this.version(6).stores({
+      produits: '_id, tenantId, nom, codeBarres',
+      agents: '_id, tenantId, nom',
+      stats: 'id, tenantId',
+      ventesPending: '++id, tenantId, statut, createdAt',
+      ventes: '_id, tenantId, createdAt, numeroTicket',
+      produitsPending: '++id, tenantId, statut, createdAt',
+      stocksPending: '++id, tenantId, statut, createdAt, produitId',
       panier: 'cleLigne, tenantId, produitId',
-    }).upgrade(async (tx) => {
-      // Migration douce : les paniers persistés d'avant v5 n'avaient pas de
-      // cleLigne. On les reconstruit en 'detail' par défaut (seul type qui
-      // existait avant cette fonctionnalité) plutôt que de les perdre.
-      await tx.table('panier').toCollection().modify((item: any) => {
-        if (!item.cleLigne) {
-          item.typeVente = item.typeVente || 'detail';
-          item.cleLigne = `${item.produitId}::${item.typeVente}`;
-        }
-      });
     });
   }
 
