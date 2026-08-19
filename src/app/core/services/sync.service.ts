@@ -153,6 +153,32 @@ export class SyncService {
     }
   }
 
+  // ─── Utilitaire retry+timeout (cold-start Render) ─────────────
+  // Le backend est sur Render, dont les instances gratuites/basiques
+  // s'endorment après une période d'inactivité et mettent plusieurs
+  // secondes à se réveiller au premier appel. Sans retry, cette lenteur
+  // ressemble à une vraie déconnexion réseau du point de vue de l'app
+  // (timeout -> bascule en file d'attente hors ligne) alors que le wifi
+  // est parfaitement stable -- l'élément se synchronise tout seul
+  // "un instant" plus tard via le bandeau de sync, ce qui ressemble à une
+  // fausse alerte pour l'utilisateur. Un deuxième essai après une courte
+  // pause suffit dans l'immense majorité des cas de réveil à froid.
+  private async avecRetryTimeout<T>(fn: () => Promise<T>, tentatives = 2, timeoutMs = 8000): Promise<T> {
+    let derniereErreur: unknown;
+    for (let essai = 0; essai < tentatives; essai++) {
+      try {
+        const timeout$ = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), timeoutMs),
+        );
+        return await Promise.race([fn(), timeout$]);
+      } catch (err) {
+        derniereErreur = err;
+        if (essai < tentatives - 1) await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+    throw derniereErreur;
+  }
+
   // Retourne true (synchronisé), false (échec définitif, ne reboucle plus),
   // ou undefined (erreur réseau temporaire, reste 'pending' pour retry —
   // ne doit pas compter comme un échec dans la notif de fin de sync).
@@ -251,21 +277,12 @@ export class SyncService {
     };
 
     if (this.estEnLigne()) {
-      // Retry x2 avec timeout 8s (évite faux offline sur cold-start Render)
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const timeout$ = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('timeout')), 8000),
-          );
-          await Promise.race([
-            firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete)),
-            timeout$,
-          ]);
-          return 'online';
-        } catch {
-          if (attempt === 0) await new Promise((r) => setTimeout(r, 1500));
-        }
-      }
+      try {
+        await this.avecRetryTimeout(() =>
+          firstValueFrom(this.http.post(`${environment.apiUrl}/ventes`, venteComplete)),
+        );
+        return 'online';
+      } catch { /* bascule offline après les tentatives */ }
     }
 
     await this.offline.ajouterVentePending(venteComplete);
@@ -282,18 +299,14 @@ export class SyncService {
   ): Promise<{ statut: 'online' | 'offline'; data: CachedProduit }> {
     if (this.estEnLigne()) {
       try {
-        const timeout$ = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 8000),
-        );
-        const res: any = await Promise.race([
+        const res: any = await this.avecRetryTimeout(() =>
           firstValueFrom(this.http.post(`${environment.apiUrl}/produits`, payload)),
-          timeout$,
-        ]);
+        );
         const produit = { ...res?.data, tenantId: payload.tenantId };
         // Mise en cache immédiate pour cohérence avec le mode offline
         await this.offline.ajouterProduitCache(produit);
         return { statut: 'online', data: produit };
-      } catch { /* bascule offline */ }
+      } catch { /* bascule offline après les tentatives */ }
     }
 
     // Hors ligne (ou requête échouée) → on garde le produit en cache local
@@ -345,18 +358,14 @@ export class SyncService {
 
     if (this.estEnLigne()) {
       try {
-        const timeout$ = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 8000),
-        );
-        await Promise.race([
+        await this.avecRetryTimeout(() =>
           firstValueFrom(
             this.http.patch(`${environment.apiUrl}/produits/${produitId}/stock`, { quantite, type }),
           ),
-          timeout$,
-        ]);
+        );
         await this.offline.updateProduitStock(tenantId, produitId, nouveauStock);
         return 'online';
-      } catch { /* bascule offline */ }
+      } catch { /* bascule offline après les tentatives */ }
     }
 
     // Hors ligne, ou produit lui-même encore en attente de sync (id temporaire)
