@@ -159,6 +159,22 @@ export class PosService {
     this.persisterPanier(cart);
   }
 
+  /** Surcharge le prix unitaire d'une ligne du panier pour CETTE vente
+   * uniquement (ex : "3 cubes Maggi à 100F au lieu de 150F") — ne touche
+   * jamais au prix catalogue (produit.prix / produit.prixGros), qui reste
+   * la référence contrôlée par le patron. Le prix normal est restauré
+   * automatiquement si l'article est retiré puis rescanné. */
+  updateItemPrice(produitId: string, typeVente: 'detail' | 'gros', nouveauPrixUnitaire: number): void {
+    if (!Number.isFinite(nouveauPrixUnitaire) || nouveauPrixUnitaire < 0) return;
+    const cart = this.cartSnapshot.map((i) =>
+      (i.produit?._id === produitId && i.typeVente === typeVente)
+        ? { ...i, prix: nouveauPrixUnitaire }
+        : i
+    );
+    this.cartSubject.next(cart);
+    this.persisterPanier(cart);
+  }
+
   clearCart(): void {
     this.cartSubject.next([]);
     const tenantId = this.auth.getTenantId();

@@ -42,6 +42,9 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
             <div class="item-nom">
               {{ item.produit?.nom }}
               <span class="item-type-badge" [class.gros]="item.typeVente === 'gros'" *ngIf="item.typeVente === 'gros'">{{ i18n.t('scan.gros') }}</span>
+              <span class="item-modifie-badge" *ngIf="estPrixModifie(item)" [title]="i18n.lang() === 'ar' ? 'السعر معدَّل لهذا البيع فقط' : 'Prix modifié pour cette vente uniquement'">
+                <mat-icon>edit</mat-icon>
+              </span>
             </div>
             <div class="item-prix">{{ item.prix | number: '1.0-0' }} FCFA / {{ i18n.t('panier.unite') }}</div>
           </div>
@@ -57,8 +60,35 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
               <mat-icon>delete_outline</mat-icon>
             </button>
           </div>
-          <div class="item-subtotal">{{ item.prix * item.quantite | number: '1.0-0' }} FCFA</div>
+
+          <!-- Sous-total : cliquable pour surcharger le prix de cette ligne
+               (ex : "3 cubes Maggi à 100F" au lieu du prix catalogue). Ne
+               modifie jamais le prix produit lui-même, uniquement cette vente. -->
+          <div class="item-subtotal" *ngIf="cleEnEdition !== ligneCle(item)" (click)="ouvrirEditionPrix(item)">
+            {{ item.prix * item.quantite | number: '1.0-0' }} FCFA
+            <mat-icon class="edit-prix-icon">edit</mat-icon>
+          </div>
+          <div class="item-subtotal-edit" *ngIf="cleEnEdition === ligneCle(item)">
+            <input
+              #prixInput
+              type="number"
+              inputmode="decimal"
+              min="0"
+              class="prix-edit-input"
+              [(ngModel)]="prixEditValeur"
+              (keyup.enter)="validerEditionPrix(item)"
+              (blur)="validerEditionPrix(item)"
+              name="prixEdit"
+            />
+            <span class="prix-edit-fcfa">FCFA</span>
+          </div>
         </div>
+        <p class="prix-edit-hint" *ngIf="items.length > 0">
+          <mat-icon>info</mat-icon>
+          {{ i18n.lang() === 'ar'
+            ? 'يمكنك تعديل مجموع أي سطر (مثال: 3 قطع بسعر إجمالي مخفّض) — لا يغيّر ذلك سعر المنتج في الكتالوج.'
+            : "Vous pouvez ajuster le total d'une ligne (ex : lot de 3 à prix réduit) — ça ne change pas le prix catalogue du produit." }}
+        </p>
       </div>
 
       <!-- Footer total + validation -->
@@ -145,12 +175,34 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
       background: rgba(253,203,110,.15); color: #fdcb6e; text-transform: uppercase;
       letter-spacing: .4px;
     }
+    .item-modifie-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: rgba(0,184,148,.15); color: var(--accent);
+    }
+    .item-modifie-badge mat-icon { font-size: 11px; width: 11px; height: 11px; }
     .item-prix { color: var(--text-3); font-size: 12px; margin-top: 2px; }
     .item-controls { display: flex; align-items: center; gap: 6px; grid-column: 1; grid-row: 2; }
     .item-subtotal {
       color: var(--accent); font-size: 15px; font-weight: 700;
-      grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; justify-content: flex-end;
+      grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+      cursor: pointer; border-radius: 8px; padding: 4px 6px; transition: background .15s;
     }
+    .item-subtotal:hover { background: rgba(0,184,148,.08); }
+    .edit-prix-icon { font-size: 13px; width: 13px; height: 13px; opacity: .55; }
+    .item-subtotal-edit {
+      grid-column: 2; grid-row: 1 / 3; display: flex; align-items: center; justify-content: flex-end; gap: 4px;
+    }
+    .prix-edit-input {
+      width: 82px; text-align: right; background: var(--navy); border: 1px solid var(--accent);
+      border-radius: 8px; color: var(--text-1); padding: 6px 8px; font-size: 14px; font-weight: 700;
+    }
+    .prix-edit-fcfa { color: var(--text-3); font-size: 12px; }
+    .prix-edit-hint {
+      display: flex; align-items: flex-start; gap: 6px;
+      color: var(--text-3); font-size: 11px; margin: 2px 2px 0; line-height: 1.4;
+    }
+    .prix-edit-hint mat-icon { font-size: 14px; width: 14px; height: 14px; flex-shrink: 0; margin-top: 1px; }
     .ctrl-btn {
       width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--navy-border);
       background: rgba(255,255,255,.06); color: var(--text-2);
@@ -239,6 +291,8 @@ export class PanierComponent implements OnInit, OnDestroy {
   offlineMsg = '';
   modePaiement: ModePaiement = 'especes';
   clientNom = '';
+  cleEnEdition: string | null = null;
+  prixEditValeur: number | null = null;
   private destroy$ = new Subject<void>();
 
   // Vente à crédit : nom du client obligatoire (sinon le backend refuse la vente,
@@ -357,6 +411,41 @@ export class PanierComponent implements OnInit, OnDestroy {
   increment(item: CartItem): void { this.pos.addToCart(item.produit, item.typeVente); }
   decrement(item: CartItem): void { this.pos.decrementItem(item.produit._id, item.typeVente); }
   remove(item: CartItem): void    { this.pos.removeItem(item.produit._id, item.typeVente); }
+
+  /** Clé unique de ligne (même logique que PosService.cleLigne, dupliquée
+   * ici volontairement car privée côté service — un même produit peut avoir
+   * 2 lignes distinctes détail/gros). */
+  ligneCle(item: CartItem): string {
+    return `${item.produit?._id}::${item.typeVente}`;
+  }
+
+  /** Le prix de cette ligne diffère-t-il du prix catalogue (détail ou gros
+   * selon le type de vente choisi) ? Sert juste à afficher le badge crayon,
+   * aucune incidence sur le calcul. */
+  estPrixModifie(item: CartItem): boolean {
+    const prixCatalogue = item.typeVente === 'gros'
+      ? Number(item.produit?.prixGros) || Number(item.produit?.prix) || 0
+      : Number(item.produit?.prix) || 0;
+    return item.prix !== prixCatalogue;
+  }
+
+  ouvrirEditionPrix(item: CartItem): void {
+    this.cleEnEdition = this.ligneCle(item);
+    // On édite le TOTAL de la ligne (plus parlant pour un agent : "ce lot de
+    // 3 coûte 100F" plutôt que "33,33F l'unité") — reconverti en prix
+    // unitaire à la validation.
+    this.prixEditValeur = Math.round(item.prix * item.quantite);
+  }
+
+  validerEditionPrix(item: CartItem): void {
+    if (this.cleEnEdition !== this.ligneCle(item)) return;
+    this.cleEnEdition = null;
+    const total = this.prixEditValeur;
+    this.prixEditValeur = null;
+    if (total === null || !Number.isFinite(total) || total < 0) return;
+    const prixUnitaire = item.quantite > 0 ? total / item.quantite : total;
+    this.pos.updateItemPrice(item.produit._id, item.typeVente, prixUnitaire);
+  }
 
   validateSale(): void {
     if (!this.peutValider) {
