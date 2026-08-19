@@ -11,6 +11,10 @@ export interface CartItem {
   produit: any;
   quantite: number;
   prix: number;
+  // 'gros' uniquement si l'agent l'a explicitement choisi pour un produit
+  // ayant un prixGros configuré — sinon toujours 'detail' (comportement
+  // historique inchangé pour tous les produits à prix unique).
+  typeVente: 'detail' | 'gros';
 }
 
 export interface SaleTicket {
@@ -59,6 +63,7 @@ export class PosService {
           },
           quantite: i.quantite,
           prix: i.prix,
+          typeVente: i.typeVente || 'detail',
         }));
         this.cartSubject.next(cartItems);
       }
@@ -73,7 +78,9 @@ export class PosService {
       await this.offline.viderPanier(tenantId);
       for (const item of items) {
         await this.offline.sauvegarderItemPanier({
+          cleLigne: this.cleLigne(item.produit._id, item.typeVente),
           produitId: item.produit._id,
+          typeVente: item.typeVente,
           nom: item.produit.nom,
           prix: item.prix,
           stock: item.produit.stock ?? 0,
@@ -83,6 +90,12 @@ export class PosService {
         });
       }
     } catch { /* Silencieux */ }
+  }
+
+  /** Clé composite identifiant une ligne du panier de façon unique — un même
+   * produit peut avoir deux lignes distinctes (détail + gros). */
+  private cleLigne(produitId: string, typeVente: 'detail' | 'gros'): string {
+    return `${produitId}::${typeVente}`;
   }
 
   get cartSnapshot(): CartItem[] {
@@ -96,40 +109,52 @@ export class PosService {
     );
   }
 
-  addToCart(produit: any): void {
+  /** Quantité déjà présente au panier pour ce produit, tous types de vente
+   * confondus (détail + gros partagent le même stock physique). Sert aux
+   * contrôles de stock max — indépendamment de la ligne exacte concernée. */
+  quantiteAuPanier(produitId: string): number {
+    return this.cartSnapshot
+      .filter((i) => i.produit?._id === produitId)
+      .reduce((sum, i) => sum + i.quantite, 0);
+  }
+
+  addToCart(produit: any, typeVente: 'detail' | 'gros' = 'detail'): void {
     if ((produit?.stock ?? -1) === 0) {
       this.snack.open('Produit en rupture de stock', '✕', { duration: 3000, panelClass: 'snack-warn' });
       return;
     }
     const cart = [...this.cartSnapshot];
-    const idx = cart.findIndex((i) => i.produit?._id === produit?._id);
+    const idx = cart.findIndex((i) => i.produit?._id === produit?._id && i.typeVente === typeVente);
+    const enPanierTotal = this.quantiteAuPanier(produit?._id);
+    const stockDispo = produit?.stock ?? Infinity;
+    if (enPanierTotal >= stockDispo) {
+      this.snack.open(`Stock max atteint (${stockDispo} unité${stockDispo > 1 ? 's' : ''})`, '✕', {
+        duration: 3000, panelClass: 'snack-warn',
+      });
+      return;
+    }
+    const prix = typeVente === 'gros' && Number(produit?.prixGros) > 0
+      ? Number(produit.prixGros)
+      : Number(produit?.prix || 0);
     if (idx >= 0) {
-      const enPanier = cart[idx].quantite;
-      const stockDispo = produit?.stock ?? Infinity;
-      if (enPanier >= stockDispo) {
-        this.snack.open(`Stock max atteint (${stockDispo} unité${stockDispo > 1 ? 's' : ''})`, '✕', {
-          duration: 3000, panelClass: 'snack-warn',
-        });
-        return;
-      }
-      cart[idx] = { ...cart[idx], quantite: enPanier + 1 };
+      cart[idx] = { ...cart[idx], quantite: cart[idx].quantite + 1 };
     } else {
-      cart.push({ produit, quantite: 1, prix: Number(produit?.prix || 0) });
+      cart.push({ produit, quantite: 1, prix, typeVente });
     }
     this.cartSubject.next(cart);
     this.persisterPanier(cart);
   }
 
-  decrementItem(produitId: string): void {
+  decrementItem(produitId: string, typeVente: 'detail' | 'gros' = 'detail'): void {
     const cart = this.cartSnapshot
-      .map((i) => i.produit?._id === produitId ? { ...i, quantite: i.quantite - 1 } : i)
+      .map((i) => (i.produit?._id === produitId && i.typeVente === typeVente) ? { ...i, quantite: i.quantite - 1 } : i)
       .filter((i) => i.quantite > 0);
     this.cartSubject.next(cart);
     this.persisterPanier(cart);
   }
 
-  removeItem(produitId: string): void {
-    const cart = this.cartSnapshot.filter((i) => i.produit?._id !== produitId);
+  removeItem(produitId: string, typeVente: 'detail' | 'gros' = 'detail'): void {
+    const cart = this.cartSnapshot.filter((i) => !(i.produit?._id === produitId && i.typeVente === typeVente));
     this.cartSubject.next(cart);
     this.persisterPanier(cart);
   }
@@ -155,6 +180,7 @@ export class PosService {
       nom: item.produit.nom,
       quantite: item.quantite,
       prixUnitaire: item.prix,
+      typeVente: item.typeVente,
     }));
 
     const mode = await this.sync.creerVente({

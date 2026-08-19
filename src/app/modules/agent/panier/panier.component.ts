@@ -38,7 +38,10 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
       <div class="items-list" *ngIf="items.length > 0">
         <div class="item-card" *ngFor="let item of items">
           <div class="item-info">
-            <div class="item-nom">{{ item.produit?.nom }}</div>
+            <div class="item-nom">
+              {{ item.produit?.nom }}
+              <span class="item-type-badge" [class.gros]="item.typeVente === 'gros'" *ngIf="item.typeVente === 'gros'">Gros</span>
+            </div>
             <div class="item-prix">{{ item.prix | number: '1.0-0' }} FCFA / unité</div>
           </div>
           <div class="item-controls">
@@ -134,7 +137,12 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
       border-radius: 14px; padding: 14px; backdrop-filter: blur(12px);
       display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 8px;
     }
-    .item-nom { color: var(--text-1); font-size: 14px; font-weight: 600; }
+    .item-nom { color: var(--text-1); font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .item-type-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 6px;
+      background: rgba(253,203,110,.15); color: #fdcb6e; text-transform: uppercase;
+      letter-spacing: .4px;
+    }
     .item-prix { color: var(--text-3); font-size: 12px; margin-top: 2px; }
     .item-controls { display: flex; align-items: center; gap: 6px; grid-column: 1; grid-row: 2; }
     .item-subtotal {
@@ -336,9 +344,9 @@ export class PanierComponent implements OnInit, OnDestroy {
     });
   }
 
-  increment(item: CartItem): void { this.pos.addToCart(item.produit); }
-  decrement(item: CartItem): void { this.pos.decrementItem(item.produit._id); }
-  remove(item: CartItem): void    { this.pos.removeItem(item.produit._id); }
+  increment(item: CartItem): void { this.pos.addToCart(item.produit, item.typeVente); }
+  decrement(item: CartItem): void { this.pos.decrementItem(item.produit._id, item.typeVente); }
+  remove(item: CartItem): void    { this.pos.removeItem(item.produit._id, item.typeVente); }
 
   validateSale(): void {
     if (!this.peutValider) {

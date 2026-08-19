@@ -19,6 +19,7 @@ import type { IScannerControls } from '@zxing/browser';
 import { DecodeHintType, BarcodeFormat } from '@zxing/library';
 import { ProduitDialogComponent } from '../produit-dialog.component';
 import { ProduitService, Produit } from '../produit.service';
+import { ScanModeService } from '../../../../core/services/scan-mode.service';
 
 interface BarcodeDetectorLike {
   detect(source: ImageBitmapSource): Promise<Array<{ rawValue?: string }>>;
@@ -48,6 +49,20 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
           <div class="scan-sub">Etiquette deja imprimee sur le produit</div>
         </div>
       </div>
+
+      <!-- Interrupteur Scan rapide -->
+      <button class="rapide-toggle" [class.on]="scanMode.rapide()" (click)="scanMode.toggle()">
+        <mat-icon>bolt</mat-icon>
+        <div class="rapide-text">
+          <span class="rapide-title">Scan rapide</span>
+          <span class="rapide-sub">
+            {{ scanMode.rapide()
+              ? 'Actif — produits connus réapprovisionnés (+1) sans confirmation'
+              : 'Inactif — chaque scan demande confirmation' }}
+          </span>
+        </div>
+        <span class="rapide-switch"><span class="rapide-knob"></span></span>
+      </button>
 
       <!-- Camera -->
       <div class="camera-card">
@@ -181,6 +196,43 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         font-size: 13px;
         margin-top: 2px;
       }
+      .rapide-toggle {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+        background: var(--navy-card);
+        border: 1px solid var(--navy-border);
+        border-radius: 14px;
+        padding: 12px 14px;
+        margin-bottom: 12px;
+        cursor: pointer;
+        text-align: left;
+        color: var(--text-3);
+      }
+      .rapide-toggle > mat-icon {
+        font-size: 22px; width: 22px; height: 22px; flex-shrink: 0;
+        color: var(--text-3);
+      }
+      .rapide-toggle.on > mat-icon { color: #fdcb6e; }
+      .rapide-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+      .rapide-title { font-size: 14px; font-weight: 700; color: var(--text-1); }
+      .rapide-sub { font-size: 11px; color: var(--text-3); line-height: 1.3; }
+      .rapide-switch {
+        flex-shrink: 0;
+        width: 42px; height: 24px; border-radius: 12px;
+        background: var(--navy-border);
+        position: relative;
+        transition: background .15s;
+      }
+      .rapide-toggle.on .rapide-switch { background: #00b894; }
+      .rapide-knob {
+        position: absolute; top: 3px; left: 3px;
+        width: 18px; height: 18px; border-radius: 50%;
+        background: #fff;
+        transition: transform .15s;
+      }
+      .rapide-toggle.on .rapide-knob { transform: translateX(18px); }
       .camera-card {
         background: var(--navy-card);
         border: 1px solid var(--navy-border);
@@ -370,6 +422,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     private snackBar: MatSnackBar,
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
+    public scanMode: ScanModeService,
   ) {
     if (this.cameraSupported) {
       const DetectorClass = (window as any).BarcodeDetector;
@@ -590,11 +643,21 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
       next: (res) => this.zone.run(() => {
         this.isLoading = false;
         if (res?.success && res?.data) {
-          this.produitTrouve = res.data;
-          this.quantiteEntree = 1;
-          this.resultat = 'trouve';
-          this.playSound(880);
-          this.couperCameraPourTraitement();
+          if (this.scanMode.rapide()) {
+            // Scan rapide : produit déjà connu -> réapprovisionnement de 1
+            // unité immédiat, sans afficher la carte de confirmation
+            // manuelle. La caméra n'est PAS coupée ici (contrairement au
+            // mode normal) : l'opération est quasi instantanée, l'interrompre
+            // casserait justement la fluidité recherchée par ce mode.
+            this.playSound(880);
+            this.autoReapprovisionner(res.data);
+          } else {
+            this.produitTrouve = res.data;
+            this.quantiteEntree = 1;
+            this.resultat = 'trouve';
+            this.playSound(880);
+            this.couperCameraPourTraitement();
+          }
         } else {
           this.afficherNouveau();
         }
@@ -646,6 +709,17 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
       this.reouvertureAuto = false;
       this.startCameraScan();
     }
+  }
+
+  // Scan rapide : réutilise confirmerEntreeStock() (donc les mêmes chemins
+  // online/offline déjà éprouvés — ProduitService.updateStock gère la
+  // synchronisation Dexie exactement pareil qu'en confirmation manuelle),
+  // simplement sans passer par l'état "resultat = trouve" qui affiche la
+  // carte + demande un tap sur "Ajouter au stock".
+  private autoReapprovisionner(produit: Produit): void {
+    this.produitTrouve = produit;
+    this.quantiteEntree = 1;
+    this.confirmerEntreeStock();
   }
 
   confirmerEntreeStock(): void {

@@ -9,10 +9,12 @@ export interface CachedProduit {
   tenantId: string;
   nom: string;
   prix: number;
+  prixGros?: number;
   stock: number;
   seuilAlerte?: number;
   codeBarres?: string;
   categorie?: string;
+  dateExpiration?: string | null;
   updatedAt?: string;
 }
 
@@ -35,7 +37,7 @@ export interface CachedStats {
 export interface VentePending {
   id?: number;
   tenantId: string;
-  lignes: { produitId: string; nom: string; quantite: number; prixUnitaire: number }[];
+  lignes: { produitId: string; nom: string; quantite: number; prixUnitaire: number; typeVente?: 'detail' | 'gros' }[];
   montantTotal: number;
   modePaiement: string;
   // Obligatoire uniquement quand modePaiement === 'credit' (vente à crédit) :
@@ -88,7 +90,9 @@ export interface StockPending {
 }
 
 export interface CartItemPersisted {
+  cleLigne: string; // clé composite `${produitId}::${typeVente}` — clé primaire Dexie
   produitId: string;
+  typeVente: 'detail' | 'gros';
   nom: string;
   prix: number;
   stock: number;
@@ -139,6 +143,29 @@ export class OfflineService extends Dexie {
       produitsPending: '++id, tenantId, statut, createdAt',
       stocksPending: '++id, tenantId, statut, createdAt, produitId',
       panier: 'produitId, tenantId',
+    });
+    // v5 : panier — clé composite (produitId + typeVente) pour permettre au
+    // même produit d'apparaître en deux lignes distinctes du panier (une en
+    // détail, une en gros) — la clé "produitId" seule écrasait la 2e ligne.
+    this.version(5).stores({
+      produits: '_id, tenantId, nom, codeBarres',
+      agents: '_id, tenantId, nom',
+      stats: 'id, tenantId',
+      ventesPending: '++id, tenantId, statut, createdAt',
+      ventes: '_id, tenantId, createdAt, numeroTicket',
+      produitsPending: '++id, tenantId, statut, createdAt',
+      stocksPending: '++id, tenantId, statut, createdAt, produitId',
+      panier: 'cleLigne, tenantId, produitId',
+    }).upgrade(async (tx) => {
+      // Migration douce : les paniers persistés d'avant v5 n'avaient pas de
+      // cleLigne. On les reconstruit en 'detail' par défaut (seul type qui
+      // existait avant cette fonctionnalité) plutôt que de les perdre.
+      await tx.table('panier').toCollection().modify((item: any) => {
+        if (!item.cleLigne) {
+          item.typeVente = item.typeVente || 'detail';
+          item.cleLigne = `${item.produitId}::${item.typeVente}`;
+        }
+      });
     });
   }
 
@@ -286,8 +313,8 @@ export class OfflineService extends Dexie {
     await this.panier.put(item);
   }
   /** Supprime un article du panier persisté */
-  async supprimerItemPanier(produitId: string): Promise<void> {
-    await this.panier.delete(produitId);
+  async supprimerItemPanier(produitId: string, typeVente: 'detail' | 'gros' = 'detail'): Promise<void> {
+    await this.panier.delete(`${produitId}::${typeVente}`);
   }
   /** Récupère tous les articles du panier pour un tenant */
   async getItemsPanier(tenantId: string): Promise<CartItemPersisted[]> {

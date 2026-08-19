@@ -113,11 +113,17 @@ import { AuthService } from '../../../core/services/auth.service';
           </div>
           <span>Ventes</span>
         </a>
-        <a class="shortcut-card" routerLink="/patron/produits" [class.has-alert]="alertes > 0">
+        <a class="shortcut-card" [routerLink]="['/patron/produits']" [queryParams]="{ filtre: 'bas' }" [class.has-alert]="alertes > 0">
           <div class="sc-icon" style="--sc: #e17055;">
             <mat-icon>{{ alertes > 0 ? 'warning' : 'inventory' }}</mat-icon>
           </div>
           <span>Stock bas <span class="badge" *ngIf="alertes > 0">{{ alertes }}</span></span>
+        </a>
+        <a class="shortcut-card" [routerLink]="['/patron/produits']" [class.has-alert]="alertesExpiration > 0">
+          <div class="sc-icon" style="--sc: #a29bfe;">
+            <mat-icon>{{ alertesExpiration > 0 ? 'event_busy' : 'event_available' }}</mat-icon>
+          </div>
+          <span>Péremption <span class="badge" *ngIf="alertesExpiration > 0">{{ alertesExpiration }}</span></span>
         </a>
       </div>
 
@@ -294,6 +300,7 @@ import { AuthService } from '../../../core/services/auth.service';
 export class DashboardComponent implements OnInit, OnDestroy {
   stats: any = null;
   alertes = 0;
+  alertesExpiration = 0;
   nomPatron = 'Patron';
   today = '';
   debutSemaine = '';
@@ -337,9 +344,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
         retry({ count: 2, delay: 3000 }),
         catchError(() => of({ data: [] })),
       ),
-    }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes }: any) => {
+      alertesExpiration: this.api.get('produits/expiration-proche').pipe(
+        timeout(15000),
+        retry({ count: 2, delay: 3000 }),
+        catchError(() => of({ data: [] })),
+      ),
+    }).pipe(takeUntil(this.destroy$)).subscribe(({ stats, alertes, alertesExpiration }: any) => {
       if (stats?.success) this.stats = stats.data;
       this.alertes = alertes?.data?.length ?? 0;
+      this.alertesExpiration = alertesExpiration?.data?.length ?? 0;
       this.loading = false;
       this.cdr.detectChanges(); // Force le rendu même hors zone Angular
     });

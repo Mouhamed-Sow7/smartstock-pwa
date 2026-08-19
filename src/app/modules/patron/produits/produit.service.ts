@@ -10,11 +10,13 @@ export interface Produit {
   _id?: string;
   nom: string;
   prix: number;
+  prixGros?: number;
   prixAchat?: number;
   stock: number;
   categorie: string;
   codeBarres?: string;
   seuilAlerte?: number;
+  dateExpiration?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })

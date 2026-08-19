@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, NgZone, computed, inject, signal, ViewEncapsulation } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, ActivatedRoute } from '@angular/router';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -70,6 +70,19 @@ function catInitial(cat: string): string {
         </button>
       </div>
 
+      <!-- Filtre stock : Tous / Stock bas (rupture ou presque) / En stock -->
+      <div class="stock-filter-bar" *ngIf="produits().length > 0">
+        <button class="stock-filter-pill" [class.active]="stockFilter() === 'tous'" (click)="stockFilter.set('tous')">
+          Tous <span class="pill-count">{{ produits().length }}</span>
+        </button>
+        <button class="stock-filter-pill rupture" [class.active]="stockFilter() === 'bas'" (click)="stockFilter.set('bas')">
+          <mat-icon>warning</mat-icon> Stock bas <span class="pill-count">{{ countBas() }}</span>
+        </button>
+        <button class="stock-filter-pill ok" [class.active]="stockFilter() === 'ok'" (click)="stockFilter.set('ok')">
+          <mat-icon>check_circle</mat-icon> En stock <span class="pill-count">{{ countOk() }}</span>
+        </button>
+      </div>
+
       <!-- Loading -->
       <div class="loading-center" *ngIf="isLoading()">
         <mat-spinner diameter="36"></mat-spinner>
@@ -113,6 +126,10 @@ function catInitial(cat: string): string {
                     <mat-icon>warning</mat-icon> {{ p.stock }}
                   </span>
                   <span class="stock-badge ok-badge" *ngIf="p.stock > (p.seuilAlerte || 5)">{{ p.stock }}</span>
+                  <!-- Badge péremption proche/dépassée -->
+                  <span class="stock-badge expire-badge" *ngIf="estExpireOuProche(p)" [class.expired]="estExpire(p)">
+                    <mat-icon>event_busy</mat-icon> {{ estExpire(p) ? 'Périmé' : 'Périme bientôt' }}
+                  </span>
                 </div>
                 <div class="row-bottom">
                   <span class="row-prix">{{ p.prix | number:'1.0-0' }} FCFA</span>
@@ -303,7 +320,29 @@ function catInitial(cat: string): string {
     .ok-badge     { background: rgba(0,184,148,.15); color: var(--accent); border: 1px solid rgba(0,184,148,.25); }
     .alerte-badge { background: rgba(243,156,18,.15); color: #f39c12; border: 1px solid rgba(243,156,18,.25); }
     .rupture-badge{ background: rgba(231,76,60,.15); color: #e74c3c; border: 1px solid rgba(231,76,60,.25); }
-    .alerte-badge mat-icon { font-size: 11px; width: 11px; height: 11px; }
+    .expire-badge { background: rgba(162,155,254,.15); color: #a29bfe; border: 1px solid rgba(162,155,254,.25); }
+    .expire-badge.expired { background: rgba(231,76,60,.15); color: #e74c3c; border-color: rgba(231,76,60,.25); }
+    .alerte-badge mat-icon, .expire-badge mat-icon { font-size: 11px; width: 11px; height: 11px; }
+
+    /* Filtre stock */
+    .stock-filter-bar {
+      display: flex; gap: 8px; margin-bottom: 14px; overflow-x: auto;
+    }
+    .stock-filter-pill {
+      display: flex; align-items: center; gap: 5px;
+      background: var(--navy-card); border: 1px solid var(--navy-border);
+      color: var(--text-3); font-size: 12px; font-weight: 600;
+      padding: 7px 12px; border-radius: 20px; cursor: pointer;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .stock-filter-pill mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .stock-filter-pill .pill-count {
+      background: rgba(255,255,255,.08); border-radius: 10px;
+      padding: 0 6px; font-size: 11px;
+    }
+    .stock-filter-pill.active { color: var(--text-1); border-color: var(--text-1); }
+    .stock-filter-pill.rupture.active { background: rgba(231,76,60,.12); border-color: #e74c3c; color: #e74c3c; }
+    .stock-filter-pill.ok.active { background: rgba(0,184,148,.12); border-color: var(--accent); color: var(--accent); }
 
     /* ── Menu 3 points ── */
     .row-menu-wrap { flex-shrink: 0; }
@@ -366,11 +405,34 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private snack = inject(MatSnackBar);
   private produitService = inject(ProduitService);
   private zone = inject(NgZone);
+  private route = inject(ActivatedRoute);
 
   searchQuery = signal('');
+  stockFilter = signal<'tous' | 'bas' | 'ok'>('tous');
   reapproId: string | null = null;
   reapproQty = 1;
   reapproSaving = false;
+
+  // Un produit est "stock bas" au même sens que le badge d'alerte déjà
+  // affiché sur chaque ligne (rupture totale OU sous le seuil) — et au même
+  // sens que le raccourci "Stock bas" du dashboard, pour rester cohérent
+  // partout dans l'app plutôt que d'avoir deux définitions différentes.
+  private estStockBas(p: any): boolean {
+    return p.stock <= (p.seuilAlerte ?? 5);
+  }
+
+  countBas = computed(() => this.produits().filter((p) => this.estStockBas(p)).length);
+  countOk = computed(() => this.produits().filter((p) => !this.estStockBas(p)).length);
+
+  estExpire(p: any): boolean {
+    return !!p.dateExpiration && new Date(p.dateExpiration) < new Date();
+  }
+  estExpireOuProche(p: any): boolean {
+    if (!p.dateExpiration) return false;
+    const seuil = new Date();
+    seuil.setDate(seuil.getDate() + 14);
+    return new Date(p.dateExpiration) <= seuil;
+  }
 
   // Grouper par catégorie avec filtre recherche — computed() = stable entre cycles
   // de détection de changement tant que produits()/searchQuery() ne changent pas.
@@ -379,7 +441,10 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   // l'ouverture du menu, donc rien ne s'affichait jamais.
   groupedProduits = computed(() => {
     const q = this.searchQuery().trim().toLowerCase();
-    const all = this.produits();
+    const filtre = this.stockFilter();
+    let all = this.produits();
+    if (filtre === 'bas') all = all.filter((p) => this.estStockBas(p));
+    else if (filtre === 'ok') all = all.filter((p) => !this.estStockBas(p));
     const filtered = q
       ? all.filter(p =>
           p.nom?.toLowerCase().includes(q) ||
@@ -443,7 +508,12 @@ export class ProduitsComponent implements OnInit, OnDestroy {
     return Math.round(((p.prix - p.prixAchat) / p.prix) * 100);
   }
 
-  ngOnInit() { this.chargerProduits(); }
+  ngOnInit() {
+    this.chargerProduits();
+    // Lien depuis le dashboard ("Stock bas") : /patron/produits?filtre=bas
+    const filtre = this.route.snapshot.queryParamMap.get('filtre');
+    if (filtre === 'bas' || filtre === 'ok') this.stockFilter.set(filtre);
+  }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
   chargerProduits() {

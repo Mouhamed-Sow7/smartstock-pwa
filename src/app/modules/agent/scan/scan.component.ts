@@ -161,6 +161,27 @@ interface BarcodeDetectorLike {
         </div>
       </div>
     </div>
+
+    <!-- Choix Détail / Gros — bloque tant que l'agent n'a pas tranché -->
+    <div class="type-vente-overlay" *ngIf="produitEnChoixType">
+      <div class="type-vente-sheet">
+        <div class="tv-nom">{{ produitEnChoixType.nom }}</div>
+        <div class="tv-sub">Ce produit se vend en détail ou en gros — choisissez :</div>
+        <div class="tv-options">
+          <button class="tv-option" (click)="choisirTypeVente('detail')">
+            <mat-icon>storefront</mat-icon>
+            <span class="tv-option-label">Détail</span>
+            <span class="tv-option-prix">{{ produitEnChoixType.prix | number:'1.0-0' }} FCFA</span>
+          </button>
+          <button class="tv-option gros" (click)="choisirTypeVente('gros')">
+            <mat-icon>inventory_2</mat-icon>
+            <span class="tv-option-label">Gros</span>
+            <span class="tv-option-prix">{{ produitEnChoixType.prixGros | number:'1.0-0' }} FCFA</span>
+          </button>
+        </div>
+        <button class="tv-cancel" (click)="annulerChoixType()">Annuler</button>
+      </div>
+    </div>
   `,
   styles: [
     `
@@ -646,6 +667,50 @@ interface BarcodeDetectorLike {
         font-size: 14px;
         font-weight: 700;
       }
+
+      /* Choix Détail / Gros */
+      .type-vente-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,.6);
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        z-index: 1000;
+      }
+      .type-vente-sheet {
+        width: 100%;
+        max-width: 480px;
+        background: var(--navy-card);
+        border: 1px solid var(--navy-border);
+        border-radius: 20px 20px 0 0;
+        padding: 20px;
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+      }
+      .tv-nom { color: var(--text-1); font-size: 17px; font-weight: 800; }
+      .tv-sub { color: var(--text-3); font-size: 13px; margin-top: 4px; margin-bottom: 16px; }
+      .tv-options { display: flex; gap: 10px; }
+      .tv-option {
+        flex: 1;
+        display: flex; flex-direction: column; align-items: center; gap: 6px;
+        background: var(--navy);
+        border: 1.5px solid var(--navy-border);
+        border-radius: 14px;
+        padding: 18px 10px;
+        cursor: pointer;
+        color: var(--text-1);
+      }
+      .tv-option mat-icon { font-size: 26px; width: 26px; height: 26px; color: var(--accent); }
+      .tv-option.gros mat-icon { color: #fdcb6e; }
+      .tv-option-label { font-size: 14px; font-weight: 700; }
+      .tv-option-prix { font-size: 13px; color: var(--text-3); font-weight: 600; }
+      .tv-option:active { transform: scale(0.97); }
+      .tv-cancel {
+        width: 100%; margin-top: 14px;
+        background: transparent; border: none;
+        color: var(--text-3); font-size: 13px; font-weight: 600;
+        padding: 8px; cursor: pointer;
+      }
     `,
   ],
 })
@@ -668,6 +733,10 @@ export class ScanComponent implements OnInit, OnDestroy {
   showCartPreview = false;
   scanPaused = false;
   isStarting = false;
+  // Produit à double prix en attente d'un choix Détail/Gros — tant qu'il est
+  // défini, aucun scan (caméra ou recherche) n'est traité, voir scanProduct()
+  // et onCameraCodeDetected().
+  produitEnChoixType: any = null;
 
   private detector: BarcodeDetectorLike | null = null;
   private zxingReader: BrowserMultiFormatReader | null = null;
@@ -815,27 +884,57 @@ export class ScanComponent implements OnInit, OnDestroy {
   selectionnerProduit(produit: CachedProduit): void {
     this.suggestions = [];
     this.barcode = '';
+    this.traiterProduitResolu(produit);
+  }
 
-    // Bloquer si rupture de stock
-    const stock = Number(produit.stock ?? -1);
+  // Point d'entrée unique après résolution d'un produit (recherche manuelle,
+  // cache offline, ou API) — centralise les contrôles de stock ET le choix
+  // détail/gros pour ne jamais avoir 3 implémentations qui divergent.
+  private traiterProduitResolu(produit: any): void {
+    const stock = Number(produit?.stock ?? -1);
+    const nom = produit?.nom || 'Produit';
     if (stock === 0) {
-      this.errorMessage = `"${produit.nom}" est en rupture de stock`;
+      this.errorMessage = `"${nom}" est en rupture de stock`;
       setTimeout(() => (this.errorMessage = ''), 3000);
       return;
     }
-    // Bloquer si déjà au max en panier
-    const enPanier = this.cartItems.find(i => i.produit?._id === produit._id)?.quantite ?? 0;
+    // Quantité déjà au panier pour ce produit, tous types de vente confondus
+    // (détail + gros partagent le même stock physique — même unité).
+    const enPanier = this.pos.quantiteAuPanier(produit._id);
     if (stock > 0 && enPanier >= stock) {
-      this.errorMessage = `Stock max atteint pour "${produit.nom}" (${stock} unité${stock > 1 ? 's' : ''})`;
+      this.errorMessage = `Stock max atteint pour "${nom}" (${stock} unité${stock > 1 ? 's' : ''})`;
       setTimeout(() => (this.errorMessage = ''), 3000);
       return;
     }
-
     this.errorMessage = '';
-    this.pos.addToCart(produit);
-    this.lastProductName = produit.nom;
+
+    if (Number(produit?.prixGros) > 0) {
+      // Produit vendable en détail ET en gros : on bloque l'ajout tant que
+      // l'agent n'a pas choisi lequel — jamais de ligne créée "par défaut"
+      // avec le mauvais prix. Le scan caméra est mis en pause pendant ce
+      // choix (voir gabarits onCameraCodeDetected/scanProduct).
+      this.produitEnChoixType = produit;
+      this.cdr.detectChanges();
+      return;
+    }
+    this.ajouterAuPanier(produit, 'detail');
+  }
+
+  private ajouterAuPanier(produit: any, typeVente: 'detail' | 'gros'): void {
+    this.pos.addToCart(produit, typeVente);
+    this.lastProductName = produit.nom + (typeVente === 'gros' ? ' (gros)' : '');
     this.playSuccessSound();
     setTimeout(() => (this.lastProductName = ''), 2000);
+  }
+
+  choisirTypeVente(type: 'detail' | 'gros'): void {
+    if (!this.produitEnChoixType) return;
+    this.ajouterAuPanier(this.produitEnChoixType, type);
+    this.produitEnChoixType = null;
+  }
+
+  annulerChoixType(): void {
+    this.produitEnChoixType = null;
   }
 
   // ─── Scan par code-barres ───────────────────────────────────
@@ -843,6 +942,11 @@ export class ScanComponent implements OnInit, OnDestroy {
   async scanProduct(): Promise<void> {
     const code = this.barcode.trim();
     if (!code) return;
+
+    // Un choix détail/gros est en attente : on bloque tout nouveau scan tant
+    // qu'il n'est pas résolu, sinon un 2e scan pourrait écraser silencieusement
+    // le choix en cours (et perdre le 1er produit scanné).
+    if (this.produitEnChoixType) return;
 
     // Si des suggestions sont affichées (recherche par nom partielle), Entrée
     // valide la premiere suggestion au lieu de tenter une recherche exacte
@@ -876,26 +980,9 @@ export class ScanComponent implements OnInit, OnDestroy {
     }
 
     if (fromCache) {
-      const stock = Number(fromCache.stock ?? -1);
-      const enPanier = this.cartItems.find(i => i.produit?._id === fromCache._id)?.quantite ?? 0;
-      if (stock === 0) {
-        this.errorMessage = `"${fromCache.nom}" est en rupture de stock`;
-        this.isLoading = false;
-        setTimeout(() => (this.errorMessage = ''), 3000);
-        return;
-      }
-      if (stock > 0 && enPanier >= stock) {
-        this.errorMessage = `Stock max atteint pour "${fromCache.nom}" (${stock} unité${stock > 1 ? 's' : ''})`;
-        this.isLoading = false;
-        setTimeout(() => (this.errorMessage = ''), 3000);
-        return;
-      }
-      this.pos.addToCart(fromCache);
-      this.lastProductName = fromCache.nom;
-      this.playSuccessSound();
-      this.barcode = '';
       this.isLoading = false;
-      setTimeout(() => (this.lastProductName = ''), 2000);
+      this.barcode = '';
+      this.traiterProduitResolu(fromCache);
       return;
     }
 
@@ -906,26 +993,9 @@ export class ScanComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this.destroy$))
         .subscribe({
           next: (produit) => {
-            const stock = Number(produit?.stock ?? -1);
-            const enPanier = this.cartItems.find(i => i.produit?._id === produit?._id)?.quantite ?? 0;
-            if (stock === 0) {
-              this.errorMessage = `"${produit?.nom}" est en rupture de stock`;
-              this.isLoading = false;
-              setTimeout(() => (this.errorMessage = ''), 3000);
-              return;
-            }
-            if (stock > 0 && enPanier >= stock) {
-              this.errorMessage = `Stock max atteint (${stock} unité${stock > 1 ? 's' : ''})`;
-              this.isLoading = false;
-              setTimeout(() => (this.errorMessage = ''), 3000);
-              return;
-            }
-            this.pos.addToCart(produit);
-            this.lastProductName = produit?.nom || 'Produit';
-            this.playSuccessSound();
-            this.barcode = '';
             this.isLoading = false;
-            setTimeout(() => (this.lastProductName = ''), 2000);
+            this.barcode = '';
+            this.traiterProduitResolu(produit);
           },
           error: () => {
             this.errorMessage = 'Produit non trouvé';
@@ -1048,7 +1118,7 @@ export class ScanComponent implements OnInit, OnDestroy {
   }
 
   private onCameraCodeDetected(code: string): void {
-    if (this.isProcessingCameraCode || this.scanPaused) return;
+    if (this.isProcessingCameraCode || this.scanPaused || this.produitEnChoixType) return;
     this.isProcessingCameraCode = true;
     this.scanPaused = true;
     this.barcode = code;

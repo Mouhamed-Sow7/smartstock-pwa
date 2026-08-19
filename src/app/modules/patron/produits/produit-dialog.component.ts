@@ -62,7 +62,7 @@ const CATEGORIES = [
         <!-- Prix ligne -->
         <div class="fields-row">
           <div class="field-group">
-            <label class="field-label">Prix vente <span class="req">*</span></label>
+            <label class="field-label">Prix vente détail <span class="req">*</span></label>
             <div class="field-input-wrap">
               <input class="field-input" type="number" formControlName="prix" min="0" />
               <span class="field-suffix">FCFA</span>
@@ -86,6 +86,19 @@ const CATEGORIES = [
               <span>Stock à 0 — le produit apparaîtra en rupture immédiatement</span>
             </div>
           </div>
+        </div>
+
+        <!-- Prix en gros — optionnel, active la vente en gros pour ce produit -->
+        <div class="field-group">
+          <label class="field-label">Prix de vente en gros <span class="opt">optionnel</span></label>
+          <div class="field-input-wrap">
+            <input class="field-input" type="number" formControlName="prixGros" min="0" placeholder="Laisser vide si vendu uniquement au détail" />
+            <span class="field-suffix">FCFA</span>
+          </div>
+          <p class="field-hint" *ngIf="(form.get('prixGros')?.value || 0) > 0">
+            <mat-icon>storefront</mat-icon>
+            L'agent devra choisir « Détail » ou « Gros » à la vente de ce produit.
+          </p>
         </div>
 
         <!-- Marge preview -->
@@ -128,6 +141,16 @@ const CATEGORIES = [
               <span class="field-suffix">unités</span>
             </div>
           </div>
+        </div>
+
+        <!-- Date de péremption — optionnelle -->
+        <div class="field-group">
+          <label class="field-label">Date de péremption <span class="opt">optionnel</span></label>
+          <input class="field-input" type="date" formControlName="dateExpiration" />
+          <p class="field-hint" *ngIf="form.get('dateExpiration')?.value">
+            <mat-icon>event_busy</mat-icon>
+            Vous serez alerté sur le dashboard à l'approche de cette date.
+          </p>
         </div>
 
       </form>
@@ -247,6 +270,11 @@ const CATEGORIES = [
     .field-input-wrap .field-input { padding-right: 56px; }
     .field-suffix { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); font-size: 11px; color: var(--text-3); font-weight: 600; white-space: nowrap; }
     .field-error { font-size: 11px; color: #e74c3c; }
+    .field-hint {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--text-3); font-size: 11px; margin: 6px 0 0;
+    }
+    .field-hint mat-icon { font-size: 14px; width: 14px; height: 14px; flex-shrink: 0; }
     .fields-row { display: flex; gap: 10px; }
     .fields-row .field-group { flex: 1; min-width: 0; }
 
@@ -334,17 +362,26 @@ export class ProduitDialogComponent implements OnInit {
     this.form = this.fb.group({
       nom: ['', Validators.required],
       prix: [0, [Validators.required, Validators.min(0)]],
+      prixGros: [0, [Validators.min(0)]],
       prixAchat: [0, [Validators.min(0)]],
       stock: [0, [Validators.required, Validators.min(0)]],
       categorie: ['', Validators.required],
       codeBarres: [''],
       seuilAlerte: [5],
+      dateExpiration: [''],
     });
   }
 
   ngOnInit(): void {
     if (this.data?.produit) {
-      this.form.patchValue(this.data.produit);
+      // input[type=date] attend "YYYY-MM-DD" — le backend renvoie un ISO
+      // complet (ex: "2026-09-01T00:00:00.000Z") qu'il faut tronquer, sinon
+      // le champ natif l'ignore silencieusement et reste vide à l'édition.
+      const patch: any = { ...this.data.produit };
+      if (patch.dateExpiration) {
+        patch.dateExpiration = String(patch.dateExpiration).slice(0, 10);
+      }
+      this.form.patchValue(patch);
       const cat = this.data.produit.categorie || '';
       const known = CATEGORIES.find(c => c.label === cat);
       if (known) {
@@ -394,7 +431,12 @@ export class ProduitDialogComponent implements OnInit {
   onSave(): void {
     if (this.form.invalid || !this.getCatValue()) return;
     this.isLoading = true;
-    const produit: Produit = this.form.value;
+    const produit: Produit = {
+      ...this.form.value,
+      // "" (champ date vidé) doit devenir null, pas une chaîne vide envoyée
+      // telle quelle au backend — Mongoose rejette "" comme Date invalide.
+      dateExpiration: this.form.value.dateExpiration || null,
+    };
     const request = this.data.isEdit && this.data.produit?._id
       ? this.produitService.update(this.data.produit._id, produit)
       : this.produitService.create(produit);
