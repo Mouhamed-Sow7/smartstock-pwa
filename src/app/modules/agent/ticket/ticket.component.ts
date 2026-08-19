@@ -6,6 +6,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { PosService, SaleTicket } from '../services/pos.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { I18nService } from '../../../core/services/i18n.service';
 
 @Component({
   selector: 'app-ticket',
@@ -16,24 +17,24 @@ import { AuthService } from '../../../core/services/auth.service';
       <div class="page-title">
         <mat-icon>receipt_long</mat-icon>
         <div>
-          <div class="title-main">Ticket de Caisse</div>
-          <div class="title-sub">Imprimez votre reçu</div>
+          <div class="title-main">{{ i18n.lang() === 'ar' ? 'إيصال الصندوق' : 'Ticket de Caisse' }}</div>
+          <div class="title-sub">{{ i18n.lang() === 'ar' ? 'اطبع إيصالك' : 'Imprimez votre reçu' }}</div>
         </div>
       </div>
 
       <div class="empty-state" *ngIf="!ticket">
         <mat-icon>receipt</mat-icon>
-        <div class="empty-title">Aucun ticket récent</div>
-        <div class="empty-sub">Validez une vente pour générer un ticket</div>
+        <div class="empty-title">{{ i18n.lang() === 'ar' ? 'لا يوجد إيصال حديث' : 'Aucun ticket récent' }}</div>
+        <div class="empty-sub">{{ i18n.lang() === 'ar' ? 'أكّد عملية بيع لإنشاء إيصال' : 'Validez une vente pour générer un ticket' }}</div>
         <a routerLink="/agent/scan" class="new-sale-btn">
-          <mat-icon>qr_code_scanner</mat-icon> Nouvelle vente
+          <mat-icon>qr_code_scanner</mat-icon> {{ i18n.t('ticket.nouvelleVente') }}
         </a>
       </div>
 
       <div class="ticket-card" *ngIf="ticket">
         <div class="offline-badge" *ngIf="ticket.modeCreation === 'offline'">
           <mat-icon>wifi_off</mat-icon>
-          Vente hors ligne — sera synchronisée
+          {{ i18n.lang() === 'ar' ? 'بيع دون اتصال — ستتم مزامنته' : 'Vente hors ligne — sera synchronisée' }}
         </div>
 
         <div class="ticket-header">
@@ -55,15 +56,15 @@ import { AuthService } from '../../../core/services/auth.service';
         <div class="divider dashed"></div>
 
         <div class="ticket-total">
-          <span>Total</span>
+          <span>{{ i18n.t('panier.total') }}</span>
           <span class="total-amount">{{ ticket.total | number:'1.0-0' }} FCFA</span>
         </div>
 
         <div class="ticket-payment">
           <div class="payment-row">
             <mat-icon>payments</mat-icon>
-            <span *ngIf="!editingMode">{{ ticket.modePaiement | titlecase }}</span>
-            <button class="edit-mode-btn" *ngIf="!editingMode" (click)="editingMode = true" title="Corriger">
+            <span *ngIf="!editingMode">{{ ticket.modePaiement === 'credit' ? i18n.t('panier.credit') : (ticket.modePaiement | titlecase) }}</span>
+            <button class="edit-mode-btn" *ngIf="!editingMode" (click)="editingMode = true" [title]="i18n.lang() === 'ar' ? 'تصحيح' : 'Corriger'">
               <mat-icon>edit</mat-icon>
             </button>
           </div>
@@ -77,10 +78,10 @@ import { AuthService } from '../../../core/services/auth.service';
                 (click)="changerMode(m.value)"
               >
                 <mat-icon class="mode-mini-icon">{{ m.icon }}</mat-icon>
-                <span>{{ m.label }}</span>
+                <span>{{ m.value === 'especes' && i18n.lang() === 'ar' ? 'نقداً' : m.label }}</span>
               </button>
             </div>
-            <button class="close-edit" (click)="editingMode = false">Fermer</button>
+            <button class="close-edit" (click)="editingMode = false">{{ i18n.lang() === 'ar' ? 'إغلاق' : 'Fermer' }}</button>
           </div>
         </div>
 
@@ -96,7 +97,7 @@ import { AuthService } from '../../../core/services/auth.service';
         </div>
 
         <a routerLink="/agent/scan" class="new-sale-btn">
-          <mat-icon>add_circle_outline</mat-icon> Nouvelle vente
+          <mat-icon>add_circle_outline</mat-icon> {{ i18n.t('ticket.nouvelleVente') }}
         </a>
       </div>
     </div>
@@ -170,7 +171,7 @@ export class TicketComponent implements OnInit, OnDestroy {
     { value: 'free_money',   label: 'Free',     icon: 'phonelink' },
   ];
 
-  constructor(private pos: PosService, private auth: AuthService) {}
+  constructor(private pos: PosService, private auth: AuthService, public i18n: I18nService) {}
 
   ngOnInit(): void {
     this.shopName = this.auth.getUser()?.boutique || 'SmartStock';

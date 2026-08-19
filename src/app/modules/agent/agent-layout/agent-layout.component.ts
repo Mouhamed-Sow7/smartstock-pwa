@@ -9,6 +9,7 @@ import { OfflineService } from '../../../core/services/offline.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { ThemeService } from '../../../core/services/theme.service';
 import { SyncService } from '../../../core/services/sync.service';
+import { I18nService } from '../../../core/services/i18n.service';
 
 @Component({
   selector: 'app-agent-layout',
@@ -24,16 +25,20 @@ import { SyncService } from '../../../core/services/sync.service';
     MatSnackBarModule,
   ],
   template: `
+    <div class="agent-shell" [attr.dir]="i18n.lang() === 'ar' ? 'rtl' : 'ltr'">
     <div class="topbar">
       <span class="app-title">SmartStock Agent</span>
       <span class="status-badge">{{ user()?.boutique || 'Boutique' }}</span>
+      <button mat-icon-button (click)="i18n.toggle()" class="lang-btn" [attr.aria-label]="i18n.t('nav.langue')" [title]="i18n.t('nav.langue')">
+        <span class="lang-code">{{ i18n.lang() === 'ar' ? 'FR' : 'ع' }}</span>
+      </button>
       <button mat-icon-button (click)="onRefresh()" class="refresh-btn" [class.spin]="isSyncing || sync.estEnSync()" aria-label="Rafraîchir">
         <mat-icon>autorenew</mat-icon>
       </button>
       <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)">
         <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
-      <button mat-icon-button (click)="logout()" style="color:var(--text-2)">
+      <button mat-icon-button (click)="logout()" style="color:var(--text-2)" [attr.aria-label]="i18n.t('nav.deconnexion')">
         <mat-icon>logout</mat-icon>
       </button>
     </div>
@@ -41,14 +46,14 @@ import { SyncService } from '../../../core/services/sync.service';
     <!-- Bandeau offline / sync en attente -->
     <div class="sync-banner" [class.is-offline]="!sync.estEnLigne()" *ngIf="sync.afficherBandeau()">
       <mat-icon [class.icon-syncing]="sync.estEnLigne() && sync.estEnSync()">{{ sync.estEnLigne() ? (sync.estEnSync() ? 'sync' : 'cloud_queue') : 'wifi_off' }}</mat-icon>
-      <span *ngIf="!sync.estEnLigne()">Hors ligne — données sauvegardées localement</span>
-      <span *ngIf="sync.estEnLigne() && sync.estEnSync()">Synchronisation en cours...</span>
+      <span *ngIf="!sync.estEnLigne()">{{ i18n.lang() === 'ar' ? 'غير متصل — البيانات محفوظة محلياً' : 'Hors ligne — données sauvegardées localement' }}</span>
+      <span *ngIf="sync.estEnLigne() && sync.estEnSync()">{{ i18n.lang() === 'ar' ? 'جارٍ المزامنة...' : 'Synchronisation en cours...' }}</span>
       <span *ngIf="sync.estEnLigne() && !sync.estEnSync() && sync.totalPendingCount() > 0">
-        {{ sync.totalPendingCount() }} élément(s) en attente de sync
+        {{ sync.totalPendingCount() }} {{ i18n.lang() === 'ar' ? 'عنصر بانتظار المزامنة' : "élément(s) en attente de sync" }}
       </span>
       <button *ngIf="sync.estEnLigne() && !sync.estEnSync() && sync.totalPendingCount() > 0"
         class="sync-now-btn" (click)="sync.synchroniser()">
-        Synchroniser
+        {{ i18n.lang() === 'ar' ? 'مزامنة' : 'Synchroniser' }}
       </button>
     </div>
 
@@ -58,24 +63,26 @@ import { SyncService } from '../../../core/services/sync.service';
 
     <nav class="bottom-nav">
       <a routerLink="/agent/dashboard" routerLinkActive="active">
-        <mat-icon>home</mat-icon><span>Accueil</span>
+        <mat-icon>home</mat-icon><span>{{ i18n.t('nav.dashboard') }}</span>
       </a>
       <a routerLink="/agent/scan" routerLinkActive="active">
-        <mat-icon>qr_code_scanner</mat-icon><span>Scan</span>
+        <mat-icon>qr_code_scanner</mat-icon><span>{{ i18n.t('nav.scanner') }}</span>
       </a>
       <a routerLink="/agent/panier" routerLinkActive="active">
-        <mat-icon>shopping_cart</mat-icon><span>Panier</span>
+        <mat-icon>shopping_cart</mat-icon><span>{{ i18n.t('nav.panier') }}</span>
       </a>
       <a routerLink="/agent/ticket" routerLinkActive="active">
-        <mat-icon>receipt_long</mat-icon><span>Ticket</span>
+        <mat-icon>receipt_long</mat-icon><span>{{ i18n.lang() === 'ar' ? 'الإيصال' : 'Ticket' }}</span>
       </a>
       <a routerLink="/agent/historique" routerLinkActive="active">
-        <mat-icon>history</mat-icon><span>Historique</span>
+        <mat-icon>history</mat-icon><span>{{ i18n.t('nav.historique') }}</span>
       </a>
     </nav>
+    </div>
   `,
   styles: [
     `
+      .agent-shell { display: contents; }
       .topbar {
         background: var(--navy-light);
         backdrop-filter: blur(16px);
@@ -90,7 +97,7 @@ import { SyncService } from '../../../core/services/sync.service';
         height: var(--topbar-h);
         display: flex;
         align-items: center;
-        padding: 0 8px 0 16px;
+        padding-inline: 16px 8px;
       }
       .app-title {
         font-weight: 700;
@@ -106,8 +113,10 @@ import { SyncService } from '../../../core/services/sync.service';
         padding: 3px 10px;
         border-radius: 20px;
         border: 1px solid rgba(0, 184, 148, 0.25);
-        margin-right: 4px;
+        margin-inline-end: 4px;
       }
+      .lang-btn { color: var(--text-2); }
+      .lang-code { font-size: 13px; font-weight: 700; }
 
       .main-content {
         position: fixed;
@@ -145,7 +154,7 @@ import { SyncService } from '../../../core/services/sync.service';
         50% { opacity: .45; }
       }
       .sync-now-btn {
-        margin-left: auto; padding: 4px 14px; border-radius: 20px;
+        margin-inline-start: auto; padding: 4px 14px; border-radius: 20px;
         border: none; background: var(--accent);
         color: #fff; font-size: 11px; font-weight: 700; cursor: pointer;
         transition: transform .1s, opacity .15s;
@@ -232,6 +241,7 @@ export class AgentLayoutComponent {
     private snackBar: MatSnackBar,
     public theme: ThemeService,
     public sync: SyncService,
+    public i18n: I18nService,
     private ngZone: NgZone,
     private cdr: ChangeDetectorRef,
   ) {

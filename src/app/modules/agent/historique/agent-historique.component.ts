@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { Subject, takeUntil, catchError, of } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { I18nService } from '../../../core/services/i18n.service';
 
 interface VenteHisto {
   _id: string;
@@ -21,26 +22,26 @@ interface VenteHisto {
   template: `
     <div class="historique-page">
       <div class="histo-header">
-        <h1>Historique des ventes</h1>
-        <button class="reload-btn" (click)="charger()" [disabled]="_isLoading" title="Actualiser">
+        <h1>{{ i18n.t('hist.titre') }}</h1>
+        <button class="reload-btn" (click)="charger()" [disabled]="_isLoading" [title]="i18n.lang() === 'ar' ? 'تحديث' : 'Actualiser'">
           <mat-icon [class.spin]="_isLoading">refresh</mat-icon>
         </button>
       </div>
-      <div class="sub" *ngIf="!_isLoading && !_error">{{ _ventes.length }} vente(s)</div>
+      <div class="sub" *ngIf="!_isLoading && !_error">{{ _ventes.length }} {{ i18n.lang() === 'ar' ? 'عملية بيع' : 'vente(s)' }}</div>
 
       <div class="loader" *ngIf="_isLoading">
-        <mat-icon class="spin">autorenew</mat-icon> Chargement...
+        <mat-icon class="spin">autorenew</mat-icon> {{ i18n.lang() === 'ar' ? 'جارٍ التحميل...' : 'Chargement...' }}
       </div>
 
       <div class="error-state" *ngIf="_error && !_isLoading">
         <mat-icon>wifi_off</mat-icon>
-        <p>Impossible de charger l'historique</p>
-        <button class="retry-btn" (click)="charger()">Réessayer</button>
+        <p>{{ i18n.lang() === 'ar' ? 'تعذّر تحميل السجل' : "Impossible de charger l'historique" }}</p>
+        <button class="retry-btn" (click)="charger()">{{ i18n.lang() === 'ar' ? 'إعادة المحاولة' : 'Réessayer' }}</button>
       </div>
 
       <div class="empty" *ngIf="!_isLoading && !_error && _ventes.length === 0">
         <mat-icon>receipt_long</mat-icon>
-        <p>Aucune vente pour le moment</p>
+        <p>{{ i18n.t('dash.aucuneVente') }}</p>
       </div>
 
       <div class="vente-card" *ngFor="let v of _ventes">
@@ -113,6 +114,7 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private cdr: ChangeDetectorRef,
     private zone: NgZone,
+    public i18n: I18nService,
   ) {}
 
   ngOnInit(): void { this.charger(); }

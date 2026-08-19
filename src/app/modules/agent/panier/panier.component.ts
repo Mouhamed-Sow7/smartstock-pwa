@@ -7,6 +7,7 @@ import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PosService, CartItem } from '../services/pos.service';
+import { I18nService } from '../../../core/services/i18n.service';
 
 type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit';
 
@@ -21,8 +22,8 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
         <div class="page-title">
           <mat-icon>shopping_cart</mat-icon>
           <div>
-            <div class="title-main">Panier</div>
-            <div class="title-sub">{{ items.length }} article(s)</div>
+            <div class="title-main">{{ i18n.t('panier.titre') }}</div>
+            <div class="title-sub">{{ items.length }} {{ i18n.t('panier.articles') }}</div>
           </div>
         </div>
       </div>
@@ -30,8 +31,8 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
       <!-- Panier vide -->
       <div class="empty-state" *ngIf="items.length === 0">
         <mat-icon>remove_shopping_cart</mat-icon>
-        <div class="empty-title">Panier vide</div>
-        <div class="empty-sub">Scannez un produit pour commencer</div>
+        <div class="empty-title">{{ i18n.t('panier.vide') }}</div>
+        <div class="empty-sub">{{ i18n.t('panier.videSub') }}</div>
       </div>
 
       <!-- Liste articles -->
@@ -40,9 +41,9 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
           <div class="item-info">
             <div class="item-nom">
               {{ item.produit?.nom }}
-              <span class="item-type-badge" [class.gros]="item.typeVente === 'gros'" *ngIf="item.typeVente === 'gros'">Gros</span>
+              <span class="item-type-badge" [class.gros]="item.typeVente === 'gros'" *ngIf="item.typeVente === 'gros'">{{ i18n.t('scan.gros') }}</span>
             </div>
-            <div class="item-prix">{{ item.prix | number: '1.0-0' }} FCFA / unité</div>
+            <div class="item-prix">{{ item.prix | number: '1.0-0' }} FCFA / {{ i18n.t('panier.unite') }}</div>
           </div>
           <div class="item-controls">
             <button class="ctrl-btn" (click)="decrement(item)">
@@ -63,13 +64,13 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
       <!-- Footer total + validation -->
       <div class="panier-footer" *ngIf="items.length > 0">
         <div class="total-row">
-          <span class="total-label">Total</span>
+          <span class="total-label">{{ i18n.t('panier.total') }}</span>
           <span class="total-value">{{ total | number: '1.0-0' }} FCFA</span>
         </div>
 
         <!-- Sélecteur mode paiement -->
         <div class="paiement-section">
-          <div class="paiement-label">Mode de paiement</div>
+          <div class="paiement-label">{{ i18n.t('panier.modePaiement') }}</div>
           <div class="paiement-grid">
             <button
               *ngFor="let m of modes"
@@ -78,7 +79,7 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
               (click)="modePaiement = m.value"
             >
               <span class="mode-logo" [innerHTML]="m.svg"></span>
-              <span class="mode-name">{{ m.label }}</span>
+              <span class="mode-name">{{ labelFor(m) }}</span>
               <mat-icon class="mode-check" *ngIf="modePaiement === m.value">check_circle</mat-icon>
             </button>
           </div>
@@ -86,24 +87,25 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
 
         <!-- Vente à crédit : nom du client obligatoire pour créer/retrouver sa fiche -->
         <div class="credit-section" *ngIf="modePaiement === 'credit'">
-          <label class="credit-label">Nom du client</label>
+          <label class="credit-label">{{ i18n.t('panier.nomClient') }}</label>
           <input
             type="text"
             class="credit-input"
             [(ngModel)]="clientNom"
-            placeholder="Ex : Fatou Diop"
+            [placeholder]="i18n.t('panier.nomClientPlaceholder')"
             name="clientNom"
           />
           <p class="credit-hint">
             <mat-icon>info</mat-icon>
-            Le client repart avec la marchandise sans payer. Le patron le retrouvera
-            dans « Prêts » pour suivre le remboursement — le client, lui, n'est pas notifié.
+            {{ i18n.lang() === 'ar'
+              ? 'يغادر الزبون بالبضاعة دون دفع. سيجد صاحب المتجر ذلك في «القروض» لمتابعة السداد — الزبون نفسه لا يتلقى أي إشعار.'
+              : "Le client repart avec la marchandise sans payer. Le patron le retrouvera dans « Prêts » pour suivre le remboursement — le client, lui, n'est pas notifié." }}
           </p>
         </div>
 
         <button class="validate-btn" (click)="validateSale()" [disabled]="isSaving || !peutValider">
           <mat-icon>{{ isSaving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
-          {{ isSaving ? 'Validation...' : 'Valider — ' + modeLabel }}
+          {{ isSaving ? i18n.t('panier.validation') : i18n.t('panier.valider') + ' — ' + modeLabel }}
         </button>
         <p class="offline-msg" *ngIf="offlineMsg">
           <mat-icon>wifi_off</mat-icon> {{ offlineMsg }}
@@ -329,11 +331,19 @@ export class PanierComponent implements OnInit, OnDestroy {
   ];
 
   get modeLabel(): string {
-    return this._rawModes.find(m => m.value === this.modePaiement)?.label ?? 'Espèces';
+    const m = this._rawModes.find(mo => mo.value === this.modePaiement);
+    if (!m) return this.i18n.lang() === 'ar' ? 'نقداً' : 'Espèces';
+    return this.labelFor(m);
+  }
+
+  labelFor(m: { value: ModePaiement; label: string }): string {
+    if (m.value === 'credit') return this.i18n.t('panier.credit');
+    if (m.value === 'especes' && this.i18n.lang() === 'ar') return 'نقداً';
+    return m.label;
   }
 
   readonly modes: { value: ModePaiement; label: string; svg: SafeHtml }[];
-  constructor(private pos: PosService, private router: Router, sanitizer: DomSanitizer) {
+  constructor(private pos: PosService, private router: Router, sanitizer: DomSanitizer, public i18n: I18nService) {
     this.modes = this._rawModes.map(m => ({ ...m, svg: sanitizer.bypassSecurityTrustHtml(m.svg) }));
   }
 
@@ -350,7 +360,7 @@ export class PanierComponent implements OnInit, OnDestroy {
 
   validateSale(): void {
     if (!this.peutValider) {
-      this.errorMessage = 'Le nom du client est requis pour une vente à crédit';
+      this.errorMessage = this.i18n.t('panier.nomClientRequis');
       return;
     }
     this.errorMessage = '';
@@ -361,7 +371,7 @@ export class PanierComponent implements OnInit, OnDestroy {
         this.isSaving = false;
         this.clientNom = '';
         if (mode === 'offline') {
-          this.offlineMsg = 'Vente sauvegardée hors ligne — synchronisation automatique';
+          this.offlineMsg = this.i18n.t('panier.offline');
           setTimeout(() => this.router.navigate(['/agent/ticket']), 1800);
         } else {
           this.router.navigate(['/agent/ticket']);
@@ -369,7 +379,7 @@ export class PanierComponent implements OnInit, OnDestroy {
       })
       .catch((err) => {
         this.isSaving = false;
-        this.errorMessage = err?.message || 'Impossible de valider la vente';
+        this.errorMessage = err?.message || (this.i18n.lang() === 'ar' ? 'تعذّر تأكيد عملية البيع' : 'Impossible de valider la vente');
       });
   }
 

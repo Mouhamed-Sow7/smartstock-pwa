@@ -21,6 +21,7 @@ import { OfflineService, CachedProduit } from '../../../core/services/offline.se
 import { AuthService } from '../../../core/services/auth.service';
 import { SyncService } from '../../../core/services/sync.service';
 import { checksumEanValide } from '../../../core/utils/barcode-checksum';
+import { I18nService } from '../../../core/services/i18n.service';
 
 interface BarcodeDetectorLike {
   detect(source: ImageBitmapSource): Promise<Array<{ rawValue?: string }>>;
@@ -33,21 +34,21 @@ interface BarcodeDetectorLike {
   template: `
     <div class="page-container">
       <div class="scan-header">
-        <div class="scan-title">Scanner Produit</div>
-        <div class="scan-sub">Caméra ou saisie par nom / code-barres</div>
+        <div class="scan-title">{{ i18n.lang() === 'ar' ? 'مسح منتج' : 'Scanner Produit' }}</div>
+        <div class="scan-sub">{{ i18n.lang() === 'ar' ? 'كاميرا أو إدخال بالاسم / الباركود' : 'Caméra ou saisie par nom / code-barres' }}</div>
       </div>
 
       <!-- Caméra -->
       <div class="camera-card">
         <div class="camera-head">
           <mat-icon>photo_camera</mat-icon>
-          <strong>Scan caméra</strong>
+          <strong>{{ i18n.lang() === 'ar' ? 'مسح بالكاميرا' : 'Scan caméra' }}</strong>
         </div>
 
         <div class="video-wrapper">
           <div class="video-placeholder" [class.hidden-placeholder]="cameraActive">
             <mat-icon>photo_camera</mat-icon>
-            <span>Appuyez sur Démarrer</span>
+            <span>{{ i18n.lang() === 'ar' ? 'اضغط على ابدأ' : 'Appuyez sur Démarrer' }}</span>
           </div>
           <video #video muted playsinline [class.hidden]="!cameraActive"></video>
           <div class="scan-frame" *ngIf="cameraActive">
@@ -71,13 +72,13 @@ interface BarcodeDetectorLike {
             (click)="demarrerScan()"
             [disabled]="cameraActive || isStarting || !cameraAvailable"
           >
-            {{ isStarting ? 'Démarrage...' : 'Démarrer caméra' }}
+            {{ isStarting ? (i18n.lang() === 'ar' ? 'جارٍ التشغيل...' : 'Démarrage...') : (i18n.lang() === 'ar' ? 'تشغيل الكاميرا' : 'Démarrer caméra') }}
           </button>
           <button class="secondary" (click)="switchCamera()" [disabled]="!cameraActive">
-            Basculer caméra
+            {{ i18n.lang() === 'ar' ? 'تبديل الكاميرا' : 'Basculer caméra' }}
           </button>
           <button class="secondary" (click)="stopCameraScan()" [disabled]="!cameraActive">
-            Arrêter
+            {{ i18n.lang() === 'ar' ? 'إيقاف' : 'Arrêter' }}
           </button>
         </div>
         <!-- message fallback masqué : ZXing actif en silence -->
@@ -95,7 +96,7 @@ interface BarcodeDetectorLike {
             (input)="onInputChange(barcode)"
             (keyup.enter)="scanProduct()"
             (blur)="onInputBlur()"
-            placeholder="Nom produit ou code-barres..."
+            [placeholder]="i18n.lang() === 'ar' ? 'اسم المنتج أو الباركود...' : 'Nom produit ou code-barres...'"
             [disabled]="isLoading"
             autocomplete="off"
             autocorrect="off"
@@ -103,7 +104,7 @@ interface BarcodeDetectorLike {
             spellcheck="false"
           />
           <button (click)="scanProduct()" [disabled]="isLoading || !barcode.trim()">
-            {{ isLoading ? '...' : 'Ajouter' }}
+            {{ isLoading ? '...' : (i18n.lang() === 'ar' ? 'إضافة' : 'Ajouter') }}
           </button>
         </div>
 
@@ -124,21 +125,21 @@ interface BarcodeDetectorLike {
             <div class="sug-right">
               <span class="sug-prix">{{ p.prix | number: '1.0-0' }} FCFA</span>
               <span class="sug-stock" [class.bas]="p.stock <= (p.seuilAlerte || 5)">
-                Stock: {{ p.stock }}
+                {{ i18n.lang() === 'ar' ? 'المخزون' : 'Stock' }}: {{ p.stock }}
               </span>
             </div>
           </div>
         </div>
       </div>
 
-      <p class="success" *ngIf="lastProductName">Ajouté : {{ lastProductName }}</p>
+      <p class="success" *ngIf="lastProductName">{{ i18n.lang() === 'ar' ? 'أُضيف' : 'Ajouté' }} : {{ lastProductName }}</p>
       <p class="error" *ngIf="errorMessage">{{ errorMessage }}</p>
-      <p class="hint-enter" *ngIf="suggestions.length > 0">↵ Entrée ajoute "{{ suggestions[0].nom }}"</p>
+      <p class="hint-enter" *ngIf="suggestions.length > 0">↵ {{ i18n.lang() === 'ar' ? 'إدخال يضيف' : 'Entrée ajoute' }} "{{ suggestions[0].nom }}"</p>
 
       <div class="panier-row">
         <a routerLink="/agent/panier" class="panier-link">
           <mat-icon>shopping_cart</mat-icon>
-          Aller au panier
+          {{ i18n.lang() === 'ar' ? 'الذهاب إلى السلة' : 'Aller au panier' }}
           <span class="cart-count" *ngIf="cartCount > 0">{{ cartCount }}</span>
         </a>
         <button
@@ -153,11 +154,11 @@ interface BarcodeDetectorLike {
 
       <div class="cart-preview" *ngIf="showCartPreview && cartItems.length > 0">
         <div class="cart-preview-item" *ngFor="let item of cartItems">
-          <span class="cpi-nom">{{ item.produit?.nom || 'Produit' }} <span class="cpi-qte">x{{ item.quantite }}</span></span>
+          <span class="cpi-nom">{{ item.produit?.nom || (i18n.lang() === 'ar' ? 'منتج' : 'Produit') }} <span class="cpi-qte">x{{ item.quantite }}</span></span>
           <span class="cpi-prix">{{ item.prix * item.quantite | number: '1.0-0' }} FCFA</span>
         </div>
         <div class="cart-preview-total">
-          <span>Total</span>
+          <span>{{ i18n.t('panier.total') }}</span>
           <span>{{ cartTotal | number: '1.0-0' }} FCFA</span>
         </div>
       </div>
@@ -167,20 +168,20 @@ interface BarcodeDetectorLike {
     <div class="type-vente-overlay" *ngIf="produitEnChoixType">
       <div class="type-vente-sheet">
         <div class="tv-nom">{{ produitEnChoixType.nom }}</div>
-        <div class="tv-sub">Ce produit se vend en détail ou en gros — choisissez :</div>
+        <div class="tv-sub">{{ i18n.t('scan.choisirTypeVente') }} :</div>
         <div class="tv-options">
           <button class="tv-option" (click)="choisirTypeVente('detail')">
             <mat-icon>storefront</mat-icon>
-            <span class="tv-option-label">Détail</span>
+            <span class="tv-option-label">{{ i18n.t('scan.detail') }}</span>
             <span class="tv-option-prix">{{ produitEnChoixType.prix | number:'1.0-0' }} FCFA</span>
           </button>
           <button class="tv-option gros" (click)="choisirTypeVente('gros')">
             <mat-icon>inventory_2</mat-icon>
-            <span class="tv-option-label">Gros</span>
+            <span class="tv-option-label">{{ i18n.t('scan.gros') }}</span>
             <span class="tv-option-prix">{{ produitEnChoixType.prixGros | number:'1.0-0' }} FCFA</span>
           </button>
         </div>
-        <button class="tv-cancel" (click)="annulerChoixType()">Annuler</button>
+        <button class="tv-cancel" (click)="annulerChoixType()">{{ i18n.lang() === 'ar' ? 'إلغاء' : 'Annuler' }}</button>
       </div>
     </div>
   `,
@@ -759,6 +760,7 @@ export class ScanComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private sync: SyncService,
     private cdr: ChangeDetectorRef,
+    public i18n: I18nService,
   ) {
     if (this.cameraSupported) {
       const DetectorClass = (window as any).BarcodeDetector;

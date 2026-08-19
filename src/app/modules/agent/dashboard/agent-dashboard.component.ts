@@ -8,6 +8,7 @@ import { ApiService } from '../../../core/services/api.service';
 import { PosService } from '../services/pos.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { OfflineService } from '../../../core/services/offline.service';
+import { I18nService } from '../../../core/services/i18n.service';
 
 @Component({
   selector: 'app-agent-dashboard',
@@ -20,7 +21,7 @@ import { OfflineService } from '../../../core/services/offline.service';
         <div class="greeting">
           <mat-icon class="greeting-icon">waving_hand</mat-icon>
           <div>
-            <div class="greeting-sub">Bonjour,</div>
+            <div class="greeting-sub">{{ i18n.t('dash.bonjour') }},</div>
             <div class="greeting-name">{{ prenom }}</div>
           </div>
         </div>
@@ -36,7 +37,7 @@ import { OfflineService } from '../../../core/services/offline.service';
           <div class="kpi-body">
             <div class="kpi-value">{{ jour.total | number: '1.0-0' }}</div>
             <div class="kpi-unit">FCFA</div>
-            <div class="kpi-label">Ventes du jour</div>
+            <div class="kpi-label">{{ i18n.lang() === 'ar' ? 'مبيعات اليوم' : 'Ventes du jour' }}</div>
           </div>
         </div>
         <div class="kpi-card warn" [class.has-alert]="alertes > 0">
@@ -45,22 +46,22 @@ import { OfflineService } from '../../../core/services/offline.service';
           </div>
           <div class="kpi-body">
             <div class="kpi-value">{{ alertes }}</div>
-            <div class="kpi-unit">produits</div>
-            <div class="kpi-label">Stock bas</div>
+            <div class="kpi-unit">{{ i18n.lang() === 'ar' ? 'منتج' : 'produits' }}</div>
+            <div class="kpi-label">{{ i18n.lang() === 'ar' ? 'مخزون منخفض' : 'Stock bas' }}</div>
           </div>
         </div>
       </div>
 
       <!-- Actions rapides -->
-      <div class="section-title">Actions rapides</div>
+      <div class="section-title">{{ i18n.lang() === 'ar' ? 'إجراءات سريعة' : 'Actions rapides' }}</div>
       <div class="quick-actions">
         <a routerLink="/agent/scan" class="action-card">
           <div class="action-icon">
             <mat-icon>qr_code_scanner</mat-icon>
           </div>
           <div class="action-body">
-            <div class="action-name">Scanner un produit</div>
-            <div class="action-sub">Caméra ou saisie manuelle</div>
+            <div class="action-name">{{ i18n.t('scan.titre') }}</div>
+            <div class="action-sub">{{ i18n.lang() === 'ar' ? 'كاميرا أو إدخال يدوي' : 'Caméra ou saisie manuelle' }}</div>
           </div>
           <mat-icon class="action-arrow">chevron_right</mat-icon>
         </a>
@@ -69,8 +70,8 @@ import { OfflineService } from '../../../core/services/offline.service';
             <mat-icon>shopping_cart</mat-icon>
           </div>
           <div class="action-body">
-            <div class="action-name">Voir le panier</div>
-            <div class="action-sub">{{ cartCount }} article(s) en attente</div>
+            <div class="action-name">{{ i18n.lang() === 'ar' ? 'عرض السلة' : 'Voir le panier' }}</div>
+            <div class="action-sub">{{ cartCount }} {{ i18n.lang() === 'ar' ? 'منتج بانتظار' : 'article(s) en attente' }}</div>
           </div>
           <span class="cart-badge" *ngIf="cartCount > 0">{{ cartCount }}</span>
           <mat-icon class="action-arrow">chevron_right</mat-icon>
@@ -80,8 +81,8 @@ import { OfflineService } from '../../../core/services/offline.service';
             <mat-icon>receipt_long</mat-icon>
           </div>
           <div class="action-body">
-            <div class="action-name">Réimprimer ticket</div>
-            <div class="action-sub">Dernier ticket généré</div>
+            <div class="action-name">{{ i18n.lang() === 'ar' ? 'إعادة طباعة الإيصال' : 'Réimprimer ticket' }}</div>
+            <div class="action-sub">{{ i18n.lang() === 'ar' ? 'آخر إيصال تم إنشاؤه' : 'Dernier ticket généré' }}</div>
           </div>
           <mat-icon class="action-arrow">chevron_right</mat-icon>
         </a>
@@ -93,11 +94,11 @@ import { OfflineService } from '../../../core/services/offline.service';
           <mat-icon style="font-size:15px;vertical-align:middle;color:var(--warning)"
             >warning</mat-icon
           >
-          Alertes stock
+          {{ i18n.lang() === 'ar' ? 'تنبيهات المخزون' : 'Alertes stock' }}
         </div>
         <div class="stock-item" *ngFor="let p of stockBas | slice: 0 : 5">
           <span class="stock-nom">{{ p.nom }}</span>
-          <span class="stock-qty" [class.critical]="p.stock <= 2">{{ p.stock }} restant(s)</span>
+          <span class="stock-qty" [class.critical]="p.stock <= 2">{{ p.stock }} {{ i18n.lang() === 'ar' ? 'متبقٍ' : 'restant(s)' }}</span>
         </div>
       </div>
     </div>
@@ -331,12 +332,16 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
   stockBas: any[] = [];
   cartCount = 0;
   prenom = 'Agent';
-  today = new Date().toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
   private destroy$ = new Subject<void>();
+
+  get today(): string {
+    const locale = this.i18n.lang() === 'ar' ? 'ar-SA' : 'fr-FR';
+    return new Date().toLocaleDateString(locale, {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+    });
+  }
 
   constructor(
     private api: ApiService,
@@ -344,6 +349,7 @@ export class AgentDashboardComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private cdr: ChangeDetectorRef,
     private offline: OfflineService,
+    public i18n: I18nService,
   ) {}
 
   ngOnInit(): void {
