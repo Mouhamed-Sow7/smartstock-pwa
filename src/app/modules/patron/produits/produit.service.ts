@@ -84,11 +84,13 @@ export class ProduitService {
         tenantId,
         nom: produit.nom,
         prix: produit.prix,
+        prixGros: produit.prixGros,
         prixAchat: produit.prixAchat,
         stock: produit.stock,
         seuilAlerte: produit.seuilAlerte,
         codeBarres: produit.codeBarres,
         categorie: produit.categorie,
+        dateExpiration: produit.dateExpiration,
       }),
     ).pipe(
       switchMap(({ statut, data }) =>

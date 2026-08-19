@@ -162,11 +162,13 @@ export class SyncService {
         this.http.post(`${environment.apiUrl}/produits`, {
           nom: p.nom,
           prix: p.prix,
+          prixGros: p.prixGros,
           prixAchat: p.prixAchat,
           stock: p.stock,
           seuilAlerte: p.seuilAlerte,
           codeBarres: p.codeBarres,
           categorie: p.categorie,
+          dateExpiration: p.dateExpiration,
         }),
       );
       await this.offline.marquerProduitSynced(p.id!);

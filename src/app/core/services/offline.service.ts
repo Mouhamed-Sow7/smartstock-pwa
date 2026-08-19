@@ -67,11 +67,13 @@ export interface ProduitPending {
   tenantId: string;
   nom: string;
   prix: number;
+  prixGros?: number;
   prixAchat?: number;
   stock: number;
   seuilAlerte?: number;
   codeBarres?: string;
   categorie?: string;
+  dateExpiration?: string | null;
   statut: 'pending' | 'synced' | 'error';
   createdAt: string;
   errorMessage?: string;
