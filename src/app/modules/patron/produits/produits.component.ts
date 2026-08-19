@@ -536,6 +536,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
       width: '100%',
       maxWidth: '540px',
       panelClass: 'produit-dialog-panel',
+      disableClose: true,
     }).afterClosed().subscribe(result => this.zone.run(() => { if (result) this.chargerProduits(); }));
   }
 
@@ -545,6 +546,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
       width: '100%',
       maxWidth: '540px',
       panelClass: 'produit-dialog-panel',
+      disableClose: true,
     }).afterClosed().subscribe(result => this.zone.run(() => { if (result) this.chargerProduits(); }));
   }
 

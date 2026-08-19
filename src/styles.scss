@@ -16,6 +16,7 @@ html {
 @include mat.core();
 
 :root {
+  color-scheme: dark;
   --navy: #0f1b2d;
   --navy-light: #162236;
   --navy-card: rgba(255, 255, 255, 0.06);
@@ -37,6 +38,7 @@ html {
 
 /* ── Thème clair ────────────────────────────────────────────── */
 [data-theme="light"] {
+  color-scheme: light;
   --navy:        #f5f7fa;
   --navy-light:  #ebeef3;
   --navy-card:   #ffffff;

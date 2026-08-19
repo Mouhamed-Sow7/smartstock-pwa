@@ -797,6 +797,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dialog.open(ProduitDialogComponent, {
       width: '500px',
       data: { produit: this.produitTrouve, isEdit: true },
+      disableClose: true,
     }).afterClosed().subscribe(result => this.zone.run(() => {
       if (result) this.produitsIndexesSession++;
       this.reprendreScan();
@@ -808,6 +809,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dialog.open(ProduitDialogComponent, {
       width: '500px',
       data: { produit: { codeBarres: this.dernierCode } as Produit, isEdit: false },
+      disableClose: true,
     }).afterClosed().subscribe(result => this.zone.run(() => {
       if (result) this.produitsIndexesSession++;
       this.reprendreScan();
