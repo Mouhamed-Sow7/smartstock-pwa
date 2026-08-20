@@ -72,6 +72,34 @@ import { AuthService } from '../../../core/services/auth.service';
         </button>
       </form>
 
+      <!-- Préférences -->
+      <form class="dlg-card" [formGroup]="prefsForm" (ngSubmit)="enregistrerPrefs()">
+        <h2 class="card-title"><mat-icon>tune</mat-icon> Préférences</h2>
+
+        <div class="field-group">
+          <label class="field-label">Alerte péremption</label>
+          <div class="prefs-row">
+            <span class="prefs-text">Prévenir</span>
+            <input class="field-input prefs-num" type="number" min="1" max="365" formControlName="seuilExpirationJours" />
+            <span class="prefs-text">jour(s) avant la date de péremption d'un produit</span>
+          </div>
+          <span class="field-hint">
+            S'applique à la carte "Péremption" du dashboard et au filtre du même nom dans Produits. Chaque boutique gère ses stocks différemment — à vous d'ajuster.
+          </span>
+        </div>
+
+        @if (prefsError()) {
+          <div class="form-error">{{ prefsError() }}</div>
+        }
+        @if (prefsSuccess()) {
+          <div class="form-success"><mat-icon>check_circle</mat-icon> Préférences enregistrées.</div>
+        }
+
+        <button type="submit" class="btn-save" [disabled]="prefsForm.invalid || prefsSaving()">
+          {{ prefsSaving() ? 'Enregistrement...' : 'Enregistrer' }}
+        </button>
+      </form>
+
       <!-- Mot de passe -->
       <form class="dlg-card" [formGroup]="pwdForm" (ngSubmit)="changerMotDePasse()">
         <h2 class="card-title"><mat-icon>lock</mat-icon> Mot de passe</h2>
@@ -145,6 +173,9 @@ import { AuthService } from '../../../core/services/auth.service';
     .field-error { font-size: 11px; color: #e74c3c; }
     .fields-row { display: flex; gap: 10px; }
     .fields-row .field-group { flex: 1; min-width: 0; }
+    .prefs-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .prefs-text { font-size: 13px; color: var(--text-2); }
+    .prefs-num { width: 64px; flex: none; text-align: center; }
 
     .pwd-wrap { position: relative; display: flex; }
     .pwd-wrap .field-input { padding-right: 40px; }
@@ -182,6 +213,11 @@ export class CompteComponent {
   showAncien = signal(false);
   showNouveau = signal(false);
 
+  prefsForm: FormGroup;
+  prefsSaving = signal(false);
+  prefsError = signal('');
+  prefsSuccess = signal(false);
+
   profilForm: FormGroup;
   pwdForm: FormGroup;
 
@@ -200,6 +236,12 @@ export class CompteComponent {
     this.pwdForm = this.fb.group({
       ancien: ['', Validators.required],
       nouveau: ['', [Validators.required, Validators.minLength(6)]],
+    });
+    this.prefsForm = this.fb.group({
+      seuilExpirationJours: [
+        user?.seuilExpirationJours ?? 14,
+        [Validators.required, Validators.min(1), Validators.max(365)],
+      ],
     });
   }
 
@@ -238,6 +280,24 @@ export class CompteComponent {
       error: (err) => {
         this.profilSaving.set(false);
         this.profilError.set(err.error?.message || 'Erreur lors de la mise à jour');
+      },
+    });
+  }
+
+  enregistrerPrefs(): void {
+    if (this.prefsForm.invalid) return;
+    this.prefsSaving.set(true);
+    this.prefsError.set('');
+    this.prefsSuccess.set(false);
+    this.auth.updateProfil({ seuilExpirationJours: this.prefsForm.value.seuilExpirationJours }).subscribe({
+      next: () => {
+        this.prefsSaving.set(false);
+        this.prefsSuccess.set(true);
+        this.snack.open('✓ Préférences enregistrées', '✕', { duration: 3000, panelClass: 'snack-success' });
+      },
+      error: (err) => {
+        this.prefsSaving.set(false);
+        this.prefsError.set(err.error?.message || 'Erreur lors de la mise à jour');
       },
     });
   }

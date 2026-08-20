@@ -26,7 +26,7 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
       <span class="pending-badge" *ngIf="sync.ventesPendingCount() > 0">
         {{ sync.ventesPendingCount() }} en attente
       </span>
-      <span class="tenant-name">{{ user()?.boutique || 'Ma boutique' }}</span>
+      <a class="tenant-name" routerLink="/patron/compte" title="Paramètres de la boutique">{{ user()?.boutique || 'Ma boutique' }}</a>
       <a mat-icon-button routerLink="/patron/compte" routerLinkActive="active-icon" style="color:var(--text-2)" title="Mon compte">
         <mat-icon>account_circle</mat-icon>
       </a>
@@ -129,7 +129,11 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
       border-radius: 20px;
       border: 1px solid rgba(0,184,148,.25);
       margin-right: 4px;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background .15s;
     }
+    .tenant-name:hover { background: rgba(0,184,148,.22); }
     a[mat-icon-button].active-icon { color: var(--accent) !important; }
 
     .sync-banner {

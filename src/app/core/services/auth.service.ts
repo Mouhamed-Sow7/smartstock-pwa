@@ -103,7 +103,7 @@ export class AuthService {
   // emailsChanges si des agents ont eu leur email relocalisé suite au
   // changement de slug, à afficher clairement au patron pour qu'il prévienne
   // son équipe (pas de notification automatique par email/SMS pour l'instant).
-  updateProfil(payload: { nom?: string; email?: string; telephone?: string; boutique?: string }) {
+  updateProfil(payload: { nom?: string; email?: string; telephone?: string; boutique?: string; seuilExpirationJours?: number }) {
     return this.http.patch<any>(`${this.baseUrl}/profil`, payload).pipe(
       tap((res) => {
         if (res?.data) localStorage.setItem(this.USER_KEY, JSON.stringify(res.data));
