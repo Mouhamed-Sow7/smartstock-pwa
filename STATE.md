@@ -4,42 +4,54 @@
 > **Toute IA (Claude, Copilot, Cline...) qui reprend ce projet doit lire ce fichier + `ARCHITECTURE.md` + `AUTH-FLOW.md` avant de commencer.**
 > Historique détaillé des fixes → voir `CHANGELOG.md` (ne pas charger sauf besoin d'investiguer une régression).
 
-**Dernière mise à jour** : 2026-08-17 — dernier commit `aab628c`
+**Dernière mise à jour** : 2026-08-20 — dernier commit `cefebf5`
 
 ---
 
 ## Contexte business
 
-Client réel en production sur `smartstock.digitalesf.com`. Toute modif à impact large = prudence, pas de régression.
+Client réel en production sur `smartstock.digitalesf.com`. Toute modif à impact large = prudence, pas de régression. **L'utilisateur prévoit de passer sur des plans payants Render + MongoDB Atlas pour faire grandir ce SaaS** (2026-08-20) — voir l'audit sécurité/performance dans le `STATE.md` du repo **backend** (`smartStock`), qui couvre l'essentiel (secrets, index, pagination) ; rien de critique trouvé côté frontend lors de cet audit (pas de secret exposé dans `environment.ts`, apiUrl seule valeur présente).
 
 ## Infra active
 
 - Frontend : Vercel, domaine **`smartstock.digitalesf.com`**. L'ancien `smartstock-pwa-cyan.vercel.app` reste actif en alias.
 - Backend : Render, `smartstock-nhmt.onrender.com` — ⚠️ Vercel poste un statut de déploiement sur GitHub (vérifiable par une IA via l'API), **Render non**. Toujours demander confirmation à l'utilisateur après un push sur `smartStock`.
 - ⚠️ **Piège CORS** : tout changement de domaine/sous-domaine frontend → ajouter à `originesAutorisees` dans `server.js` (backend).
+- **Cold-start Render (plan gratuit/basique)** : cause de plusieurs bugs "fausse déconnexion" déjà rencontrés (voir commit `cefebf5`) — le retry x2/8s sur `creerVente`/`creerProduit`/`ajusterStock` limite mais n'élimine pas le symptôme si le réveil dépasse ~17s. Un plan Render payant sans sleep réglerait ça à la racine ; c'est un argument concret en faveur de la montée en gamme envisagée par l'utilisateur.
 
 ## ⚠️ Points d'architecture transversaux à connaître avant de coder
 
-1. **App zoneless** (pas de `zone.js`, confirmé absent de `package.json`/`angular.json`). Muter un champ de classe classique depuis un callback async (`subscribe()`, `.then()`...) ne rafraîchit PAS la vue automatiquement — utiliser `signal()` (`.set()`) ou `ChangeDetectorRef.markForCheck()` explicitement. Plusieurs bugs de cette session avaient cette cause (spinner login, nom de boutique non rafraîchi). **Pas d'audit systématique fait sur tout le reste de l'app.**
-2. **Vérification de build Vercel obligatoire après toute modif d'un fichier avec interfaces TypeScript strictes** (ex: `admin.component.ts`). `node -c` ne détecte QUE la syntaxe JS basique, PAS les erreurs de typage Angular (variable utilisée dans un template mais absente de son interface) — ces erreurs cassent le build silencieusement (aucune erreur locale, seul le build réel le révèle). Deux commits de cette session (`1fb25b8`, `2cc95d4`) ont cassé le build de cette façon avant d'être détectés et corrigés (`98b3890`). **Toujours vérifier le statut du commit via l'API GitHub après un push touchant ce type de fichier, pas seulement en fin de série de commits.**
+1. **App zoneless** (pas de `zone.js`, confirmé absent de `package.json`/`angular.json`). Muter un champ de classe classique depuis un callback async (`subscribe()`, `.then()`...) ne rafraîchit PAS la vue automatiquement — utiliser `signal()` (`.set()`) ou `ChangeDetectorRef.markForCheck()` explicitement. Plusieurs bugs déjà rencontrés avaient cette cause (spinner login, nom de boutique non rafraîchi). **Pas d'audit systématique fait sur tout le reste de l'app.**
+2. **Vérification de build Vercel obligatoire après toute modif d'un fichier avec interfaces TypeScript strictes** (ex: `admin.component.ts`). `node -c` ne détecte QUE la syntaxe JS basique, PAS les erreurs de typage Angular (variable utilisée dans un template mais absente de son interface) — ces erreurs cassent le build silencieusement (aucune erreur locale, seul le build réel le révèle). **Toujours vérifier le statut du commit via l'API GitHub après un push, pas seulement en fin de série de commits.**
 3. **Deux règles CSS globales `[class*="card"]`/`[class*="badge"]`** dans `styles.scss` (thème clair) s'appliquent à TOUTE classe contenant ces mots, même par coïncidence de nommage (a déjà cassé le login une fois : `.form-card`/`.hero-badge`). Si un futur bug de style clair bizarre apparaît sur un composant dont une classe contient "card"/"badge", regarder ça en premier.
+4. **`color-scheme` piloté manuellement** (`styles.scss`, `:root`/`[data-theme="light"]`) pour que le rendu natif du navigateur (icône `<input type="date">`, scrollbars...) suive le thème réel de l'app plutôt que la préférence OS. Si un futur champ natif (date, time, color...) semble mal contrasté dans un thème donné, ce n'est probablement PAS un bug de ce champ précis — vérifier `color-scheme` en premier.
+5. **i18n arabe (fusha) sur le parcours agent uniquement** (`core/services/i18n.service.ts`, signal-based maison, pas de librairie externe) depuis le 2026-08-20. Patron/login/register restent en français. `dir="rtl"` appliqué localement sur le conteneur racine d'`agent-layout` uniquement (jamais sur `<html>` globalement), pour ne pas fuiter vers login/patron qui n'ont aucune logique RTL. **Traduction non relue par un locuteur natif** — à valider en usage réel.
 
 ## Bugs ouverts
 
 _Aucun bug bloquant connu actuellement._
 
-## Backlog — demandes utilisateur en attente (2026-08-17)
+## Backlog — demandes utilisateur en attente (2026-08-20)
 
-1. **⏳ Rôles admin à clarifier/étendre** — l'utilisateur a mentionné vouloir un système équivalent pour les rôles admin, à préciser avec lui (pas de detail fourni au-delà de "pareil pour admin et ses rôles comme décrit en haut" — probablement lié à la gestion des patrons/abonnements, à reclarifier en début de prochaine session).
-2. **⏳ Carte "crédit" à la validation de vente** — demande initiale : ajouter une carte "crédit" au moment de valider une vente, pour enregistrer un prêt/crédit client. **Le système de crédit existe déjà côté backend** (modèles `Client`/`Paiement`, `modePaiement:'credit'` sur `Vente`, page `/patron/relances`) — pas encore vérifié si le flux de VALIDATION DE VENTE (POS agent) propose déjà cette option ou si l'UI manque. À investiguer en priorité avant de coder quoi que ce soit.
-3. **⏳ Date de création abonnement "via le réseau au Sénégal"** — demande de l'utilisateur de s'assurer que la date d'inscription d'un patron est fiable pour déclencher les rappels d'abonnement. Investigation faite : Sénégal = UTC+0 (pas de DST), donc pas de vrai problème de fuseau horaire technique ; `prochainPaiementAbonnement` est déjà posé automatiquement (+30j) via le schéma Mongoose dès l'inscription — **automatique, pas d'action requise**, sauf si l'utilisateur clarifie un besoin différent.
-4. **⏳ Email de récupération de mot de passe** — priorité la plus basse (déjà notée avant). Adresses dispo : `contact@digitalesf.com`/`noreply@digitalesf.com`. Nécessite Nodemailer + provider SMTP gratuit (Brevo/SendGrid) côté backend.
+1. **⏳ Toggle FR/EN** — l'utilisateur veut, en plus de l'arabe, un sélecteur français/anglais. Pas encore commencé. Probablement extension du même `I18nService` (ajouter `'en'` à `Lang`, un 3ᵉ jeu de clés au dictionnaire) plutôt qu'un nouveau système.
+2. **⏳ Version "quincaillerie"** — SmartStock adapté à la gestion commerciale de quincailleries (pas une traduction, un métier différent : nomenclature produits, unités de mesure, etc. probablement différentes d'une boutique généraliste). Aucun détail précis donné pour l'instant — à clarifier en début de prochaine session avant de coder quoi que ce soit.
+3. **⏳ Email de récupération de mot de passe** — priorité la plus basse (déjà notée avant). Adresses dispo : `contact@digitalesf.com`/`noreply@digitalesf.com`. Nécessite Nodemailer + provider SMTP gratuit (Brevo/SendGrid) côté backend.
+4. **⏳ Pagination des listes** (ventes, produits, historique...) — voir audit dans le `STATE.md` backend, impact frontend à prévoir (chargement par page) une fois la partie backend traitée. Pas urgent tant que l'historique des tenants reste petit, mais à garder à l'esprit avec la montée en charge prévue.
 
-## Résolu le 2026-08-17
+## Résolu récemment (2026-08-17 → 2026-08-20), pour référence rapide
 
-- Page "Mon compte" patron branchée : route `/patron/compte` ajoutée à `patron.module.ts`, lien d'accès en icône `account_circle` dans la topbar du `patron-layout.component.ts` (pas dans la bottom-nav, grille figée à 5 colonnes). Aucun changement backend nécessaire, endpoints `PATCH /auth/profil` et `PATCH /auth/change-password` déjà en place et vérifiés. Commit `aab628c`, build Vercel vérifié OK.
+- Icône date invisible (`color-scheme` désynchronisé du thème réel de l'app, voir point d'architecture #4) + modal produit fermé par erreur au clic extérieur (`disableClose: true` sur les 4 points d'ouverture)
+- Traduction arabe (fusha) du parcours agent avec sélecteur FR/AR — voir point d'architecture #5
+- Fix date de péremption (et prix de gros) jamais sauvegardés à la création d'un produit — `ProduitService.create()` construisait le payload avec une liste de champs figée en dur, jamais mise à jour avec ces deux champs ajoutés depuis. Corrigé aux deux points d'envoi (création en ligne + hors ligne mise en queue)
+- Prix de vente ajustable ligne par ligne dans le panier avant validation (ex: "3 cubes Maggi à 100F au lieu de 150F") — surcharge uniquement cette vente, jamais le prix catalogue du produit
+- Fix fausse "déconnexion" pendant l'indexation — cold-start Render sans retry sur `creerProduit`/`ajusterStock` (le correctif retry x2 existait déjà pour `creerVente` mais n'avait jamais été répercuté ailleurs)
+- Nouveau logo PWA (maison verte, remplace le logo Angular par défaut) sur toutes les icônes du manifest + favicon + login + register, ajusté sur plusieurs itérations avec retours visuels précis de l'utilisateur (comparaison pixel par pixel avec la maquette)
+- Vente à crédit dans le panier agent, cloisonnement des ventes par agent (chaque agent voit ses ventes uniquement, patron voit tout + filtre par agent), refonte "Relances" → "Prêts" (todo-list clients paid/unpaid, notifie uniquement le patron)
+- Vente détail/gros, scan rapide togglable, filtres stock, alertes péremption
+- Fix base Dexie cassée (`DatabaseClosedError`) suite à une migration de structure du panier hors-ligne + lectures caméra erronées (checksum EAN-13/8/UPC-A + double lecture avant validation)
+- Page "Mon compte" patron branchée (route + lien topbar), toggle afficher/masquer les mots de passe
 
-## Résolu cette session (2026-08-15 → 2026-08-16), pour référence rapide
+## Résolu avant ça (2026-08-15 → 2026-08-16), pour référence rapide
 
 - Login par téléphone patron (bloqué avant, backend filtrait sur role:'agent')
 - Propagation renommage boutique → patron/agents/ticket client (cascade + `refreshUser()`)

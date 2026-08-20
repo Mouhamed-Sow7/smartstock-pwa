@@ -17,6 +17,8 @@ Pour toute autre IA (Claude, Cline...) : lire ce fichier explicitement avant de 
 - Multi-tenant : toute donnée est scopée par `tenantId`. Ne jamais oublier ce filtre dans une requête ou un cache Dexie.
 - Offline-first : les entités créées hors ligne ont un id temporaire `temp_xxx` jusqu'à sync réussie. Toute nouvelle fonctionnalité touchant les ventes/produits/stocks doit gérer ce cas (voir le bug `8c447f5` dans `CHANGELOG.md` pour un exemple de piège classique).
 - CORS backend : whitelist stricte par origine exacte (`originesAutorisees` dans `server.js` du repo backend `smartStock`), pas de wildcard. Tout changement de domaine/sous-domaine côté frontend doit être répercuté côté backend.
+- Nouveau champ ajouté à un formulaire produit/vente (ex: `dateExpiration`, `prixGros`) : vérifier qu'il est bien repris dans **tous** les points de construction du payload (`ProduitService.create()`, `SyncService.syncProduit()`, et l'équivalent update) — voir l'audit du 2026-08-20 dans `STATE.md` : deux payloads construits à la main avec une liste de champs figée avaient été oubliés lors de l'ajout de `dateExpiration`/`prixGros`, silencieusement perdus sans erreur visible.
+- Secret/clé : ce repo est PUBLIC sur GitHub, mais le frontend n'a normalement aucun secret à stocker (`environment.ts` ne contient qu'une URL d'API publique) — si une future fonctionnalité nécessite une clé API tierce, ne jamais la mettre en dur ici, elle doit vivre côté backend.
 
 ## Style de code et de commit attendu
 
