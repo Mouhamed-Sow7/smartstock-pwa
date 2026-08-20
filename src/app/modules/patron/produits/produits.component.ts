@@ -70,7 +70,7 @@ function catInitial(cat: string): string {
         </button>
       </div>
 
-      <!-- Filtre stock : Tous / Stock bas (rupture ou presque) / En stock -->
+      <!-- Filtre stock : Tous / Stock bas / En stock / Péremption -->
       <div class="stock-filter-bar" *ngIf="produits().length > 0">
         <button class="stock-filter-pill" [class.active]="stockFilter() === 'tous'" (click)="stockFilter.set('tous')">
           Tous <span class="pill-count">{{ produits().length }}</span>
@@ -81,7 +81,14 @@ function catInitial(cat: string): string {
         <button class="stock-filter-pill ok" [class.active]="stockFilter() === 'ok'" (click)="stockFilter.set('ok')">
           <mat-icon>check_circle</mat-icon> En stock <span class="pill-count">{{ countOk() }}</span>
         </button>
+        <button class="stock-filter-pill expire" [class.active]="stockFilter() === 'expire'" (click)="stockFilter.set('expire')">
+          <mat-icon>event_busy</mat-icon> Péremption <span class="pill-count">{{ countExpire() }}</span>
+        </button>
       </div>
+      <p class="expire-seuil-hint" *ngIf="stockFilter() === 'expire'">
+        <mat-icon>info</mat-icon>
+        Périmés ou expirant dans les {{ SEUIL_EXPIRATION_JOURS }} prochains jours.
+      </p>
 
       <!-- Loading -->
       <div class="loading-center" *ngIf="isLoading()">
@@ -343,6 +350,12 @@ function catInitial(cat: string): string {
     .stock-filter-pill.active { color: var(--text-1); border-color: var(--text-1); }
     .stock-filter-pill.rupture.active { background: rgba(231,76,60,.12); border-color: #e74c3c; color: #e74c3c; }
     .stock-filter-pill.ok.active { background: rgba(0,184,148,.12); border-color: var(--accent); color: var(--accent); }
+    .stock-filter-pill.expire.active { background: rgba(162,155,254,.12); border-color: #a29bfe; color: #a29bfe; }
+    .expire-seuil-hint {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--text-3); font-size: 12px; margin: -6px 0 14px;
+    }
+    .expire-seuil-hint mat-icon { font-size: 14px; width: 14px; height: 14px; }
 
     /* ── Menu 3 points ── */
     .row-menu-wrap { flex-shrink: 0; }
@@ -408,10 +421,17 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
 
   searchQuery = signal('');
-  stockFilter = signal<'tous' | 'bas' | 'ok'>('tous');
+  stockFilter = signal<'tous' | 'bas' | 'ok' | 'expire'>('tous');
   reapproId: string | null = null;
   reapproQty = 1;
   reapproSaving = false;
+
+  // Doit rester identique à la valeur par défaut de `jours` dans
+  // getProduitsExpirationProche côté backend (produit.controller.js) — les
+  // deux définissent la même fenêtre d'alerte, pas de logique dupliquée
+  // divergente. Si un jour ce seuil devient réglable par le patron, changer
+  // les deux endroits ensemble.
+  readonly SEUIL_EXPIRATION_JOURS = 14;
 
   // Un produit est "stock bas" au même sens que le badge d'alerte déjà
   // affiché sur chaque ligne (rupture totale OU sous le seuil) — et au même
@@ -423,6 +443,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
 
   countBas = computed(() => this.produits().filter((p) => this.estStockBas(p)).length);
   countOk = computed(() => this.produits().filter((p) => !this.estStockBas(p)).length);
+  countExpire = computed(() => this.produits().filter((p) => this.estExpireOuProche(p)).length);
 
   estExpire(p: any): boolean {
     return !!p.dateExpiration && new Date(p.dateExpiration) < new Date();
@@ -430,7 +451,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   estExpireOuProche(p: any): boolean {
     if (!p.dateExpiration) return false;
     const seuil = new Date();
-    seuil.setDate(seuil.getDate() + 14);
+    seuil.setDate(seuil.getDate() + this.SEUIL_EXPIRATION_JOURS);
     return new Date(p.dateExpiration) <= seuil;
   }
 
@@ -445,6 +466,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
     let all = this.produits();
     if (filtre === 'bas') all = all.filter((p) => this.estStockBas(p));
     else if (filtre === 'ok') all = all.filter((p) => !this.estStockBas(p));
+    else if (filtre === 'expire') all = all.filter((p) => this.estExpireOuProche(p));
     const filtered = q
       ? all.filter(p =>
           p.nom?.toLowerCase().includes(q) ||
@@ -512,7 +534,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
     this.chargerProduits();
     // Lien depuis le dashboard ("Stock bas") : /patron/produits?filtre=bas
     const filtre = this.route.snapshot.queryParamMap.get('filtre');
-    if (filtre === 'bas' || filtre === 'ok') this.stockFilter.set(filtre);
+    if (filtre === 'bas' || filtre === 'ok' || filtre === 'expire') this.stockFilter.set(filtre);
   }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 

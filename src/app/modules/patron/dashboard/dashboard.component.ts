@@ -119,7 +119,8 @@ import { AuthService } from '../../../core/services/auth.service';
           </div>
           <span>Stock bas <span class="badge" *ngIf="alertes > 0">{{ alertes }}</span></span>
         </a>
-        <a class="shortcut-card" [routerLink]="['/patron/produits']" [class.has-alert]="alertesExpiration > 0">
+        <a class="shortcut-card" [routerLink]="['/patron/produits']" [queryParams]="{ filtre: 'expire' }"
+          [class.has-alert]="alertesExpiration > 0" title="Périmés ou expirant dans les 14 prochains jours">
           <div class="sc-icon" style="--sc: #a29bfe;">
             <mat-icon>{{ alertesExpiration > 0 ? 'event_busy' : 'event_available' }}</mat-icon>
           </div>
