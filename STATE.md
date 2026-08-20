@@ -4,7 +4,7 @@
 > **Toute IA (Claude, Copilot, Cline...) qui reprend ce projet doit lire ce fichier + `ARCHITECTURE.md` + `AUTH-FLOW.md` avant de commencer.**
 > Historique détaillé des fixes → voir `CHANGELOG.md` (ne pas charger sauf besoin d'investiguer une régression).
 
-**Dernière mise à jour** : 2026-08-20 — dernier commit `cefebf5`
+**Dernière mise à jour** : 2026-08-20 — dernier commit `d4b1d5f`
 
 ---
 
@@ -36,10 +36,11 @@ _Aucun bug bloquant connu actuellement._
 1. **⏳ Toggle FR/EN** — l'utilisateur veut, en plus de l'arabe, un sélecteur français/anglais. Pas encore commencé. Probablement extension du même `I18nService` (ajouter `'en'` à `Lang`, un 3ᵉ jeu de clés au dictionnaire) plutôt qu'un nouveau système.
 2. **⏳ Version "quincaillerie"** — SmartStock adapté à la gestion commerciale de quincailleries (pas une traduction, un métier différent : nomenclature produits, unités de mesure, etc. probablement différentes d'une boutique généraliste). Aucun détail précis donné pour l'instant — à clarifier en début de prochaine session avant de coder quoi que ce soit.
 3. **⏳ Email de récupération de mot de passe** — priorité la plus basse (déjà notée avant). Adresses dispo : `contact@digitalesf.com`/`noreply@digitalesf.com`. Nécessite Nodemailer + provider SMTP gratuit (Brevo/SendGrid) côté backend.
-4. **⏳ Pagination des listes** (ventes, produits, historique...) — voir audit dans le `STATE.md` backend, impact frontend à prévoir (chargement par page) une fois la partie backend traitée. Pas urgent tant que l'historique des tenants reste petit, mais à garder à l'esprit avec la montée en charge prévue.
+4. **⏳ Pagination clients/prêts** — même pattern que les ventes (voir résolu ci-dessous), pas encore fait pour `GET /clients`. Moins urgent : un client crédit = une entrée par acheteur unique, grandit bien plus lentement que les ventes (une par transaction). À faire si ça devient un jour un problème réel, pas avant.
 
 ## Résolu récemment (2026-08-17 → 2026-08-20), pour référence rapide
 
+- **Pagination `GET /ventes`** (backend + les deux consommateurs frontend) — voir audit sécurité/performance ci-dessus. Rapport patron : boucle transparente sur les pages côté `RapportService` (totaux/exports restent exacts, aucun changement visible). Historique agent (seule vue vraiment non bornée dans le temps du parcours agent) : vrai chargement paginé, bouton "Charger plus". Produits volontairement pas touchés (cache offline intégral nécessaire pour la recherche instantanée agent, voir raisonnement dans `STATE.md` backend). Clients/Prêts : même pattern à appliquer un jour si besoin, pas urgent (grandit plus lentement).
 - Icône date invisible (`color-scheme` désynchronisé du thème réel de l'app, voir point d'architecture #4) + modal produit fermé par erreur au clic extérieur (`disableClose: true` sur les 4 points d'ouverture)
 - Traduction arabe (fusha) du parcours agent avec sélecteur FR/AR — voir point d'architecture #5
 - Fix date de péremption (et prix de gros) jamais sauvegardés à la création d'un produit — `ProduitService.create()` construisait le payload avec une liste de champs figée en dur, jamais mise à jour avec ces deux champs ajoutés depuis. Corrigé aux deux points d'envoi (création en ligne + hors ligne mise en queue)
