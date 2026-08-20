@@ -19,13 +19,39 @@ export interface Vente {
 export class RapportService {
   constructor(private api: ApiService, private auth: AuthService) {}
 
+  /** Récupère TOUTES les ventes de la période demandée (utilisé pour les
+   * totaux CA/marge et les exports PDF/Excel du rapport patron -- qui
+   * doivent rester exacts, jamais tronqués silencieusement). Le backend
+   * pagine désormais par défaut (voir audit 2026-08-20, Vente grandit sans
+   * limite dans le temps) ; comme cette vue est déjà bornée par une plage
+   * de dates (contrairement à l'historique agent, qui lui n'a aucune borne
+   * -- voir AgentHistoriqueComponent pour la vraie pagination "charger
+   * plus"), on boucle ici en transparence sur les pages successives pour
+   * reconstituer l'ensemble complet, sans rien changer côté composant. */
   getVentes(debut: string, fin: string, boutiqueId?: string, agentId?: string): Observable<any> {
-    let url = `ventes?debut=${debut}&fin=${fin}`;
-    if (boutiqueId) url += `&boutiqueId=${boutiqueId}`;
-    // Le backend ignore/écrase ce paramètre pour un agent (il est forcé sur
-    // son propre id côté serveur) — utile seulement pour le filtre patron.
-    if (agentId) url += `&agentId=${agentId}`;
-    return this.api.get(url);
+    return new Observable((subscriber) => {
+      const toutesLesVentes: any[] = [];
+      const chargerPage = (page: number) => {
+        let url = `ventes?debut=${debut}&fin=${fin}&page=${page}&limit=200`;
+        if (boutiqueId) url += `&boutiqueId=${boutiqueId}`;
+        // Le backend ignore/écrase ce paramètre pour un agent (il est forcé sur
+        // son propre id côté serveur) — utile seulement pour le filtre patron.
+        if (agentId) url += `&agentId=${agentId}`;
+        this.api.get(url).subscribe({
+          next: (res: any) => {
+            toutesLesVentes.push(...(res.data ?? []));
+            if (res.pagination?.hasMore) {
+              chargerPage(page + 1);
+            } else {
+              subscriber.next({ success: true, data: toutesLesVentes });
+              subscriber.complete();
+            }
+          },
+          error: (err) => subscriber.error(err),
+        });
+      };
+      chargerPage(1);
+    });
   }
 
   getAgentsPourFiltre(): Observable<any> {

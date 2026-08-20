@@ -57,6 +57,13 @@ interface VenteHisto {
           <span class="item" *ngFor="let p of v.produits">{{ p.nom }} ×{{ p.quantite }}</span>
         </div>
       </div>
+
+      <button class="load-more-btn" *ngIf="_hasMore && !_isLoading" (click)="chargerPlus()" [disabled]="_isLoadingMore">
+        <mat-icon [class.spin]="_isLoadingMore">{{ _isLoadingMore ? 'autorenew' : 'expand_more' }}</mat-icon>
+        {{ _isLoadingMore
+          ? (i18n.lang() === 'ar' ? 'جارٍ التحميل...' : 'Chargement...')
+          : (i18n.lang() === 'ar' ? 'تحميل المزيد' : 'Charger plus') }}
+      </button>
     </div>
   `,
   styles: [`
@@ -101,13 +108,26 @@ interface VenteHisto {
     .date { color: var(--text-3); font-size: 11px; }
     .vente-items { display: flex; flex-wrap: wrap; gap: 6px; }
     .item { background: rgba(255,255,255,.05); color: var(--text-2); font-size: 11px; padding: 3px 8px; border-radius: 8px; }
+
+    .load-more-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; margin-top: 4px; padding: 12px; border-radius: 12px;
+      border: 1px solid var(--navy-border); background: var(--navy-card);
+      color: var(--text-2); font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .load-more-btn:disabled { opacity: .6; cursor: default; }
+    .load-more-btn mat-icon { font-size: 18px; width: 18px; height: 18px; }
   `],
 })
 export class AgentHistoriqueComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   _ventes: VenteHisto[] = [];
   _isLoading = false;
+  _isLoadingMore = false;
   _error = false;
+  _page = 1;
+  _hasMore = false;
+  private readonly LIMIT = 30;
 
   constructor(
     private api: ApiService,
@@ -119,13 +139,28 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void { this.charger(); }
 
+  /** Historique d'un agent = seule liste vraiment non bornée dans le temps
+   * de tout le parcours agent (contrairement au rapport patron, toujours
+   * filtré par plage de dates) : un agent en poste depuis des mois/années
+   * accumule des ventes sans limite. Chargement paginé "charger plus" au
+   * lieu de tout rapatrier d'un coup — voir audit 2026-08-20 (STATE.md). */
   charger(): void {
+    this._page = 1;
+    this._chargerPage(1, false);
+  }
+
+  chargerPlus(): void {
+    if (this._isLoadingMore || !this._hasMore) return;
+    this._chargerPage(this._page + 1, true);
+  }
+
+  private _chargerPage(page: number, append: boolean): void {
     const user = this.auth.getUser();
     const userId = user?._id || user?.id;
-    const path = userId ? `ventes?agentId=${userId}` : 'ventes';
+    const base = userId ? `ventes?agentId=${userId}` : 'ventes?';
+    const path = `${base}&page=${page}&limit=${this.LIMIT}`;
 
-    this._isLoading = true;
-    this._error = false;
+    if (append) { this._isLoadingMore = true; } else { this._isLoading = true; this._error = false; }
     this.cdr.detectChanges();
 
     this.api.get(path).pipe(
@@ -139,12 +174,15 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
       // même si l'observable se résout hors zone (cas des retries longs)
       this.zone.run(() => {
         if (res?.success) {
-          this._ventes = res.data ?? [];
+          this._ventes = append ? [...this._ventes, ...(res.data ?? [])] : (res.data ?? []);
+          this._hasMore = !!res.pagination?.hasMore;
+          this._page = page;
           this._error = false;
-        } else {
+        } else if (!append) {
           this._error = true;
         }
         this._isLoading = false;
+        this._isLoadingMore = false;
         this.cdr.detectChanges();
       });
     });
