@@ -58,9 +58,19 @@ interface BarcodeDetectorLike {
             <div class="corner br"></div>
             <div class="scan-line" [class.paused]="scanPaused"></div>
           </div>
-          <!-- Overlay succès après détection -->
+          <!-- Overlay apres detection : spinner pendant la resolution, puis
+               succes ou erreur selon le resultat reel — jamais un succes
+               affiche par avance (voir onCameraCodeDetected/finirPauseScan). -->
           <div class="scan-success-overlay" *ngIf="scanPaused">
-            <div class="scan-success-inner">
+            <div class="scan-success-inner" *ngIf="isLoading">
+              <mat-icon class="verif-spin">autorenew</mat-icon>
+              <span>Vérification...</span>
+            </div>
+            <div class="scan-success-inner error" *ngIf="!isLoading && errorMessage">
+              <mat-icon>error</mat-icon>
+              <span>{{ errorMessage }}</span>
+            </div>
+            <div class="scan-success-inner" *ngIf="!isLoading && !errorMessage">
               <mat-icon>check_circle</mat-icon>
               <span>{{ lastProductName }}</span>
             </div>
@@ -342,7 +352,7 @@ interface BarcodeDetectorLike {
       .scan-success-overlay {
         position: absolute;
         inset: 0;
-        background: rgba(0, 184, 148, 0.18);
+        background: rgba(6,14,26,0.55);
         border-radius: 8px;
         display: flex;
         align-items: center;
@@ -365,11 +375,23 @@ interface BarcodeDetectorLike {
         font-weight: 700;
         font-size: 15px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        max-width: 90%;
+        text-align: center;
+      }
+      .scan-success-inner.error {
+        background: rgba(231, 76, 60, 0.92);
       }
       .scan-success-inner mat-icon {
         font-size: 22px;
         width: 22px;
         height: 22px;
+        flex-shrink: 0;
+      }
+      .scan-success-inner .verif-spin {
+        animation: verif-spin-anim 0.8s linear infinite;
+      }
+      @keyframes verif-spin-anim {
+        to { transform: rotate(360deg); }
       }
 
       /* Camera buttons */
@@ -1156,12 +1178,32 @@ export class ScanComponent implements OnInit, OnDestroy {
     this.barcode = code;
     this.cdr.detectChanges();
     this.scanProduct();
-    // Pause 2.5s : overlay visible, ligne de scan arrêtée, anti-doublon
-    setTimeout(() => {
-      this.scanPaused = false;
-      this.isProcessingCameraCode = false;
-      this.cdr.detectChanges();
-    }, 2500);
+    // Pause 2.5s minimum : overlay visible, ligne de scan arrêtée, anti-doublon.
+    // AMÉLIORATION : un délai fixe seul ne suffit pas — si le réseau met plus
+    // de 2.5s (ex: réveil à froid de l'API backend, déjà documenté comme
+    // cause de latence sur ce projet), le scan se réactivait AVANT que la
+    // recherche produit soit terminée, ouvrant une fenêtre où un second scan
+    // pouvait ajouter le même article une deuxième fois au panier sans que
+    // le premier ait même abouti. finirPauseScan() attend maintenant aussi
+    // explicitement la fin réelle de la recherche (isLoading) en plus du
+    // délai minimum, quitte à rallonger la pause de quelques centaines de ms
+    // sur un réseau lent — jamais l'inverse.
+    setTimeout(() => this.finirPauseScan(), 2500);
+  }
+
+  // Relâche le scan seulement une fois la recherche produit réellement
+  // terminée (isLoading===false) — jamais avant, même si le délai minimum
+  // de pause (2.5s, déjà écoulé quand cette fonction est appelée la première
+  // fois) est dépassé. Se re-vérifie toutes les 300ms tant que ça traite
+  // encore, au lieu de libérer aveuglément le scan sur un simple timer.
+  private finirPauseScan(): void {
+    if (this.isLoading) {
+      setTimeout(() => this.finirPauseScan(), 300);
+      return;
+    }
+    this.scanPaused = false;
+    this.isProcessingCameraCode = false;
+    this.cdr.detectChanges();
   }
 
   async switchCamera(): Promise<void> {

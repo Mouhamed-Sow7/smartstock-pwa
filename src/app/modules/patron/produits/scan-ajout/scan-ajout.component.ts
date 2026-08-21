@@ -89,6 +89,25 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
             <div class="corner br"></div>
             <div class="scan-line"></div>
           </div>
+
+          <!--
+            Overlay "Vérification..." — couvre exactement la fenêtre entre un
+            code confirmé (2 lectures identiques + checksum valide, voir
+            onCameraCodeDetected) et la détermination du résultat (produit
+            trouvé/nouveau, ou réassort auto en mode rapide). Sans ce retour
+            visuel, rien ne distinguait "scan pris en compte, en cours de
+            traitement" de "rien détecté" — l'utilisateur avait le réflexe de
+            rescanner par précaution, provoquant parfois un double
+            réapprovisionnement en scan rapide (où il n'y a jamais de carte de
+            confirmation). isLoading + resultat==='idle' suffit à couvrir
+            aussi bien le mode normal (bref, le temps de l'appel réseau) que
+            le mode rapide (toute la durée, y compris la mise à jour du
+            stock, puisque resultat n'y quitte jamais 'idle').
+          -->
+          <div class="verif-overlay" *ngIf="isLoading && resultat === 'idle'">
+            <mat-icon class="verif-spin">autorenew</mat-icon>
+            <span>Traitement en cours...</span>
+          </div>
         </div>
 
         <div class="camera-actions">
@@ -275,6 +294,31 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         font-size: 36px;
         width: 36px;
         height: 36px;
+      }
+      .verif-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        color: #fff;
+        font-size: 13px;
+        font-weight: 600;
+        background: rgba(6,14,26,.72);
+        backdrop-filter: blur(2px);
+        z-index: 5;
+      }
+      .verif-spin {
+        font-size: 32px;
+        width: 32px;
+        height: 32px;
+        color: var(--accent);
+        animation: verif-spin-anim 0.8s linear infinite;
+      }
+      @keyframes verif-spin-anim {
+        to { transform: rotate(360deg); }
       }
       .scan-frame {
         position: absolute;
