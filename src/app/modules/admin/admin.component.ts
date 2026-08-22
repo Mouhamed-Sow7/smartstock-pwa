@@ -242,6 +242,44 @@ interface AbonnementARelancer {
         <div class="ok-msg"  *ngIf="resetOk" ><mat-icon>check_circle</mat-icon>{{ resetOk }}</div>
       </div>
 
+      <div class="tool-card">
+        <h4><mat-icon>backup</mat-icon>Sauvegarde manuelle</h4>
+        <p>
+          Exporte toutes les données (produits, ventes, clients, boutiques — mots
+          de passe exclus) dans un fichier JSON téléchargeable. À faire avant
+          toute mise à jour un peu risquée, ou simplement de temps en temps
+          tant qu'il n'y a pas de sauvegarde automatique programmée.
+        </p>
+        <div class="f-row">
+          <input class="adm-inp" [(ngModel)]="backupTenantId" placeholder="tenantId (vide = toutes les boutiques)" style="flex:2"/>
+          <button class="btn-primary" (click)="telechargerBackup()" [disabled]="backupBusy">
+            <mat-icon>{{ backupBusy ? 'hourglass_empty' : 'download' }}</mat-icon>{{ backupBusy ? 'Export…' : 'Télécharger' }}
+          </button>
+        </div>
+        <div class="ok-msg"  *ngIf="backupOk"  ><mat-icon>check_circle</mat-icon>{{ backupOk }}</div>
+        <div class="err-msg" *ngIf="backupErr" ><mat-icon>error_outline</mat-icon>{{ backupErr }}</div>
+      </div>
+
+      <div class="tool-card">
+        <h4><mat-icon>restore</mat-icon>Restauration depuis une sauvegarde</h4>
+        <p>
+          Choisissez un fichier JSON exporté ci-dessus. Par défaut, n'ajoute
+          QUE les documents qui n'existent pas encore (aucun écrasement) —
+          cochez la case pour remplacer aussi les documents déjà existants
+          (à utiliser avec précaution).
+        </p>
+        <input type="file" accept=".json,application/json" (change)="onFichierBackupChoisi($event)" />
+        <label class="chk-remplacer">
+          <input type="checkbox" [(ngModel)]="restaurerAvecRemplacement" />
+          Remplacer aussi les documents déjà existants
+        </label>
+        <button class="btn-primary" (click)="restaurerBackup()" [disabled]="restaureBusy || !fichierBackupChoisi">
+          <mat-icon>{{ restaureBusy ? 'hourglass_empty' : 'restore' }}</mat-icon>{{ restaureBusy ? 'Restauration…' : 'Restaurer' }}
+        </button>
+        <div class="ok-msg"  *ngIf="restaureOk"  ><mat-icon>check_circle</mat-icon>{{ restaureOk }}</div>
+        <div class="err-msg" *ngIf="restaureErr" ><mat-icon>error_outline</mat-icon>{{ restaureErr }}</div>
+      </div>
+
       <div class="tool-card danger-zone">
         <h4><mat-icon>delete_forever</mat-icon>Purge des ventes</h4>
         <p>Supprime toutes les ventes. Action irréversible.</p>
@@ -434,6 +472,7 @@ interface AbonnementARelancer {
     .tool-card{background:#0f1b2d;border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:18px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;}
     .tool-card p{font-size:13px;color:#8892a4;}
     .tool-card.danger-zone{border-color:rgba(231,76,60,.25);}
+    .chk-remplacer{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-2,#8fa3bf);margin:10px 0;cursor:pointer;}
     .f-row{display:flex;gap:10px;flex-wrap:wrap;}
     .f-grp{display:flex;flex-direction:column;gap:5px;flex:1;min-width:180px;}
     .f-grp label{font-size:11px;font-weight:700;color:#8892a4;text-transform:uppercase;letter-spacing:.4px;}
@@ -541,6 +580,13 @@ export class AdminComponent implements OnInit {
   // Outils
   resetMail = ''; resetPass = ''; resetBusy = false; resetOk = ''; resetErr = '';
   purgeBusy = false; purgeOk = ''; purgeErr = '';
+
+  // Sauvegarde / restauration
+  backupTenantId = '';
+  backupBusy = false; backupOk = ''; backupErr = '';
+  fichierBackupChoisi: File | null = null;
+  restaurerAvecRemplacement = false;
+  restaureBusy = false; restaureOk = ''; restaureErr = '';
 
   // Reset mdp par ligne (bouton clé sur un patron ou un agent dans l'équipe)
   resetBusyId: string | null = null;
@@ -758,5 +804,76 @@ export class AdminComponent implements OnInit {
       next: (r) => { this.purgeOk = r.message || 'Ventes supprimées'; this.purgeBusy = false; this.loadStats(); this.cdr.detectChanges(); },
       error: (e) => { this.purgeErr = e.error?.message || 'Erreur'; this.purgeBusy = false; this.cdr.detectChanges(); },
     });
+  }
+
+  telechargerBackup(): void {
+    this.backupBusy = true; this.backupOk = ''; this.backupErr = '';
+    const params: Record<string, string> = {};
+    if (this.backupTenantId.trim()) params['tenantId'] = this.backupTenantId.trim();
+    this.http.get<any>(`${this.base}/backup`, { headers: this.h(), params }).subscribe({
+      next: (r) => {
+        this.backupBusy = false;
+        // Déclenche un vrai téléchargement de fichier — jamais juste affiché
+        // à l'écran, sinon impossible à conserver correctement sur mobile.
+        const blob = new Blob([JSON.stringify(r, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const horodatage = new Date().toISOString().replace(/[:.]/g, '-');
+        a.href = url;
+        a.download = `smartstock-backup-${horodatage}.json`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        const c = r.compteurs || {};
+        this.backupOk = `Sauvegarde téléchargée — ${c.produits ?? 0} produits, ${c.ventes ?? 0} ventes, ${c.clients ?? 0} clients, ${c.users ?? 0} comptes.`;
+        this.cdr.detectChanges();
+      },
+      error: (e) => { this.backupErr = e.error?.message || 'Erreur lors de l\'export'; this.backupBusy = false; this.cdr.detectChanges(); },
+    });
+  }
+
+  onFichierBackupChoisi(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.fichierBackupChoisi = input.files?.[0] || null;
+    this.restaureOk = ''; this.restaureErr = '';
+  }
+
+  restaurerBackup(): void {
+    if (!this.fichierBackupChoisi) return;
+    const avertissement = this.restaurerAvecRemplacement
+      ? "Cette restauration va REMPLACER les documents déjà existants portant le même identifiant. Continuer ?"
+      : 'Restaurer cette sauvegarde (les documents déjà existants seront simplement ignorés) ?';
+    if (!confirm(avertissement)) return;
+
+    this.restaureBusy = true; this.restaureOk = ''; this.restaureErr = '';
+    const reader = new FileReader();
+    reader.onload = () => {
+      let payload: any;
+      try {
+        payload = JSON.parse(reader.result as string);
+      } catch {
+        this.restaureBusy = false;
+        this.restaureErr = "Fichier JSON illisible — vérifiez que c'est bien un export généré ci-dessus.";
+        this.cdr.detectChanges();
+        return;
+      }
+      const data = payload?.data || payload; // tolère un fichier déjà "dépaqueté"
+      this.http.post<any>(`${this.base}/backup/restaurer`, {
+        data,
+        confirmerRemplacement: this.restaurerAvecRemplacement,
+      }, { headers: this.h() }).subscribe({
+        next: (r) => {
+          this.restaureBusy = false;
+          const detail = Object.entries(r.resultat || {})
+            .map(([cle, v]: [string, any]) => `${cle}: +${v.inseres} ~${v.remplaces} (ignorés ${v.ignores}, erreurs ${v.erreurs})`)
+            .join(' · ');
+          this.restaureOk = `${r.message} — ${detail}`;
+          this.cdr.detectChanges();
+        },
+        error: (e) => { this.restaureErr = e.error?.message || 'Erreur lors de la restauration'; this.restaureBusy = false; this.cdr.detectChanges(); },
+      });
+    };
+    reader.readAsText(this.fichierBackupChoisi);
   }
 }
