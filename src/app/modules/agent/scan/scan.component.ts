@@ -874,7 +874,27 @@ export class ScanComponent implements OnInit, OnDestroy {
           // produitsUpdated$ s'émet dans syncProduitsFromServer → allProduits rechargé automatiquement
         }
       });
+
+    // 6. Rafraîchissement au retour au premier plan — le polling ci-dessus
+    //    (setInterval) n'est pas fiable sur mobile : l'OS suspend souvent
+    //    les timers JS quand l'écran est verrouillé ou l'app en arrière-plan
+    //    pendant un moment, ce qui peut laisser le cache produit périmé
+    //    largement plus de 60s (ex: un patron ajoute un prix de gros pendant
+    //    que l'agent a l'écran éteint -> le choix détail/gros pouvait ne
+    //    jamais apparaître tant que l'app ne rechargeait pas complètement).
+    //    document.visibilitychange se déclenche de façon fiable au retour au
+    //    premier plan, contrairement au setInterval — même pattern déjà
+    //    utilisé côté service worker (voir CHANGELOG, fix iOS PWA).
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
+
+  private onVisibilityChange = (): void => {
+    if (document.visibilityState === 'visible' && this.sync.estEnLigne()) {
+      const tenantId = this.auth.getTenantId() ?? '';
+      this.offline.syncProduitsFromServer(tenantId);
+      // produitsUpdated$ s'émet dans syncProduitsFromServer → allProduits rechargé automatiquement
+    }
+  };
 
   // ─── Autocomplétion ────────────────────────────────────────
 
@@ -1284,6 +1304,7 @@ export class ScanComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.stopCameraScan();
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.destroy$.next();
     this.destroy$.complete();
   }
