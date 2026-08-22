@@ -315,17 +315,27 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
 
     .confirm-overlay {
       position: fixed; inset: 0; background: rgba(0,0,0,.55);
-      display: flex; align-items: flex-end; justify-content: center;
+      display: flex; align-items: center; justify-content: center;
       z-index: 200; backdrop-filter: blur(2px);
+      /* Marge de sécurité tout autour + jamais plus haut que le viewport
+         réellement visible (iPhone 6/7 et autres petits écrans, barre du
+         navigateur mobile qui rogne parfois le bas d'un panneau ancré en
+         bas — un centrage avec limite de hauteur + défilement interne est
+         beaucoup plus robuste qu'une feuille collée en bas). */
+      padding: 16px;
+      box-sizing: border-box;
     }
     .confirm-sheet {
-      width: 100%; max-width: 480px; background: var(--navy-light);
-      border: 1px solid var(--navy-border); border-radius: 20px 20px 0 0;
-      padding: 24px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+      width: 100%; max-width: 420px; background: var(--navy-light);
+      border: 1px solid var(--navy-border); border-radius: 20px;
+      padding: 24px 20px;
       display: flex; flex-direction: column; align-items: center; gap: 4px;
-      animation: confirm-slide-up .2s ease-out;
+      animation: confirm-pop .18s ease-out;
+      max-height: 100%;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
-    @keyframes confirm-slide-up { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes confirm-pop { from { transform: scale(0.94); opacity: 0; } to { transform: scale(1); opacity: 1; } }
     .confirm-icon { font-size: 34px; width: 34px; height: 34px; color: var(--accent); margin-bottom: 4px; }
     .confirm-titre { font-size: 17px; font-weight: 700; color: var(--text-1); margin-bottom: 10px; }
     .confirm-lignes {

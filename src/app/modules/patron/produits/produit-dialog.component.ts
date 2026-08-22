@@ -76,7 +76,7 @@ const CATEGORIES = [
             </div>
           </div>
           <div class="field-group">
-            <label class="field-label">Stock <span class="req">*</span></label>
+            <label class="field-label">Stock détail <span class="req">*</span></label>
             <div class="field-input-wrap">
               <input class="field-input" type="number" formControlName="stock" min="0" />
               <span class="field-suffix">unités</span>
@@ -98,6 +98,19 @@ const CATEGORIES = [
           <p class="field-hint" *ngIf="(form.get('prixGros')?.value || 0) > 0">
             <mat-icon>storefront</mat-icon>
             L'agent devra choisir « Détail » ou « Gros » à la vente de ce produit.
+          </p>
+        </div>
+
+        <!-- Stock en gros — pool séparé du stock détail (jamais partagé) -->
+        <div class="field-group" *ngIf="(form.get('prixGros')?.value || 0) > 0">
+          <label class="field-label">Stock en gros <span class="opt">optionnel</span></label>
+          <div class="field-input-wrap">
+            <input class="field-input" type="number" formControlName="stockGros" min="0" />
+            <span class="field-suffix">unités</span>
+          </div>
+          <p class="field-hint">
+            <mat-icon>info</mat-icon>
+            Compteur séparé du stock détail — une vente en gros décompte ce stock-ci, jamais l'autre.
           </p>
         </div>
 
@@ -365,6 +378,7 @@ export class ProduitDialogComponent implements OnInit {
       prixGros: [0, [Validators.min(0)]],
       prixAchat: [0, [Validators.min(0)]],
       stock: [0, [Validators.required, Validators.min(0)]],
+      stockGros: [0, [Validators.min(0)]],
       categorie: ['', Validators.required],
       codeBarres: [''],
       seuilAlerte: [5],

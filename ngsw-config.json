@@ -61,7 +61,7 @@
       "name": "ventes-network",
       "urls": ["/api/ventes", "/api/ventes/**"],
       "cacheConfig": {
-        "strategy": "performance",
+        "strategy": "freshness",
         "maxSize": 50,
         "maxAge": "10m",
         "timeout": "3s"

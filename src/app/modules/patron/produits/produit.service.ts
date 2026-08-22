@@ -13,6 +13,7 @@ export interface Produit {
   prixGros?: number;
   prixAchat?: number;
   stock: number;
+  stockGros?: number;
   categorie: string;
   codeBarres?: string;
   seuilAlerte?: number;

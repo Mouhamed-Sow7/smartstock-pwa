@@ -127,12 +127,20 @@ function catInitial(cat: string): string {
               <div class="row-body">
                 <div class="row-top">
                   <span class="row-nom">{{ p.nom }}</span>
-                  <!-- Badge stock -->
-                  <span class="stock-badge rupture-badge" *ngIf="p.stock === 0">Rupture</span>
+                  <!-- Badge stock détail -->
+                  <span class="stock-badge rupture-badge" *ngIf="p.stock === 0">Rupture{{ p.prixGros > 0 ? ' détail' : '' }}</span>
                   <span class="stock-badge alerte-badge" *ngIf="p.stock > 0 && p.stock <= (p.seuilAlerte || 5)">
-                    <mat-icon>warning</mat-icon> {{ p.stock }}
+                    <mat-icon>warning</mat-icon> {{ p.prixGros > 0 ? 'Détail: ' : '' }}{{ p.stock }}
                   </span>
-                  <span class="stock-badge ok-badge" *ngIf="p.stock > (p.seuilAlerte || 5)">{{ p.stock }}</span>
+                  <span class="stock-badge ok-badge" *ngIf="p.stock > (p.seuilAlerte || 5)">{{ p.prixGros > 0 ? 'Détail: ' : '' }}{{ p.stock }}</span>
+                  <!-- Badge stock gros — uniquement si le produit est vendable en gros -->
+                  <ng-container *ngIf="p.prixGros > 0">
+                    <span class="stock-badge rupture-badge" *ngIf="(p.stockGros || 0) === 0">Rupture gros</span>
+                    <span class="stock-badge alerte-badge" *ngIf="p.stockGros > 0 && p.stockGros <= (p.seuilAlerte || 5)">
+                      <mat-icon>warning</mat-icon> Gros: {{ p.stockGros }}
+                    </span>
+                    <span class="stock-badge ok-badge" *ngIf="p.stockGros > (p.seuilAlerte || 5)">Gros: {{ p.stockGros }}</span>
+                  </ng-container>
                   <!-- Badge péremption proche/dépassée -->
                   <span class="stock-badge expire-badge" *ngIf="estExpireOuProche(p)" [class.expired]="estExpire(p)">
                     <mat-icon>event_busy</mat-icon> {{ estExpire(p) ? 'Périmé' : 'Périme bientôt' }}
@@ -437,8 +445,13 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   // affiché sur chaque ligne (rupture totale OU sous le seuil) — et au même
   // sens que le raccourci "Stock bas" du dashboard, pour rester cohérent
   // partout dans l'app plutôt que d'avoir deux définitions différentes.
+  // Considère le pool gros seulement si le produit l'utilise réellement
+  // (prixGros défini) — sinon stockGros=0 par défaut déclencherait une
+  // fausse alerte sur tout produit vendu uniquement au détail.
   private estStockBas(p: any): boolean {
-    return p.stock <= (p.seuilAlerte ?? 5);
+    const bas = p.stock <= (p.seuilAlerte ?? 5);
+    const basGros = p.prixGros > 0 && (p.stockGros ?? 0) <= (p.seuilAlerte ?? 5);
+    return bas || basGros;
   }
 
   countBas = computed(() => this.produits().filter((p) => this.estStockBas(p)).length);
