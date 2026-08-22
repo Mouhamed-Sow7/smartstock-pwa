@@ -133,7 +133,7 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
           </p>
         </div>
 
-        <button class="validate-btn" (click)="validateSale()" [disabled]="isSaving || !peutValider">
+        <button class="validate-btn" (click)="demanderConfirmation()" [disabled]="isSaving || !peutValider">
           <mat-icon>{{ isSaving ? 'hourglass_empty' : 'check_circle' }}</mat-icon>
           {{ isSaving ? i18n.t('panier.validation') : i18n.t('panier.valider') + ' — ' + modeLabel }}
         </button>
@@ -143,6 +143,37 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
         <p class="error-msg" *ngIf="errorMessage">
           <mat-icon>error_outline</mat-icon> {{ errorMessage }}
         </p>
+      </div>
+    </div>
+
+    <!-- Confirmation avant validation — un instant pour vérifier avant
+         d'enregistrer réellement la vente, surtout après un prix ajusté. -->
+    <div class="confirm-overlay" *ngIf="showConfirmation">
+      <div class="confirm-sheet">
+        <mat-icon class="confirm-icon">receipt_long</mat-icon>
+        <div class="confirm-titre">{{ i18n.lang() === 'ar' ? 'تأكيد البيع؟' : 'Confirmer la vente ?' }}</div>
+        <div class="confirm-lignes">
+          <div class="confirm-ligne" *ngFor="let item of items">
+            <span>{{ item.produit?.nom }} ×{{ item.quantite }}</span>
+            <span>{{ item.prix * item.quantite | number: '1.0-0' }} F</span>
+          </div>
+        </div>
+        <div class="confirm-total">
+          <span>{{ i18n.t('panier.total') }}</span>
+          <span class="confirm-total-valeur">{{ total | number: '1.0-0' }} FCFA</span>
+        </div>
+        <div class="confirm-mode">
+          <mat-icon>payments</mat-icon> {{ modeLabel }}
+          <span *ngIf="modePaiement === 'credit' && clientNom"> — {{ clientNom }}</span>
+        </div>
+        <div class="confirm-actions">
+          <button class="confirm-non" (click)="showConfirmation = false">
+            {{ i18n.lang() === 'ar' ? 'لا، تراجع' : 'Non, revenir' }}
+          </button>
+          <button class="confirm-oui" (click)="confirmerEtValider()">
+            <mat-icon>check</mat-icon> {{ i18n.lang() === 'ar' ? 'نعم، تأكيد' : 'Oui, valider' }}
+          </button>
+        </div>
       </div>
     </div>
   `,
@@ -281,6 +312,49 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
     .offline-msg { display: flex; align-items: center; gap: 6px; color: var(--warning); font-size: 12px; margin-top: 10px; }
     .error-msg { display: flex; align-items: center; gap: 6px; color: var(--danger); font-size: 12px; margin-top: 10px; }
     .offline-msg mat-icon, .error-msg mat-icon { font-size: 16px; }
+
+    .confirm-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.55);
+      display: flex; align-items: flex-end; justify-content: center;
+      z-index: 200; backdrop-filter: blur(2px);
+    }
+    .confirm-sheet {
+      width: 100%; max-width: 480px; background: var(--navy-light);
+      border: 1px solid var(--navy-border); border-radius: 20px 20px 0 0;
+      padding: 24px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      animation: confirm-slide-up .2s ease-out;
+    }
+    @keyframes confirm-slide-up { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .confirm-icon { font-size: 34px; width: 34px; height: 34px; color: var(--accent); margin-bottom: 4px; }
+    .confirm-titre { font-size: 17px; font-weight: 700; color: var(--text-1); margin-bottom: 10px; }
+    .confirm-lignes {
+      width: 100%; max-height: 160px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+      display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px;
+    }
+    .confirm-ligne {
+      display: flex; justify-content: space-between; font-size: 13px;
+      color: var(--text-2); padding: 4px 2px;
+    }
+    .confirm-total {
+      width: 100%; display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-top: 1px dashed var(--navy-border); margin-top: 4px;
+      font-size: 14px; font-weight: 600; color: var(--text-1);
+    }
+    .confirm-total-valeur { font-size: 20px; font-weight: 800; color: var(--accent); }
+    .confirm-mode {
+      width: 100%; display: flex; align-items: center; gap: 6px;
+      font-size: 13px; color: var(--text-2); margin-bottom: 16px;
+    }
+    .confirm-mode mat-icon { font-size: 16px; width: 16px; height: 16px; }
+    .confirm-actions { width: 100%; display: flex; gap: 10px; }
+    .confirm-non, .confirm-oui {
+      flex: 1; padding: 14px; border-radius: 12px; font-size: 14px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer;
+    }
+    .confirm-non { background: transparent; border: 1px solid var(--navy-border); color: var(--text-2); }
+    .confirm-oui { background: var(--accent); border: none; color: #fff; }
+    .confirm-oui mat-icon { font-size: 18px; width: 18px; height: 18px; }
   `],
 })
 export class PanierComponent implements OnInit, OnDestroy {
@@ -293,6 +367,7 @@ export class PanierComponent implements OnInit, OnDestroy {
   clientNom = '';
   cleEnEdition: string | null = null;
   prixEditValeur: number | null = null;
+  showConfirmation = false;
   private destroy$ = new Subject<void>();
 
   // Vente à crédit : nom du client obligatoire (sinon le backend refuse la vente,
@@ -447,11 +522,22 @@ export class PanierComponent implements OnInit, OnDestroy {
     this.pos.updateItemPrice(item.produit._id, item.typeVente, prixUnitaire);
   }
 
-  validateSale(): void {
+  /** Étape 1 : vérifie juste que la vente est valide (ex : nom client pour
+   * le crédit) et ouvre la feuille de confirmation avec le total affiché —
+   * la vente n'est PAS encore enregistrée à ce stade. */
+  demanderConfirmation(): void {
     if (!this.peutValider) {
       this.errorMessage = this.i18n.t('panier.nomClientRequis');
       return;
     }
+    this.errorMessage = '';
+    this.showConfirmation = true;
+  }
+
+  /** Étape 2 : l'agent a confirmé sur la feuille — on enregistre réellement
+   * la vente maintenant. */
+  confirmerEtValider(): void {
+    this.showConfirmation = false;
     this.errorMessage = '';
     this.offlineMsg = '';
     this.isSaving = true;
