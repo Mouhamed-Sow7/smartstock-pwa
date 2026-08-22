@@ -3,6 +3,7 @@ import {
   ElementRef,
   OnDestroy,
   OnInit,
+  AfterViewInit,
   ViewChild,
   ChangeDetectorRef,
 } from '@angular/core';
@@ -101,6 +102,7 @@ interface BarcodeDetectorLike {
       <div class="search-wrapper">
         <div class="scan-form">
           <input
+            #barcodeInput
             type="text"
             [(ngModel)]="barcode"
             (input)="onInputChange(barcode)"
@@ -742,8 +744,9 @@ interface BarcodeDetectorLike {
     `,
   ],
 })
-export class ScanComponent implements OnInit, OnDestroy {
+export class ScanComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('video') videoRef?: ElementRef<HTMLVideoElement>;
+  @ViewChild('barcodeInput') barcodeInputRef?: ElementRef<HTMLInputElement>;
 
   barcode = '';
   isLoading = false;
@@ -811,6 +814,40 @@ export class ScanComponent implements OnInit, OnDestroy {
       BarcodeFormat.QR_CODE,
     ]);
     return hints;
+  }
+
+  // ─── Support douchette USB/Bluetooth (déploiement PC/caisse) ──
+  // Une douchette code-barres ne nécessite aucun pilote : elle se comporte
+  // comme un clavier, "tape" le code dans le champ actif puis envoie Entrée
+  // (déjà géré par onInputChange + (keyup.enter)="scanProduct()" ci-dessus).
+  // Ce qui manquait : le focus automatique sur ce champ, pour qu'un agent
+  // sur PC n'ait jamais besoin de toucher la souris entre deux scans.
+  //
+  // IMPORTANT — ne doit RIEN changer au comportement mobile/caméra existant :
+  // remettre le focus sur un <input type="text"> ouvre le clavier virtuel
+  // sur téléphone, ce qui gênerait considérablement l'usage caméra
+  // (actuellement le mode principal). Le focus auto est donc restreint aux
+  // appareils sans écran tactile (détection par feature, pas par taille
+  // d'écran — un agent sur tablette tactile reste donc logé à la même
+  // enseigne que mobile, volontairement, par prudence). Sur mobile/tablette,
+  // cette section entière est un no-op silencieux : aucun appel focus()
+  // n'est jamais déclenché, donc aucune régression possible sur le scan
+  // caméra ni sur le reste du flux existant.
+  private get estAppareilSansTactile(): boolean {
+    return !('ontouchstart' in window) && (navigator.maxTouchPoints ?? 0) === 0;
+  }
+
+  private focusChampDouchette(): void {
+    if (!this.estAppareilSansTactile) return;
+    // setTimeout(0) : laisse Angular finir le cycle de détection de
+    // changements en cours (ex: liste de suggestions qui vient de se vider)
+    // avant de rendre le focus, sinon le focus peut être repris par un
+    // élément qui vient d'apparaître/disparaître dans le DOM.
+    setTimeout(() => this.barcodeInputRef?.nativeElement?.focus(), 0);
+  }
+
+  ngAfterViewInit(): void {
+    this.focusChampDouchette();
   }
 
   async ngOnInit(): Promise<void> {
@@ -1005,6 +1042,9 @@ export class ScanComponent implements OnInit, OnDestroy {
     this.lastProductName = produit.nom + (typeVente === 'gros' ? ' (gros)' : '');
     this.playSuccessSound();
     setTimeout(() => (this.lastProductName = ''), 2000);
+    // Prêt pour le scan suivant sans repasser par la souris (douchette PC
+    // uniquement, no-op sur mobile/tactile — voir focusChampDouchette()).
+    this.focusChampDouchette();
   }
 
   choisirTypeVente(type: 'detail' | 'gros'): void {
@@ -1080,11 +1120,13 @@ export class ScanComponent implements OnInit, OnDestroy {
           error: () => {
             this.errorMessage = 'Produit non trouvé';
             this.isLoading = false;
+            this.focusChampDouchette();
           },
         });
     } else {
       this.errorMessage = '📵 Produit non trouvé dans le cache hors ligne';
       this.isLoading = false;
+      this.focusChampDouchette();
     }
   }
 
