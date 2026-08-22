@@ -127,6 +127,8 @@ interface BarcodeDetectorLike {
             (mousedown)="$event.preventDefault()"
             (click)="selectionnerProduit(p)"
             (touchstart)="onSuggestionTouchStart(p, $event)"
+            (touchmove)="onSuggestionTouchMove($event)"
+            (touchend)="onSuggestionTouchEnd(p, $event)"
           >
             <div class="sug-info">
               <span class="sug-nom">{{ p.nom }}</span>
@@ -500,6 +502,7 @@ interface BarcodeDetectorLike {
         z-index: 100;
         max-height: 240px;
         overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
       }
       .suggestion-item {
@@ -513,6 +516,7 @@ interface BarcodeDetectorLike {
         /* Tap target minimum 48px recommandé pour mobile */
         min-height: 52px;
         -webkit-tap-highlight-color: transparent;
+        touch-action: pan-y; /* autorise explicitement le scroll vertical du doigt */
         user-select: none;
       }
       .suggestion-item:hover,
@@ -899,16 +903,46 @@ export class ScanComponent implements OnInit, OnDestroy {
     }, 200);
   }
 
-  // touchstart déclenché AVANT blur — on annule le timer de fermeture
-  // et on sélectionne immédiatement le produit
+  // touchstart déclenché AVANT blur — on annule le timer de fermeture pour
+  // garder la liste ouverte, mais on NE sélectionne PLUS ici (voir le
+  // correctif touchmove/touchend juste en dessous).
+  //
+  // BUG CORRIGÉ : sélectionner dès touchstart ajoutait le produit au panier
+  // au moindre contact du doigt, y compris pour amorcer un scroll de la
+  // liste — impossible de scroller sans ajouter involontairement un article
+  // non désiré. On distingue maintenant un vrai tap (peu de mouvement) d'un
+  // scroll (mouvement > seuil) via touchmove, et on ne sélectionne qu'au
+  // relâchement (touchend) si ça n'a pas bougé.
   onSuggestionTouchStart(produit: any, event: TouchEvent): void {
-    event.preventDefault(); // empêche le blur de l'input
+    event.preventDefault(); // empêche le blur de l'input (comportement conservé)
     if (this.blurTimer) {
       clearTimeout(this.blurTimer);
       this.blurTimer = null;
     }
+    const t = event.touches[0];
+    this.sugTouchStartX = t.clientX;
+    this.sugTouchStartY = t.clientY;
+    this.sugTouchADepasseLeSeuil = false;
+  }
+
+  // Seuil généreux (10px) — au-delà, on considère que le doigt scrolle la
+  // liste et plus du tout qu'il vise cet article précis.
+  onSuggestionTouchMove(event: TouchEvent): void {
+    if (this.sugTouchADepasseLeSeuil) return;
+    const t = event.touches[0];
+    const dx = Math.abs(t.clientX - this.sugTouchStartX);
+    const dy = Math.abs(t.clientY - this.sugTouchStartY);
+    if (dx > 10 || dy > 10) this.sugTouchADepasseLeSeuil = true;
+  }
+
+  onSuggestionTouchEnd(produit: any, event: TouchEvent): void {
+    if (this.sugTouchADepasseLeSeuil) return; // c'était un scroll, pas un tap
     this.selectionnerProduit(produit);
   }
+
+  private sugTouchStartX = 0;
+  private sugTouchStartY = 0;
+  private sugTouchADepasseLeSeuil = false;
 
   selectionnerProduit(produit: CachedProduit): void {
     this.suggestions = [];

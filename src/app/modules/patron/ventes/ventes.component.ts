@@ -115,14 +115,57 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
             <div class="vente-montant">{{ v.montantTotal | number:'1.0-0' }} F</div>
           </div>
           <div class="vente-meta">
-            <span class="badge-paiement">{{ v.modePaiement }}</span>
+            <span class="badge-paiement">
+              {{ modeLabel(v.modePaiement) }}
+              <button class="edit-mode-btn" *ngIf="dansFenetreCorrection(v)" (click)="ouvrirCorrectionMode(v)" title="Modifier le mode de paiement">
+                <mat-icon>edit</mat-icon>
+              </button>
+            </span>
             <span class="vente-agent">{{ v.agentNom }}</span>
             <span class="vente-articles">{{ v.produits.length }} article(s)</span>
           </div>
           <div class="vente-lignes">
-            <span *ngFor="let p of v.produits" class="ligne-produit">
-              {{ p.nom }} ×{{ p.quantite }}
-            </span>
+            <div *ngFor="let p of v.produits; let i = index" class="ligne-produit-row">
+              <span class="lp-nom">{{ p.nom }} ×{{ p.quantite }}</span>
+              <span class="lp-prix">
+                {{ p.prixUnitaire | number:'1.0-0' }} F
+                <button class="edit-mode-btn" *ngIf="dansFenetreCorrection(v)" (click)="ouvrirCorrectionPrix(v, i)" title="Corriger ce prix">
+                  <mat-icon>edit</mat-icon>
+                </button>
+              </span>
+            </div>
+          </div>
+
+          <!-- Correction inline (mode de paiement ou prix d'une ligne) — fenêtre 24h -->
+          <div class="correction-panel" *ngIf="correctionCible?.venteId === v._id">
+            <ng-container *ngIf="correctionCible?.type === 'mode'">
+              <p class="correction-hint">Modifiable seulement dans les 24h suivant la vente.</p>
+              <div class="modes-grid">
+                <button
+                  *ngFor="let m of modesPaiement"
+                  class="mode-choice"
+                  [class.active]="nouveauMode === m.valeur"
+                  (click)="nouveauMode = m.valeur"
+                >{{ m.labelFr }}</button>
+              </div>
+            </ng-container>
+            <ng-container *ngIf="correctionCible?.type === 'prix'">
+              <p class="correction-hint">
+                Prix erroné signalé par un agent ? Corrigez-le ici — recalcule automatiquement le total de la vente.
+              </p>
+              <div class="prix-edit-row">
+                <input type="number" min="0" [(ngModel)]="nouveauPrix" placeholder="Nouveau prix (FCFA)" />
+              </div>
+            </ng-container>
+            <div class="correction-actions">
+              <button class="btn-cancel" (click)="annulerCorrection()">Annuler</button>
+              <button
+                class="btn-confirm"
+                [disabled]="correctionSaving || (correctionCible?.type === 'mode' && nouveauMode === v.modePaiement) || (correctionCible?.type === 'prix' && !nouveauPrix)"
+                (click)="confirmerCorrection(v)"
+              >{{ correctionSaving ? 'Enregistrement...' : 'Confirmer' }}</button>
+            </div>
+            <p class="correction-error" *ngIf="correctionError">{{ correctionError }}</p>
           </div>
         </div>
       </div>
@@ -301,21 +344,62 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
       background: var(--accent-lite);
       color: var(--accent);
       border: 1px solid rgba(0,184,148,.2);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
     }
     .vente-agent { font-size: 12px; color: var(--text-2); }
     .vente-articles { font-size: 11px; color: var(--text-3); margin-left: auto; }
     .vente-lignes {
       display: flex;
-      flex-wrap: wrap;
+      flex-direction: column;
       gap: 4px;
     }
-    .ligne-produit {
+    .ligne-produit-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       font-size: 11px;
       color: var(--text-3);
       background: rgba(255,255,255,.04);
       border-radius: 6px;
-      padding: 2px 7px;
+      padding: 3px 7px;
     }
+    .lp-prix { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+    .edit-mode-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: none; color: inherit; cursor: pointer; padding: 0;
+      opacity: .75;
+    }
+    .edit-mode-btn mat-icon { font-size: 12px; width: 12px; height: 12px; }
+
+    .correction-panel {
+      background: rgba(255,255,255,.03); border: 1px solid var(--navy-border);
+      border-radius: 10px; padding: 10px; margin-top: 8px;
+    }
+    .correction-hint { color: var(--text-3); font-size: 11px; margin: 0 0 8px; }
+    .modes-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .mode-choice {
+      background: var(--navy); border: 1px solid var(--navy-border); color: var(--text-2);
+      font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    }
+    .mode-choice.active { background: var(--accent-lite); border-color: var(--accent); color: var(--accent); }
+    .prix-edit-row { margin-bottom: 10px; }
+    .prix-edit-row input {
+      width: 100%; background: var(--navy); border: 1px solid var(--navy-border);
+      border-radius: 8px; color: var(--text-1); padding: 9px 12px; font-size: 14px; font-weight: 600;
+    }
+    .correction-actions { display: flex; gap: 8px; }
+    .btn-cancel {
+      background: transparent; color: var(--text-3); border: 1px solid var(--navy-border);
+      border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .btn-confirm {
+      flex: 1; background: var(--accent); color: #04241c; border: none;
+      border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .btn-confirm:disabled { opacity: .4; }
+    .correction-error { color: #e74c3c; font-size: 11px; margin: 8px 0 0; }
   `]
 })
 export class VentesComponent implements OnInit, OnDestroy {
@@ -349,6 +433,80 @@ export class VentesComponent implements OnInit, OnDestroy {
   totalCA = () => this.ventes().reduce((s, v) => s + v.montantTotal, 0);
   totalMarge = () => this.ventes().reduce((s, v) => s + (v.margeTotale || 0), 0);
   panierMoyen = () => this.ventes().length ? Math.round(this.totalCA() / this.ventes().length) : 0;
+
+  // ─── Correction a posteriori (mode de paiement / prix) ─────────────
+  private readonly FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
+  modesPaiement = [
+    { valeur: 'especes', labelFr: 'Espèces' },
+    { valeur: 'wave', labelFr: 'Wave' },
+    { valeur: 'orange_money', labelFr: 'Orange Money' },
+    { valeur: 'free_money', labelFr: 'Free Money' },
+    { valeur: 'credit', labelFr: 'Crédit' },
+  ];
+  correctionCible: { venteId: string; type: 'mode' | 'prix'; ligneIndex?: number } | null = null;
+  nouveauMode = '';
+  nouveauPrix: number | null = null;
+  correctionSaving = false;
+  correctionError = '';
+
+  modeLabel(mode: string): string {
+    return this.modesPaiement.find((m) => m.valeur === mode)?.labelFr || mode;
+  }
+
+  dansFenetreCorrection(v: Vente): boolean {
+    return Date.now() - new Date(v.createdAt).getTime() < this.FENETRE_CORRECTION_MS;
+  }
+
+  ouvrirCorrectionMode(v: Vente): void {
+    this.correctionCible = { venteId: v._id, type: 'mode' };
+    this.nouveauMode = v.modePaiement;
+    this.correctionError = '';
+  }
+
+  ouvrirCorrectionPrix(v: Vente, ligneIndex: number): void {
+    this.correctionCible = { venteId: v._id, type: 'prix', ligneIndex };
+    this.nouveauPrix = v.produits[ligneIndex].prixUnitaire;
+    this.correctionError = '';
+  }
+
+  annulerCorrection(): void {
+    this.correctionCible = null;
+    this.correctionError = '';
+  }
+
+  confirmerCorrection(v: Vente): void {
+    if (!this.correctionCible) return;
+    const body: any = {};
+    if (this.correctionCible.type === 'mode') {
+      if (this.nouveauMode === v.modePaiement) return;
+      body.modePaiement = this.nouveauMode;
+    } else {
+      if (!this.nouveauPrix || this.nouveauPrix < 0) return;
+      body.ligneIndex = this.correctionCible.ligneIndex;
+      body.prixUnitaire = this.nouveauPrix;
+    }
+    this.correctionSaving = true;
+    this.correctionError = '';
+    this.api.patch(`ventes/${v._id}/corriger`, body).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.correctionSaving = false;
+        if (res?.success && res.data) {
+          // Remplace la vente locale par la version corrigée renvoyée par le
+          // serveur (montantTotal/margeTotale déjà recalculés côté backend)
+          // — jamais recalculer soi-même côté client, source de vérité unique.
+          this.ventes.update((liste) => liste.map((x) => x._id === v._id ? res.data : x));
+          this.correctionCible = null;
+          this.snack.open('✓ Vente corrigée', '✕', { duration: 2500 });
+        } else {
+          this.correctionError = res?.message || 'Erreur';
+        }
+      },
+      error: (err) => {
+        this.correctionSaving = false;
+        this.correctionError = err?.error?.message || 'Erreur réseau';
+      },
+    });
+  }
 
   ngOnInit() {
     this.charger();

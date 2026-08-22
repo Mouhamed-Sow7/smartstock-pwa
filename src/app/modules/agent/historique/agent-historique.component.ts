@@ -12,8 +12,18 @@ interface VenteHisto {
   createdAt: string;
   montantTotal: number;
   modePaiement: string;
+  agentId?: string;
   produits: { nom: string; quantite: number }[];
 }
+
+const MODES_PAIEMENT: { valeur: string; labelFr: string; labelAr: string }[] = [
+  { valeur: 'especes', labelFr: 'Espèces', labelAr: 'نقدًا' },
+  { valeur: 'wave', labelFr: 'Wave', labelAr: 'Wave' },
+  { valeur: 'orange_money', labelFr: 'Orange Money', labelAr: 'Orange Money' },
+  { valeur: 'free_money', labelFr: 'Free Money', labelAr: 'Free Money' },
+  { valeur: 'credit', labelFr: 'Crédit', labelAr: 'دين' },
+];
+const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
 
 @Component({
   selector: 'app-agent-historique',
@@ -50,9 +60,54 @@ interface VenteHisto {
           <span class="montant">{{ v.montantTotal | number: '1.0-0' }} F</span>
         </div>
         <div class="vente-mid">
-          <span class="badge">{{ v.modePaiement }}</span>
+          <span class="badge">
+            {{ modeLabel(v.modePaiement) }}
+            <button
+              class="edit-mode-btn"
+              *ngIf="dansFenetreCorrection(v)"
+              (click)="ouvrirCorrection(v)"
+              [title]="i18n.lang() === 'ar' ? 'تعديل طريقة الدفع' : 'Modifier le mode de paiement'"
+            >
+              <mat-icon>edit</mat-icon>
+            </button>
+          </span>
           <span class="date">{{ v.createdAt | date: 'dd/MM HH:mm' }}</span>
         </div>
+
+        <!-- Correction inline du mode de paiement — fenêtre 24h -->
+        <div class="correction-panel" *ngIf="venteEnCorrection?._id === v._id">
+          <p class="correction-hint">
+            {{ i18n.lang() === 'ar'
+              ? 'يمكن تعديل طريقة الدفع خلال 24 ساعة من البيع فقط.'
+              : 'Modifiable seulement dans les 24h suivant la vente.' }}
+          </p>
+          <div class="modes-grid">
+            <button
+              *ngFor="let m of modesPaiement"
+              class="mode-choice"
+              [class.active]="nouveauMode === m.valeur"
+              (click)="nouveauMode = m.valeur"
+            >
+              {{ i18n.lang() === 'ar' ? m.labelAr : m.labelFr }}
+            </button>
+          </div>
+          <div class="correction-actions">
+            <button class="btn-cancel" (click)="annulerCorrection()">
+              {{ i18n.lang() === 'ar' ? 'إلغاء' : 'Annuler' }}
+            </button>
+            <button
+              class="btn-confirm"
+              [disabled]="correctionSaving || nouveauMode === v.modePaiement"
+              (click)="confirmerCorrection(v)"
+            >
+              {{ correctionSaving
+                ? (i18n.lang() === 'ar' ? 'جارٍ الحفظ...' : 'Enregistrement...')
+                : (i18n.lang() === 'ar' ? 'Confirmer' : 'Confirmer') }}
+            </button>
+          </div>
+          <p class="correction-error" *ngIf="correctionError">{{ correctionError }}</p>
+        </div>
+
         <div class="vente-items">
           <span class="item" *ngFor="let p of v.produits">{{ p.nom }} ×{{ p.quantite }}</span>
         </div>
@@ -104,10 +159,40 @@ interface VenteHisto {
     .badge {
       background: var(--accent-lite); color: var(--accent);
       font-size: 10px; font-weight: 700; text-transform: uppercase; padding: 3px 8px; border-radius: 10px;
+      display: inline-flex; align-items: center; gap: 4px;
     }
+    .edit-mode-btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: none; border: none; color: inherit; cursor: pointer; padding: 0;
+      opacity: .8;
+    }
+    .edit-mode-btn mat-icon { font-size: 12px; width: 12px; height: 12px; }
     .date { color: var(--text-3); font-size: 11px; }
     .vente-items { display: flex; flex-wrap: wrap; gap: 6px; }
     .item { background: rgba(255,255,255,.05); color: var(--text-2); font-size: 11px; padding: 3px 8px; border-radius: 8px; }
+
+    .correction-panel {
+      background: rgba(255,255,255,.03); border: 1px solid var(--navy-border);
+      border-radius: 10px; padding: 10px; margin: -2px 0 10px;
+    }
+    .correction-hint { color: var(--text-3); font-size: 11px; margin: 0 0 8px; }
+    .modes-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .mode-choice {
+      background: var(--navy); border: 1px solid var(--navy-border); color: var(--text-2);
+      font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    }
+    .mode-choice.active { background: var(--accent-lite); border-color: var(--accent); color: var(--accent); }
+    .correction-actions { display: flex; gap: 8px; }
+    .btn-cancel {
+      background: transparent; color: var(--text-3); border: 1px solid var(--navy-border);
+      border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
+    }
+    .btn-confirm {
+      flex: 1; background: var(--accent); color: #04241c; border: none;
+      border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer;
+    }
+    .btn-confirm:disabled { opacity: .4; }
+    .correction-error { color: #e74c3c; font-size: 11px; margin: 8px 0 0; }
 
     .load-more-btn {
       display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -128,6 +213,62 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
   _page = 1;
   _hasMore = false;
   private readonly LIMIT = 30;
+
+  modesPaiement = MODES_PAIEMENT;
+  venteEnCorrection: VenteHisto | null = null;
+  nouveauMode = '';
+  correctionSaving = false;
+  correctionError = '';
+
+  modeLabel(mode: string): string {
+    const m = MODES_PAIEMENT.find((x) => x.valeur === mode);
+    if (!m) return mode;
+    return this.i18n.lang() === 'ar' ? m.labelAr : m.labelFr;
+  }
+
+  dansFenetreCorrection(v: VenteHisto): boolean {
+    return Date.now() - new Date(v.createdAt).getTime() < FENETRE_CORRECTION_MS;
+  }
+
+  ouvrirCorrection(v: VenteHisto): void {
+    this.venteEnCorrection = v;
+    this.nouveauMode = v.modePaiement;
+    this.correctionError = '';
+  }
+
+  annulerCorrection(): void {
+    this.venteEnCorrection = null;
+    this.correctionError = '';
+  }
+
+  confirmerCorrection(v: VenteHisto): void {
+    if (this.nouveauMode === v.modePaiement) return;
+    this.correctionSaving = true;
+    this.correctionError = '';
+    this.api.patch(`ventes/${v._id}/corriger`, { modePaiement: this.nouveauMode }).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (res: any) => {
+        this.zone.run(() => {
+          this.correctionSaving = false;
+          if (res?.success) {
+            v.modePaiement = this.nouveauMode;
+            this.venteEnCorrection = null;
+          } else {
+            this.correctionError = res?.message || 'Erreur';
+          }
+          this.cdr.detectChanges();
+        });
+      },
+      error: (err) => {
+        this.zone.run(() => {
+          this.correctionSaving = false;
+          this.correctionError = err?.error?.message || 'Erreur réseau';
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
 
   constructor(
     private api: ApiService,
