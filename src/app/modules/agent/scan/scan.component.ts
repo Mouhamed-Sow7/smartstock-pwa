@@ -893,32 +893,24 @@ export class ScanComponent implements OnInit, OnDestroy {
       .slice(0, 6);
   }
 
-  // Blur retardé : laisse 200ms pour qu'un tap sur suggestion soit traité
-  // avant de fermer la liste (sur mobile, blur arrive ~100ms avant click/touchend)
-  private blurTimer: ReturnType<typeof setTimeout> | null = null;
-
+  // BUG CORRIGÉ (signalé par l'utilisateur) : deux problèmes liés à la même
+  // cause. (1) event.preventDefault() sur touchstart bloquait le scroll
+  // NATIF du navigateur pour tout le geste tactile, y compris quand il
+  // s'agissait bien d'un scroll (le calcul JS du seuil était correct, mais
+  // trop tard : le scroll natif avait déjà été empêché dès le premier
+  // contact du doigt). (2) La liste se fermait automatiquement 200ms après
+  // CHAQUE perte de focus de l'input, y compris un tap volontaire sur une
+  // zone vide pour fermer le clavier -- alors que l'utilisateur voulait au
+  // contraire que fermer le clavier libère de l'espace pour voir/scroller
+  // la liste en entier. La liste ne se ferme plus que quand un produit est
+  // sélectionné ou que la recherche est effacée (onInputChange, <2
+  // caractères) -- plus de fermeture liée au focus de l'input.
   onInputBlur(): void {
-    this.blurTimer = setTimeout(() => {
-      this.suggestions = [];
-    }, 200);
+    // Volontairement vide : voir commentaire ci-dessus. Le blur ne ferme
+    // plus la liste de suggestions.
   }
 
-  // touchstart déclenché AVANT blur — on annule le timer de fermeture pour
-  // garder la liste ouverte, mais on NE sélectionne PLUS ici (voir le
-  // correctif touchmove/touchend juste en dessous).
-  //
-  // BUG CORRIGÉ : sélectionner dès touchstart ajoutait le produit au panier
-  // au moindre contact du doigt, y compris pour amorcer un scroll de la
-  // liste — impossible de scroller sans ajouter involontairement un article
-  // non désiré. On distingue maintenant un vrai tap (peu de mouvement) d'un
-  // scroll (mouvement > seuil) via touchmove, et on ne sélectionne qu'au
-  // relâchement (touchend) si ça n'a pas bougé.
   onSuggestionTouchStart(produit: any, event: TouchEvent): void {
-    event.preventDefault(); // empêche le blur de l'input (comportement conservé)
-    if (this.blurTimer) {
-      clearTimeout(this.blurTimer);
-      this.blurTimer = null;
-    }
     const t = event.touches[0];
     this.sugTouchStartX = t.clientX;
     this.sugTouchStartY = t.clientY;
@@ -937,6 +929,11 @@ export class ScanComponent implements OnInit, OnDestroy {
 
   onSuggestionTouchEnd(produit: any, event: TouchEvent): void {
     if (this.sugTouchADepasseLeSeuil) return; // c'était un scroll, pas un tap
+    // preventDefault ICI seulement (pas au touchstart, qui bloquerait le
+    // scroll natif) : supprime le clic fantôme que le navigateur émule
+    // après un touchend, qui redéclencherait selectionnerProduit() une
+    // deuxième fois via le (click) du template (double ajout au panier).
+    event.preventDefault();
     this.selectionnerProduit(produit);
   }
 
