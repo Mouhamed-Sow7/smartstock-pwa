@@ -84,6 +84,9 @@ function catInitial(cat: string): string {
         <button class="stock-filter-pill expire" [class.active]="stockFilter() === 'expire'" (click)="stockFilter.set('expire')">
           <mat-icon>event_busy</mat-icon> Péremption <span class="pill-count">{{ countExpire() }}</span>
         </button>
+        <button class="stock-filter-pill sans-prix" [class.active]="stockFilter() === 'sansPrix'" (click)="stockFilter.set('sansPrix')">
+          <mat-icon>price_change</mat-icon> Sans prix détail <span class="pill-count">{{ countSansPrix() }}</span>
+        </button>
       </div>
       <p class="expire-seuil-hint" *ngIf="stockFilter() === 'expire'">
         <mat-icon>info</mat-icon>
@@ -370,6 +373,7 @@ function catInitial(cat: string): string {
     .stock-filter-pill.rupture.active { background: rgba(231,76,60,.12); border-color: #e74c3c; color: #e74c3c; }
     .stock-filter-pill.ok.active { background: rgba(0,184,148,.12); border-color: var(--accent); color: var(--accent); }
     .stock-filter-pill.expire.active { background: rgba(162,155,254,.12); border-color: #a29bfe; color: #a29bfe; }
+    .stock-filter-pill.sans-prix.active { background: rgba(241,196,15,.12); border-color: #f1c40f; color: #f1c40f; }
     .expire-seuil-hint {
       display: flex; align-items: center; gap: 6px;
       color: var(--text-3); font-size: 12px; margin: -6px 0 14px;
@@ -446,7 +450,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
 
   searchQuery = signal('');
-  stockFilter = signal<'tous' | 'bas' | 'ok' | 'expire'>('tous');
+  stockFilter = signal<'tous' | 'bas' | 'ok' | 'expire' | 'sansPrix'>('tous');
   reapproId: string | null = null;
   reapproQty = 1;
   reapproChamp: 'stock' | 'stockGros' = 'stock';
@@ -475,6 +479,14 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   countBas = computed(() => this.produits().filter((p) => this.estStockBas(p)).length);
   countOk = computed(() => this.produits().filter((p) => !this.estStockBas(p)).length);
   countExpire = computed(() => this.produits().filter((p) => this.estExpireOuProche(p)).length);
+  // "prix" (détail) est requis en base pour TOUS les produits (même ceux
+  // vendus aussi en gros) — mais required ne bloque que l'absence du champ,
+  // pas la valeur 0. Ce filtre repère les trous de saisie (ex: produit créé
+  // vite fait via l'indexation admin, prix à compléter plus tard).
+  private estSansPrixDetail(p: any): boolean {
+    return !p.prix || p.prix === 0;
+  }
+  countSansPrix = computed(() => this.produits().filter((p) => this.estSansPrixDetail(p)).length);
 
   estExpire(p: any): boolean {
     return !!p.dateExpiration && new Date(p.dateExpiration) < new Date();
@@ -498,6 +510,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
     if (filtre === 'bas') all = all.filter((p) => this.estStockBas(p));
     else if (filtre === 'ok') all = all.filter((p) => !this.estStockBas(p));
     else if (filtre === 'expire') all = all.filter((p) => this.estExpireOuProche(p));
+    else if (filtre === 'sansPrix') all = all.filter((p) => this.estSansPrixDetail(p));
     const filtered = q
       ? all.filter(p =>
           p.nom?.toLowerCase().includes(q) ||
@@ -571,7 +584,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
     this.chargerProduits();
     // Lien depuis le dashboard ("Stock bas") : /patron/produits?filtre=bas
     const filtre = this.route.snapshot.queryParamMap.get('filtre');
-    if (filtre === 'bas' || filtre === 'ok' || filtre === 'expire') this.stockFilter.set(filtre);
+    if (filtre === 'bas' || filtre === 'ok' || filtre === 'expire' || filtre === 'sansPrix') this.stockFilter.set(filtre);
   }
   ngOnDestroy() { this.destroy$.next(); this.destroy$.complete(); }
 
