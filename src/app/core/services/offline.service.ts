@@ -11,6 +11,9 @@ export interface CachedProduit {
   prix: number;
   prixGros?: number;
   stock: number;
+  stockGros?: number;
+  modeStock?: 'separe' | 'lie';
+  uniteParGros?: number;
   seuilAlerte?: number;
   codeBarres?: string;
   categorie?: string;

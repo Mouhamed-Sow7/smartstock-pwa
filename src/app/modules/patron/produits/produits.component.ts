@@ -138,11 +138,11 @@ function catInitial(cat: string): string {
                   <span class="stock-badge ok-badge" *ngIf="p.stock > (p.seuilAlerte || 5)">{{ p.prixGros > 0 ? 'Détail: ' : '' }}{{ p.stock }}</span>
                   <!-- Badge stock gros — uniquement si le produit est vendable en gros -->
                   <ng-container *ngIf="p.prixGros > 0">
-                    <span class="stock-badge rupture-badge" *ngIf="(p.stockGros || 0) === 0">Rupture gros</span>
-                    <span class="stock-badge alerte-badge" *ngIf="p.stockGros > 0 && p.stockGros <= (p.seuilAlerte || 5)">
-                      <mat-icon>warning</mat-icon> Gros: {{ p.stockGros }}
+                    <span class="stock-badge rupture-badge" *ngIf="stockGrosAffiche(p) === 0">Rupture gros</span>
+                    <span class="stock-badge alerte-badge" *ngIf="stockGrosAffiche(p) > 0 && stockGrosAffiche(p) <= (p.seuilAlerte || 5)">
+                      <mat-icon>warning</mat-icon> Gros: {{ stockGrosAffiche(p) }}
                     </span>
-                    <span class="stock-badge ok-badge" *ngIf="p.stockGros > (p.seuilAlerte || 5)">Gros: {{ p.stockGros }}</span>
+                    <span class="stock-badge ok-badge" *ngIf="stockGrosAffiche(p) > (p.seuilAlerte || 5)">Gros: {{ stockGrosAffiche(p) }}</span>
                   </ng-container>
                   <!-- Badge péremption proche/dépassée -->
                   <span class="stock-badge expire-badge" *ngIf="estExpireOuProche(p)" [class.expired]="estExpire(p)">
@@ -171,8 +171,9 @@ function catInitial(cat: string): string {
             <div class="reappro-panel" *ngIf="reapproId === p._id">
               <span class="reappro-label">Entrée stock — {{ p.nom }}</span>
 
-              <!-- Choix du pool — uniquement si le produit est vendable en gros -->
-              <div class="reappro-type-choice" *ngIf="p.prixGros > 0">
+              <!-- Choix du pool — uniquement si le produit est vendable en gros ET en stock séparé
+                   (en mode "lié" il n'y a qu'un seul stock physique, tout passe par "Détail") -->
+              <div class="reappro-type-choice" *ngIf="p.prixGros > 0 && p.modeStock !== 'lie'">
                 <button class="reappro-type-btn" [class.active]="reapproChamp === 'stock'" (click)="reapproChamp = 'stock'">
                   Détail ({{ p.stock }})
                 </button>
@@ -180,6 +181,9 @@ function catInitial(cat: string): string {
                   Gros ({{ p.stockGros || 0 }})
                 </button>
               </div>
+              <p class="reappro-hint-lie" *ngIf="p.prixGros > 0 && p.modeStock === 'lie'">
+                Stock lié — l'entrée alimente le stock détail, le nombre d'unités gros disponibles se recalcule automatiquement.
+              </p>
 
               <div class="reappro-row">
                 <button class="qty-btn" (click)="reapproQty = reapproQty > 1 ? reapproQty - 1 : 1">
@@ -405,6 +409,7 @@ function catInitial(cat: string): string {
     .reappro-inner { display: flex; flex-direction: column; gap: 10px; }
     .reappro-label { font-size: 12px; color: var(--accent); font-weight: 600; }
     .reappro-type-choice { display: flex; gap: 6px; margin: 6px 0; }
+    .reappro-hint-lie { color: var(--text-3); font-size: 11px; margin: 6px 0; }
     .reappro-type-btn {
       background: var(--navy); border: 1px solid var(--navy-border); color: var(--text-2);
       font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer;
@@ -472,7 +477,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   // fausse alerte sur tout produit vendu uniquement au détail.
   private estStockBas(p: any): boolean {
     const bas = p.stock <= (p.seuilAlerte ?? 5);
-    const basGros = p.prixGros > 0 && (p.stockGros ?? 0) <= (p.seuilAlerte ?? 5);
+    const basGros = p.prixGros > 0 && this.stockGrosAffiche(p) <= (p.seuilAlerte ?? 5);
     return bas || basGros;
   }
 
@@ -487,6 +492,16 @@ export class ProduitsComponent implements OnInit, OnDestroy {
     return !p.prix || p.prix === 0;
   }
   countSansPrix = computed(() => this.produits().filter((p) => this.estSansPrixDetail(p)).length);
+
+  // Affichage du stock gros : en mode 'lie', dérivé du stock détail unique
+  // (jamais stocké indépendamment) ; en mode 'separe' (par défaut), la
+  // valeur brute stockée telle quelle — comportement historique inchangé.
+  stockGrosAffiche(p: any): number {
+    if (p.modeStock === 'lie') {
+      return p.uniteParGros > 0 ? Math.floor((p.stock || 0) / p.uniteParGros) : 0;
+    }
+    return p.stockGros || 0;
+  }
 
   estExpire(p: any): boolean {
     return !!p.dateExpiration && new Date(p.dateExpiration) < new Date();

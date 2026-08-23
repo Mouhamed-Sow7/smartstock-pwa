@@ -109,24 +109,46 @@ export class PosService {
     );
   }
 
-  /** Quantité déjà présente au panier pour ce produit, tous types de vente
-   * confondus (détail + gros partagent le même stock physique). Sert aux
-   * contrôles de stock max — indépendamment de la ligne exacte concernée. */
-  quantiteAuPanier(produitId: string): number {
+  /** Quantité déjà présente au panier pour ce produit ET ce type de vente
+   * (détail/gros) — sert au contrôle de stock max, qui doit regarder le bon
+   * pool (voir stockDisponiblePourType ci-dessous), pas le cumul tous types
+   * confondus. */
+  quantiteAuPanier(produitId: string, typeVente: 'detail' | 'gros' = 'detail'): number {
     return this.cartSnapshot
-      .filter((i) => i.produit?._id === produitId)
+      .filter((i) => i.produit?._id === produitId && i.typeVente === typeVente)
       .reduce((sum, i) => sum + i.quantite, 0);
   }
 
+  /** Stock réellement disponible pour CE type de vente, en tenant compte du
+   * mode de gestion du produit (voir produit.model.js côté backend) :
+   *  - detail : toujours produit.stock
+   *  - gros + modeStock 'lie' : stock physique unique, exprimé en unités
+   *    gros (stock détail ÷ unitéParGros)
+   *  - gros + modeStock 'separe' (par défaut) : produit.stockGros, son
+   *    propre pool indépendant
+   * Contrôle purement local/informatif — le serveur revalide toujours au
+   * moment de la vente, source de vérité finale. */
+  private stockDisponiblePourType(produit: any, typeVente: 'detail' | 'gros'): number {
+    if (typeVente === 'detail') return produit?.stock ?? Infinity;
+    if (produit?.modeStock === 'lie') {
+      return produit?.uniteParGros > 0 ? Math.floor((produit.stock ?? 0) / produit.uniteParGros) : 0;
+    }
+    return produit?.stockGros ?? Infinity;
+  }
+
   addToCart(produit: any, typeVente: 'detail' | 'gros' = 'detail'): void {
-    if ((produit?.stock ?? -1) === 0) {
+    if ((produit?.stock ?? -1) === 0 && typeVente === 'detail') {
       this.snack.open('Produit en rupture de stock', '✕', { duration: 3000, panelClass: 'snack-warn' });
+      return;
+    }
+    if (typeVente === 'gros' && this.stockDisponiblePourType(produit, 'gros') === 0) {
+      this.snack.open('Rupture de stock gros pour ce produit', '✕', { duration: 3000, panelClass: 'snack-warn' });
       return;
     }
     const cart = [...this.cartSnapshot];
     const idx = cart.findIndex((i) => i.produit?._id === produit?._id && i.typeVente === typeVente);
-    const enPanierTotal = this.quantiteAuPanier(produit?._id);
-    const stockDispo = produit?.stock ?? Infinity;
+    const enPanierTotal = this.quantiteAuPanier(produit?._id, typeVente);
+    const stockDispo = this.stockDisponiblePourType(produit, typeVente);
     if (enPanierTotal >= stockDispo) {
       this.snack.open(`Stock max atteint (${stockDispo} unité${stockDispo > 1 ? 's' : ''})`, '✕', {
         duration: 3000, panelClass: 'snack-warn',
@@ -208,7 +230,14 @@ export class PosService {
     });
 
     // Décrémenter le stock dans le cache Dexie local après chaque vente
-    // → l'agent voit un stock à jour immédiatement (même en offline)
+    // → l'agent voit un stock à jour immédiatement (même en offline).
+    // Doit cibler le bon pool selon typeVente ET modeStock du produit —
+    // même logique que le backend (voir vente.controller.js createVente) :
+    //  - detail : toujours `stock`
+    //  - gros + modeStock 'lie' : un seul stock physique, on retire
+    //    quantite*uniteParGros unités détail sur CE MÊME `stock`
+    //  - gros + modeStock 'separe' (par défaut) : `stockGros`, pool
+    //    indépendant, inchangé pour `stock`
     try {
       for (const item of snapshot) {
         const cached = await this.offline.getProduitByBarcode(item.produit.codeBarres ?? '');
@@ -216,8 +245,17 @@ export class PosService {
           cached ??
           (await this.offline.getProduits(tenantId)).find((p) => p._id === item.produit._id);
         if (produit) {
-          const nouveauStock = Math.max(0, (produit.stock ?? 0) - item.quantite);
-          await this.offline.updateProduitStock(tenantId, item.produit._id, nouveauStock);
+          const venteEnGrosLie = item.typeVente === 'gros' && produit.modeStock === 'lie';
+          if (venteEnGrosLie) {
+            const nouveauStock = Math.max(0, (produit.stock ?? 0) - item.quantite * (produit.uniteParGros || 0));
+            await this.offline.updateProduitStock(tenantId, item.produit._id, nouveauStock);
+          } else if (item.typeVente === 'gros') {
+            const nouveauStockGros = Math.max(0, (produit.stockGros ?? 0) - item.quantite);
+            await this.offline.updateProduitStock(tenantId, item.produit._id, nouveauStockGros, 'stockGros');
+          } else {
+            const nouveauStock = Math.max(0, (produit.stock ?? 0) - item.quantite);
+            await this.offline.updateProduitStock(tenantId, item.produit._id, nouveauStock);
+          }
         }
       }
     } catch {

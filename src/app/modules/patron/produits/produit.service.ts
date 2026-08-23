@@ -14,6 +14,8 @@ export interface Produit {
   prixAchat?: number;
   stock: number;
   stockGros?: number;
+  modeStock?: 'separe' | 'lie';
+  uniteParGros?: number;
   categorie: string;
   codeBarres?: string;
   seuilAlerte?: number;

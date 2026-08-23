@@ -101,8 +101,39 @@ const CATEGORIES = [
           </p>
         </div>
 
-        <!-- Stock en gros — pool séparé du stock détail (jamais partagé) -->
+        <!-- Mode de gestion du stock gros — uniquement pertinent si le produit est vendable en gros -->
         <div class="field-group" *ngIf="(form.get('prixGros')?.value || 0) > 0">
+          <label class="field-label">Gestion du stock gros</label>
+          <select class="field-input" formControlName="modeStock">
+            <option value="separe">Stock séparé — deux compteurs indépendants</option>
+            <option value="lie">Stock lié — un seul stock physique</option>
+          </select>
+          <p class="field-hint">
+            <mat-icon>info</mat-icon>
+            <span *ngIf="form.get('modeStock')?.value === 'lie'">
+              Le détail et le gros partagent le même stock (ex: un carton de 8 portions vendu en gros retire 8 unités du stock détail).
+            </span>
+            <span *ngIf="form.get('modeStock')?.value !== 'lie'">
+              Détail et gros sont deux stocks séparés qui ne se touchent jamais (ex: cartons scellés réservés au gros).
+            </span>
+          </p>
+        </div>
+
+        <!-- Unités détail par unité gros — uniquement en mode "lié" -->
+        <div class="field-group" *ngIf="(form.get('prixGros')?.value || 0) > 0 && form.get('modeStock')?.value === 'lie'">
+          <label class="field-label">Unités détail par unité gros</label>
+          <div class="field-input-wrap">
+            <input class="field-input" type="number" formControlName="uniteParGros" min="1" placeholder="Ex: 8" />
+            <span class="field-suffix">unités</span>
+          </div>
+          <p class="field-hint">
+            <mat-icon>info</mat-icon>
+            Ex: un carton de "La vache qui rit" 8 portions → mettre 8. Une vente d'1 unité gros retirera 8 unités du stock détail.
+          </p>
+        </div>
+
+        <!-- Stock en gros — séparé : compteur indépendant modifiable ; lié : lecture seule, calculé -->
+        <div class="field-group" *ngIf="(form.get('prixGros')?.value || 0) > 0 && form.get('modeStock')?.value !== 'lie'">
           <label class="field-label">Stock en gros <span class="opt">optionnel</span></label>
           <div class="field-input-wrap">
             <input class="field-input" type="number" formControlName="stockGros" min="0" />
@@ -112,6 +143,13 @@ const CATEGORIES = [
             <mat-icon>info</mat-icon>
             Compteur séparé du stock détail — une vente en gros décompte ce stock-ci, jamais l'autre.
           </p>
+        </div>
+        <div class="field-group" *ngIf="(form.get('prixGros')?.value || 0) > 0 && form.get('modeStock')?.value === 'lie' && (form.get('uniteParGros')?.value || 0) > 0">
+          <label class="field-label">Unités gros disponibles <span class="opt">calculé</span></label>
+          <div class="field-input-wrap">
+            <input class="field-input" type="number" [value]="stockGrosCalcule()" disabled />
+            <span class="field-suffix">unités</span>
+          </div>
         </div>
 
         <!-- Marge preview -->
@@ -379,6 +417,8 @@ export class ProduitDialogComponent implements OnInit {
       prixAchat: [0, [Validators.min(0)]],
       stock: [0, [Validators.required, Validators.min(0)]],
       stockGros: [0, [Validators.min(0)]],
+      modeStock: ['separe'],
+      uniteParGros: [0, [Validators.min(0)]],
       categorie: ['', Validators.required],
       codeBarres: [''],
       seuilAlerte: [5],
@@ -440,10 +480,25 @@ export class ProduitDialogComponent implements OnInit {
     return Math.round((this.margeUnitaire / prix) * 100);
   }
 
+  // Nombre d'unités gros disponibles en mode "lié" — purement informatif,
+  // dérivé du stock détail unique, jamais stocké indépendamment.
+  stockGrosCalcule(): number {
+    const stock = this.form.get('stock')?.value || 0;
+    const uniteParGros = this.form.get('uniteParGros')?.value || 0;
+    return uniteParGros > 0 ? Math.floor(stock / uniteParGros) : 0;
+  }
+
   onCancel(): void { this.dialogRef.close(null); }
 
   onSave(): void {
     if (this.form.invalid || !this.getCatValue()) return;
+    const prixGros = this.form.get('prixGros')?.value || 0;
+    const modeStock = this.form.get('modeStock')?.value;
+    const uniteParGros = this.form.get('uniteParGros')?.value || 0;
+    if (prixGros > 0 && modeStock === 'lie' && uniteParGros <= 0) {
+      this.snackBar.open('Indiquez combien d\'unités détail contient une unité gros', 'OK', { duration: 3500 });
+      return;
+    }
     this.isLoading = true;
     const produit: Produit = {
       ...this.form.value,

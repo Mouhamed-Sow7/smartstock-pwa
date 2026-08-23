@@ -1016,8 +1016,11 @@ export class ScanComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     // Quantité déjà au panier pour ce produit, tous types de vente confondus
-    // (détail + gros partagent le même stock physique — même unité).
-    const enPanier = this.pos.quantiteAuPanier(produit._id);
+    // — ce garde-fou s'exécute AVANT le choix détail/gros (pas encore connu
+    // ici), donc on garde le cumul des deux comme avant le découpage par
+    // pool de quantiteAuPanier() ; le contrôle précis par pool (qui compte
+    // pour de vrai) a lieu dans pos.addToCart() une fois le type choisi.
+    const enPanier = this.pos.quantiteAuPanier(produit._id, 'detail') + this.pos.quantiteAuPanier(produit._id, 'gros');
     if (stock > 0 && enPanier >= stock) {
       this.errorMessage = `Stock max atteint pour "${nom}" (${stock} unité${stock > 1 ? 's' : ''})`;
       setTimeout(() => (this.errorMessage = ''), 3000);

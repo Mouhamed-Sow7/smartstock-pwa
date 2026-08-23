@@ -151,11 +151,12 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
           <div class="produit-meta">
             {{ produitTrouve.prix | number: '1.0-0' }} FCFA &middot; Stock détail :
             {{ produitTrouve.stock }}
-            <span *ngIf="(produitTrouve.prixGros || 0) > 0"> &middot; Stock gros : {{ produitTrouve.stockGros || 0 }}</span>
+            <span *ngIf="(produitTrouve.prixGros || 0) > 0"> &middot; Stock gros : {{ stockGrosAffiche(produitTrouve) }}</span>
           </div>
         </div>
-        <!-- Choix du pool a alimenter — uniquement si le produit est vendable en gros -->
-        <div class="reappro-type-choice" *ngIf="(produitTrouve.prixGros || 0) > 0">
+        <!-- Choix du pool a alimenter — uniquement si vendable en gros ET stock séparé
+             (en mode "lié" un seul stock physique, tout passe par "Détail") -->
+        <div class="reappro-type-choice" *ngIf="(produitTrouve.prixGros || 0) > 0 && produitTrouve.modeStock !== 'lie'">
           <button class="reappro-type-btn" [class.active]="champEntree === 'stock'" (click)="champEntree = 'stock'">
             Détail ({{ produitTrouve.stock }})
           </button>
@@ -163,6 +164,9 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
             Gros ({{ produitTrouve.stockGros || 0 }})
           </button>
         </div>
+        <p class="reappro-hint-lie" *ngIf="(produitTrouve.prixGros || 0) > 0 && produitTrouve.modeStock === 'lie'">
+          Stock lié — l'entrée alimente le stock détail, le nombre d'unités gros disponibles se recalcule automatiquement.
+        </p>
         <div class="stock-entry">
           <label>Quantite recue (reassort)</label>
           <div class="stock-row">
@@ -426,6 +430,7 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
       .produit-meta { font-size: 13px; color: var(--text-2); margin-top: 2px; }
       .stock-entry { margin-top: 14px; }
       .reappro-type-choice { display: flex; gap: 6px; margin-top: 10px; }
+      .reappro-hint-lie { color: #8a93a6; font-size: 11px; margin: 10px 0 0; }
       .reappro-type-btn {
         background: var(--navy); border: 1px solid var(--navy-border); color: var(--text-2);
         font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer;
@@ -463,6 +468,14 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   produitTrouve: Produit | null = null;
   quantiteEntree = 1;
   champEntree: 'stock' | 'stockGros' = 'stock';
+
+  // Même logique que produits.component.ts — voir ce fichier pour le détail.
+  stockGrosAffiche(p: any): number {
+    if (p?.modeStock === 'lie') {
+      return p.uniteParGros > 0 ? Math.floor((p.stock || 0) / p.uniteParGros) : 0;
+    }
+    return p?.stockGros || 0;
+  }
   produitsIndexesSession = 0;
 
   private detector: BarcodeDetectorLike | null = null;
