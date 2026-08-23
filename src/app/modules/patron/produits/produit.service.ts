@@ -116,10 +116,11 @@ export class ProduitService {
     type: 'entree' | 'sortie',
     nom = '',
     stockActuel = 0,
+    champ: 'stock' | 'stockGros' = 'stock',
   ): Observable<any> {
     const tenantId = this.auth.getTenantId() ?? '';
     return from(
-      this.sync.ajusterStock({ tenantId, produitId: id, nom, stockActuel, quantite, type }),
+      this.sync.ajusterStock({ tenantId, produitId: id, nom, stockActuel, quantite, type, champ }),
     ).pipe(switchMap((statut) => of({ success: true, offline: statut === 'offline' })));
   }
 

@@ -223,6 +223,7 @@ export class SyncService {
         this.http.patch(`${environment.apiUrl}/produits/${s.produitId}/stock`, {
           quantite: s.quantite,
           type: s.type,
+          champ: s.champ || 'stock',
         }),
       );
       await this.offline.marquerStockSynced(s.id!);
@@ -343,16 +344,17 @@ export class SyncService {
     stockActuel: number;
     quantite: number;
     type: 'entree' | 'sortie';
+    champ?: 'stock' | 'stockGros';
   }): Promise<'online' | 'offline'> {
-    const { tenantId, produitId, nom, stockActuel, quantite, type } = params;
+    const { tenantId, produitId, nom, stockActuel, quantite, type, champ = 'stock' } = params;
     const nouveauStock = type === 'entree' ? stockActuel + quantite : Math.max(0, stockActuel - quantite);
 
     // Produit lui-même pas encore synchronisé (id temporaire) : le serveur ne le
     // connaît pas encore, donc on corrige directement la fiche de création en
     // attente plutôt que de créer un ajustement de stock qui échouerait (404).
     if (produitId.startsWith('temp_')) {
-      await this.offline.updateProduitStock(tenantId, produitId, nouveauStock);
-      await this.offline.ajusterStockProduitPendingParTempId(produitId, nouveauStock);
+      await this.offline.updateProduitStock(tenantId, produitId, nouveauStock, champ);
+      await this.offline.ajusterStockProduitPendingParTempId(produitId, nouveauStock, champ);
       return 'offline';
     }
 
@@ -360,23 +362,24 @@ export class SyncService {
       try {
         await this.avecRetryTimeout(() =>
           firstValueFrom(
-            this.http.patch(`${environment.apiUrl}/produits/${produitId}/stock`, { quantite, type }),
+            this.http.patch(`${environment.apiUrl}/produits/${produitId}/stock`, { quantite, type, champ }),
           ),
         );
-        await this.offline.updateProduitStock(tenantId, produitId, nouveauStock);
+        await this.offline.updateProduitStock(tenantId, produitId, nouveauStock, champ);
         return 'online';
       } catch { /* bascule offline après les tentatives */ }
     }
 
     // Hors ligne, ou produit lui-même encore en attente de sync (id temporaire)
     // → on met à jour le cache tout de suite et on queue l'ajustement
-    await this.offline.updateProduitStock(tenantId, produitId, nouveauStock);
+    await this.offline.updateProduitStock(tenantId, produitId, nouveauStock, champ);
     await this.offline.ajouterStockPending({
       tenantId,
       produitId,
       nom,
       quantite,
       type,
+      champ,
       createdAt: new Date().toISOString(),
       statut: 'pending',
     });

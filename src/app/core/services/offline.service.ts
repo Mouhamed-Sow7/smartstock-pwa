@@ -86,6 +86,9 @@ export interface StockPending {
   nom: string;
   quantite: number;
   type: 'entree' | 'sortie';
+  // Pool ciblé — 'stock' (détail) par défaut si absent, pour compat avec
+  // les entrées en queue créées avant l'existence du stock gros.
+  champ?: 'stock' | 'stockGros';
   statut: 'pending' | 'synced' | 'error';
   createdAt: string;
   errorMessage?: string;
@@ -221,8 +224,8 @@ export class OfflineService extends Dexie {
   }
 
   /** Met à jour le stock d'un produit dans le cache Dexie local sans tout recharger */
-  async updateProduitStock(tenantId: string, produitId: string, nouveauStock: number): Promise<void> {
-    await this.produits.where('_id').equals(produitId).modify({ stock: nouveauStock });
+  async updateProduitStock(tenantId: string, produitId: string, nouveauStock: number, champ: 'stock' | 'stockGros' = 'stock'): Promise<void> {
+    await this.produits.where('_id').equals(produitId).modify({ [champ]: nouveauStock });
     this._produitsUpdated$.next();
   }
 
@@ -370,10 +373,10 @@ export class OfflineService extends Dexie {
   }
 
   /** Ajuste le stock d'un produit encore en attente de sync (id temporaire temp_...) directement dans sa fiche pending */
-  async ajusterStockProduitPendingParTempId(tempId: string, nouveauStock: number): Promise<boolean> {
+  async ajusterStockProduitPendingParTempId(tempId: string, nouveauStock: number, champ: 'stock' | 'stockGros' = 'stock'): Promise<boolean> {
     const entree = await this.produitsPending.where('tempId').equals(tempId).first();
     if (!entree?.id) return false;
-    await this.produitsPending.update(entree.id, { stock: nouveauStock });
+    await this.produitsPending.update(entree.id, { [champ]: nouveauStock } as any);
     return true;
   }
 

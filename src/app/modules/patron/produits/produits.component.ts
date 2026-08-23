@@ -167,6 +167,17 @@ function catInitial(cat: string): string {
             <!-- Panel rentrée stock — juste sous CE produit -->
             <div class="reappro-panel" *ngIf="reapproId === p._id">
               <span class="reappro-label">Entrée stock — {{ p.nom }}</span>
+
+              <!-- Choix du pool — uniquement si le produit est vendable en gros -->
+              <div class="reappro-type-choice" *ngIf="p.prixGros > 0">
+                <button class="reappro-type-btn" [class.active]="reapproChamp === 'stock'" (click)="reapproChamp = 'stock'">
+                  Détail ({{ p.stock }})
+                </button>
+                <button class="reappro-type-btn" [class.active]="reapproChamp === 'stockGros'" (click)="reapproChamp = 'stockGros'">
+                  Gros ({{ p.stockGros || 0 }})
+                </button>
+              </div>
+
               <div class="reappro-row">
                 <button class="qty-btn" (click)="reapproQty = reapproQty > 1 ? reapproQty - 1 : 1">
                   <mat-icon>remove</mat-icon>
@@ -389,6 +400,12 @@ function catInitial(cat: string): string {
     }
     .reappro-inner { display: flex; flex-direction: column; gap: 10px; }
     .reappro-label { font-size: 12px; color: var(--accent); font-weight: 600; }
+    .reappro-type-choice { display: flex; gap: 6px; margin: 6px 0; }
+    .reappro-type-btn {
+      background: var(--navy); border: 1px solid var(--navy-border); color: var(--text-2);
+      font-size: 12px; font-weight: 600; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    }
+    .reappro-type-btn.active { background: var(--accent-lite); border-color: var(--accent); color: var(--accent); }
     .reappro-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .qty-btn {
       width: 30px; height: 30px; border-radius: 8px; border: none;
@@ -432,6 +449,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   stockFilter = signal<'tous' | 'bas' | 'ok' | 'expire'>('tous');
   reapproId: string | null = null;
   reapproQty = 1;
+  reapproChamp: 'stock' | 'stockGros' = 'stock';
   reapproSaving = false;
 
   // Doit rester identique à la valeur par défaut de `jours` dans
@@ -505,6 +523,7 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   ouvrirReappro(p: any): void {
     this.reapproId = this.reapproId === p._id ? null : p._id;
     this.reapproQty = 1;
+    this.reapproChamp = 'stock';
   }
 
   trackByCategorie = (_: number, group: { categorie: string }) => group.categorie;
@@ -513,20 +532,25 @@ export class ProduitsComponent implements OnInit, OnDestroy {
   confirmerReappro(p: any): void {
     if (this.reapproSaving) return;
     this.reapproSaving = true;
+    const champ = this.reapproChamp;
+    const stockActuelCible = champ === 'stockGros' ? (p.stockGros || 0) : p.stock;
     // updateStock() passe par SyncService/Dexie (IndexedDB) : callbacks non
     // garantis dans la zone Angular sur certains navigateurs → zone.run()
     // (meme cause que le "modal fantome" de produit-dialog/scan-ajout).
-    this.produitService.updateStock(p._id, this.reapproQty, 'entree', p.nom, p.stock).subscribe({
+    this.produitService.updateStock(p._id, this.reapproQty, 'entree', p.nom, stockActuelCible, champ).subscribe({
       next: (res) => this.zone.run(() => {
         this.produits.update(list =>
-          list.map(item => item._id === p._id ? { ...item, stock: item.stock + this.reapproQty } : item)
+          list.map(item => item._id === p._id
+            ? { ...item, [champ]: (item[champ] || 0) + this.reapproQty }
+            : item)
         );
         this.reapproId = null;
         this.reapproSaving = false;
+        const libelleChamp = champ === 'stockGros' ? ' (gros)' : '';
         this.snack.open(
           res?.offline
-            ? `+${this.reapproQty} unité(s) enregistrée(s) hors ligne — sync à la reconnexion`
-            : `+${this.reapproQty} unité(s) ajoutée(s)`,
+            ? `+${this.reapproQty} unité(s)${libelleChamp} enregistrée(s) hors ligne — sync à la reconnexion`
+            : `+${this.reapproQty} unité(s)${libelleChamp} ajoutée(s)`,
           'OK',
           { duration: 2500 },
         );

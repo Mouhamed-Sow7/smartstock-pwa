@@ -149,9 +149,19 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
         <div class="produit-info">
           <div class="produit-nom">{{ produitTrouve.nom }}</div>
           <div class="produit-meta">
-            {{ produitTrouve.prix | number: '1.0-0' }} FCFA &middot; Stock actuel :
+            {{ produitTrouve.prix | number: '1.0-0' }} FCFA &middot; Stock détail :
             {{ produitTrouve.stock }}
+            <span *ngIf="(produitTrouve.prixGros || 0) > 0"> &middot; Stock gros : {{ produitTrouve.stockGros || 0 }}</span>
           </div>
+        </div>
+        <!-- Choix du pool a alimenter — uniquement si le produit est vendable en gros -->
+        <div class="reappro-type-choice" *ngIf="(produitTrouve.prixGros || 0) > 0">
+          <button class="reappro-type-btn" [class.active]="champEntree === 'stock'" (click)="champEntree = 'stock'">
+            Détail ({{ produitTrouve.stock }})
+          </button>
+          <button class="reappro-type-btn" [class.active]="champEntree === 'stockGros'" (click)="champEntree = 'stockGros'">
+            Gros ({{ produitTrouve.stockGros || 0 }})
+          </button>
         </div>
         <div class="stock-entry">
           <label>Quantite recue (reassort)</label>
@@ -415,6 +425,13 @@ type EtatResultat = 'idle' | 'trouve' | 'nouveau';
       .produit-nom { font-size: 16px; font-weight: 700; color: var(--text-1); }
       .produit-meta { font-size: 13px; color: var(--text-2); margin-top: 2px; }
       .stock-entry { margin-top: 14px; }
+      .reappro-type-choice { display: flex; gap: 6px; margin-top: 10px; }
+      .reappro-type-btn {
+        background: var(--navy); border: 1px solid var(--navy-border); color: var(--text-2);
+        font-size: 12px; font-weight: 600; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+        flex: 1;
+      }
+      .reappro-type-btn.active { background: var(--accent-lite); border-color: var(--accent); color: var(--accent); }
       .stock-entry label { font-size: 12px; color: var(--text-2); display: block; margin-bottom: 6px; }
       .stock-row { display: flex; gap: 8px; }
       .stock-row input { width: 90px; background: var(--navy); border: 1px solid var(--navy-border); border-radius: 8px; padding: 10px; color: var(--text-1); font-size: 14px; }
@@ -445,6 +462,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   resultat: EtatResultat = 'idle';
   produitTrouve: Produit | null = null;
   quantiteEntree = 1;
+  champEntree: 'stock' | 'stockGros' = 'stock';
   produitsIndexesSession = 0;
 
   private detector: BarcodeDetectorLike | null = null;
@@ -729,6 +747,7 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
           } else {
             this.produitTrouve = res.data;
             this.quantiteEntree = 1;
+            this.champEntree = 'stock';
             this.resultat = 'trouve';
             this.playSound(880);
             this.couperCameraPourTraitement();
@@ -792,32 +811,39 @@ export class ScanAjoutComponent implements OnInit, AfterViewInit, OnDestroy {
   // online/offline déjà éprouvés — ProduitService.updateStock gère la
   // synchronisation Dexie exactement pareil qu'en confirmation manuelle),
   // simplement sans passer par l'état "resultat = trouve" qui affiche la
-  // carte + demande un tap sur "Ajouter au stock".
+  // carte + demande un tap sur "Ajouter au stock". Toujours stock détail en
+  // mode rapide (pas de carte pour choisir le pool) — un choix "gros" reste
+  // possible ensuite en désactivant temporairement le mode rapide.
   private autoReapprovisionner(produit: Produit): void {
     this.produitTrouve = produit;
     this.quantiteEntree = 1;
+    this.champEntree = 'stock';
     this.confirmerEntreeStock();
   }
 
   confirmerEntreeStock(): void {
     if (!this.produitTrouve?._id || this.quantiteEntree <= 0) return;
     this.isLoading = true;
+    const champ = this.champEntree;
+    const stockActuelCible = champ === 'stockGros' ? (this.produitTrouve.stockGros || 0) : this.produitTrouve.stock;
     this.produitService
       .updateStock(
         this.produitTrouve._id!,
         this.quantiteEntree,
         'entree',
         this.produitTrouve.nom,
-        this.produitTrouve.stock,
+        stockActuelCible,
+        champ,
       )
       .subscribe({
         next: (res) => this.zone.run(() => {
           this.isLoading = false;
           if (res?.success) {
+            const libelleChamp = champ === 'stockGros' ? ' (gros)' : '';
             this.snackBar.open(
               res?.offline
-                ? 'Stock mis à jour hors ligne — sera synchronisé à la reconnexion'
-                : `Stock mis à jour : ${this.produitTrouve!.stock + this.quantiteEntree} unités`,
+                ? `Stock${libelleChamp} mis à jour hors ligne — sera synchronisé à la reconnexion`
+                : `Stock${libelleChamp} mis à jour : ${stockActuelCible + this.quantiteEntree} unités`,
               'Fermer',
               { duration: 2500 },
             );
