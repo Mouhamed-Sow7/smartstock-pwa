@@ -13,6 +13,8 @@ export interface Vente {
   modePaiement: string;
   statut: string;
   createdAt: string;
+  agentId?: string;
+  annulation?: { date: string; parRole: string; parNom: string; motif: string };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -73,9 +75,12 @@ export class RapportService {
     doc.text(`Rapport des ventes — ${label}`, 14, 26);
     doc.text(`Généré le ${new Date().toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}`, 14, 32);
 
-    // KPIs
-    const total = ventes.reduce((s, v) => s + v.montantTotal, 0);
-    const nbVentes = ventes.length;
+    // KPIs — une vente annulée reste listée dans le tableau (traçabilité)
+    // mais ne doit jamais compter dans le CA/panier moyen affiché en haut,
+    // même règle que /ventes/stats côté backend et que la page Ventes.
+    const ventesActives = ventes.filter(v => v.statut !== 'annule');
+    const total = ventesActives.reduce((s, v) => s + v.montantTotal, 0);
+    const nbVentes = ventesActives.length;
     const panier = nbVentes ? Math.round(total / nbVentes) : 0;
 
     doc.setFillColor(0, 184, 148);
@@ -104,7 +109,7 @@ export class RapportService {
       v.agentNom,
       v.produits.map(p => `${p.nom} x${p.quantite}`).join(', '),
       v.modePaiement,
-      `${v.montantTotal.toLocaleString('fr-FR')} F`,
+      v.statut === 'annule' ? `${v.montantTotal.toLocaleString('fr-FR')} F (ANNULÉE)` : `${v.montantTotal.toLocaleString('fr-FR')} F`,
     ]);
 
     autoTable(doc, {

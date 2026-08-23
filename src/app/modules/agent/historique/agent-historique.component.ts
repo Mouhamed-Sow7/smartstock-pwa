@@ -1,5 +1,6 @@
 import { Component, OnDestroy, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { Subject, takeUntil, catchError, of } from 'rxjs';
 import { ApiService } from '../../../core/services/api.service';
@@ -13,6 +14,8 @@ interface VenteHisto {
   montantTotal: number;
   modePaiement: string;
   agentId?: string;
+  statut?: string;
+  annulation?: { date: string; parRole: string; parNom: string; motif: string };
   produits: { nom: string; quantite: number }[];
 }
 
@@ -28,7 +31,7 @@ const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
 @Component({
   selector: 'app-agent-historique',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   template: `
     <div class="historique-page">
       <div class="histo-header">
@@ -54,13 +57,16 @@ const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
         <p>{{ i18n.t('dash.aucuneVente') }}</p>
       </div>
 
-      <div class="vente-card" *ngFor="let v of _ventes">
+      <div class="vente-card" [class.vente-annulee]="v.statut === 'annule'" *ngFor="let v of _ventes">
         <div class="vente-top">
           <span class="ticket">{{ v.numeroTicket }}</span>
           <span class="montant">{{ v.montantTotal | number: '1.0-0' }} F</span>
         </div>
         <div class="vente-mid">
-          <span class="badge">
+          <span class="badge badge-annulee" *ngIf="v.statut === 'annule'">
+            <mat-icon>block</mat-icon> {{ i18n.lang() === 'ar' ? 'ملغاة' : 'Annulée' }}
+          </span>
+          <span class="badge" *ngIf="v.statut !== 'annule'">
             {{ modeLabel(v.modePaiement) }}
             <button
               class="edit-mode-btn"
@@ -73,6 +79,14 @@ const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
           </span>
           <span class="date">{{ v.createdAt | date: 'dd/MM HH:mm' }}</span>
         </div>
+        <button
+          class="btn-annuler-vente"
+          *ngIf="v.statut !== 'annule' && dansFenetreCorrection(v)"
+          (click)="ouvrirAnnulation(v)"
+        >
+          <mat-icon>delete_outline</mat-icon>
+          {{ i18n.lang() === 'ar' ? 'إلغاء عملية البيع هذه' : 'Annuler cette vente' }}
+        </button>
 
         <!-- Correction inline du mode de paiement — fenêtre 24h -->
         <div class="correction-panel" *ngIf="venteEnCorrection?._id === v._id">
@@ -107,6 +121,43 @@ const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
           </div>
           <p class="correction-error" *ngIf="correctionError">{{ correctionError }}</p>
         </div>
+
+        <!-- Confirmation d'annulation — fenêtre 24h, stock restauré auto côté serveur -->
+        <div class="correction-panel" *ngIf="venteEnAnnulation?._id === v._id">
+          <p class="correction-hint">
+            {{ i18n.lang() === 'ar'
+              ? 'سيُعاد المخزون تلقائيًا. لا يمكن التراجع عن هذا الإجراء.'
+              : 'Le stock sera automatiquement remis en stock. Cette action est irréversible.' }}
+          </p>
+          <input
+            type="text"
+            class="motif-input"
+            [(ngModel)]="motifAnnulation"
+            [placeholder]="i18n.lang() === 'ar' ? 'السبب (مثال: بلاغ من الزبون)' : 'Motif (ex: Signalé par le client)'"
+            maxlength="300"
+          />
+          <div class="correction-actions">
+            <button class="btn-cancel" (click)="fermerAnnulation()">
+              {{ i18n.lang() === 'ar' ? 'رجوع' : 'Retour' }}
+            </button>
+            <button
+              class="btn-confirm btn-danger"
+              [disabled]="annulationSaving"
+              (click)="confirmerAnnulation(v)"
+            >
+              {{ annulationSaving
+                ? (i18n.lang() === 'ar' ? 'جارٍ الإلغاء...' : 'Annulation...')
+                : (i18n.lang() === 'ar' ? 'تأكيد الإلغاء' : "Confirmer l'annulation") }}
+            </button>
+          </div>
+          <p class="correction-error" *ngIf="annulationError">{{ annulationError }}</p>
+        </div>
+
+        <p class="vente-annulation-info" *ngIf="v.statut === 'annule' && v.annulation">
+          {{ i18n.lang() === 'ar' ? 'أُلغيت بواسطة' : 'Annulée par' }} {{ v.annulation.parNom }}
+          — {{ v.annulation.date | date: 'dd/MM HH:mm' }}
+          <span *ngIf="v.annulation.motif"> · {{ v.annulation.motif }}</span>
+        </p>
 
         <div class="vente-items">
           <span class="item" *ngFor="let p of v.produits">{{ p.nom }} ×{{ p.quantite }}</span>
@@ -193,6 +244,21 @@ const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
     }
     .btn-confirm:disabled { opacity: .4; }
     .correction-error { color: #e74c3c; font-size: 11px; margin: 8px 0 0; }
+    .vente-annulee { opacity: .55; }
+    .badge-annulee { background: rgba(231,76,60,.15) !important; color: #e74c3c !important; }
+    .btn-annuler-vente {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: transparent; border: none; color: var(--text-3);
+      font-size: 11px; cursor: pointer; padding: 4px 0; margin-bottom: 8px;
+    }
+    .btn-annuler-vente mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .motif-input {
+      width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid var(--navy-border); background: var(--navy); color: var(--text-1);
+      font-size: 13px; margin: 0 0 10px;
+    }
+    .btn-danger { background: #e74c3c !important; color: #fff !important; }
+    .vente-annulation-info { color: var(--text-3); font-size: 11px; margin: 0 0 8px; }
 
     .load-more-btn {
       display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -264,6 +330,53 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
         this.zone.run(() => {
           this.correctionSaving = false;
           this.correctionError = err?.error?.message || 'Erreur réseau';
+          this.cdr.detectChanges();
+        });
+      },
+    });
+  }
+
+  // ─── Annulation de vente ────────────────────────────────────────────
+  venteEnAnnulation: VenteHisto | null = null;
+  motifAnnulation = '';
+  annulationSaving = false;
+  annulationError = '';
+
+  ouvrirAnnulation(v: VenteHisto): void {
+    this.venteEnCorrection = null; // un seul panneau ouvert à la fois
+    this.venteEnAnnulation = v;
+    this.motifAnnulation = '';
+    this.annulationError = '';
+  }
+
+  fermerAnnulation(): void {
+    this.venteEnAnnulation = null;
+    this.annulationError = '';
+  }
+
+  confirmerAnnulation(v: VenteHisto): void {
+    this.annulationSaving = true;
+    this.annulationError = '';
+    this.api.patch(`ventes/${v._id}/annuler`, { motif: this.motifAnnulation }).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (res: any) => {
+        this.zone.run(() => {
+          this.annulationSaving = false;
+          if (res?.success && res.data) {
+            v.statut = res.data.statut;
+            v.annulation = res.data.annulation;
+            this.venteEnAnnulation = null;
+          } else {
+            this.annulationError = res?.message || 'Erreur';
+          }
+          this.cdr.detectChanges();
+        });
+      },
+      error: (err) => {
+        this.zone.run(() => {
+          this.annulationSaving = false;
+          this.annulationError = err?.error?.message || 'Erreur réseau';
           this.cdr.detectChanges();
         });
       },

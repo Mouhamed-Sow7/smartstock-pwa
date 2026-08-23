@@ -108,14 +108,17 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
 
       <!-- Liste -->
       <div class="ventes-list" *ngIf="!isLoading() && ventes().length > 0">
-        <div class="vente-card" *ngFor="let v of ventes()">
+        <div class="vente-card" [class.vente-annulee]="v.statut === 'annule'" *ngFor="let v of ventes()">
           <div class="vente-header">
             <div class="vente-ticket">{{ v.numeroTicket }}</div>
             <div class="vente-date">{{ v.createdAt | date:'dd/MM HH:mm' }}</div>
             <div class="vente-montant">{{ v.montantTotal | number:'1.0-0' }} F</div>
           </div>
           <div class="vente-meta">
-            <span class="badge-paiement">
+            <span class="badge-annulee" *ngIf="v.statut === 'annule'">
+              <mat-icon>block</mat-icon> Annulée
+            </span>
+            <span class="badge-paiement" *ngIf="v.statut !== 'annule'">
               {{ modeLabel(v.modePaiement) }}
               <button class="edit-mode-btn" *ngIf="dansFenetreCorrection(v)" (click)="ouvrirCorrectionMode(v)" title="Modifier le mode de paiement">
                 <mat-icon>edit</mat-icon>
@@ -123,7 +126,14 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
             </span>
             <span class="vente-agent">{{ v.agentNom }}</span>
             <span class="vente-articles">{{ v.produits.length }} article(s)</span>
+            <button class="btn-annuler-vente" *ngIf="v.statut !== 'annule' && dansFenetreCorrection(v)" (click)="ouvrirAnnulation(v)" title="Annuler cette vente">
+              <mat-icon>delete_outline</mat-icon> Annuler la vente
+            </button>
           </div>
+          <p class="vente-annulation-info" *ngIf="v.statut === 'annule' && v.annulation">
+            Annulée par {{ v.annulation.parNom }} le {{ v.annulation.date | date:'dd/MM HH:mm' }}
+            <span *ngIf="v.annulation.motif"> — {{ v.annulation.motif }}</span>
+          </p>
           <div class="vente-lignes">
             <div *ngFor="let p of v.produits; let i = index" class="ligne-produit-row">
               <span class="lp-nom">{{ p.nom }} ×{{ p.quantite }}</span>
@@ -166,6 +176,27 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
               >{{ correctionSaving ? 'Enregistrement...' : 'Confirmer' }}</button>
             </div>
             <p class="correction-error" *ngIf="correctionError">{{ correctionError }}</p>
+          </div>
+
+          <!-- Confirmation d'annulation de vente — fenêtre 24h, stock restauré auto -->
+          <div class="annulation-panel" *ngIf="annulationCibleId === v._id">
+            <p class="correction-hint">
+              Le stock vendu sera automatiquement remis en stock{{ v.modePaiement === 'credit' ? ', et le solde dû du client sera réduit du montant de cette vente' : '' }}. Cette action est irréversible.
+            </p>
+            <input
+              type="text"
+              class="motif-input"
+              [(ngModel)]="motifAnnulation"
+              placeholder="Motif (ex: Signalé par le client)"
+              maxlength="300"
+            />
+            <div class="correction-actions">
+              <button class="btn-cancel" (click)="fermerAnnulation()">Retour</button>
+              <button class="btn-confirm btn-danger" [disabled]="annulationSaving" (click)="confirmerAnnulation(v)">
+                {{ annulationSaving ? 'Annulation...' : 'Confirmer l\\'annulation' }}
+              </button>
+            </div>
+            <p class="correction-error" *ngIf="annulationError">{{ annulationError }}</p>
           </div>
         </div>
       </div>
@@ -400,6 +431,30 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
     }
     .btn-confirm:disabled { opacity: .4; }
     .correction-error { color: #e74c3c; font-size: 11px; margin: 8px 0 0; }
+    .vente-annulee { opacity: .55; }
+    .badge-annulee {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: rgba(231,76,60,.12); color: #e74c3c;
+      padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .badge-annulee mat-icon { font-size: 13px; width: 13px; height: 13px; }
+    .vente-annulation-info { color: var(--text-3); font-size: 11px; margin: 4px 0 0; }
+    .btn-annuler-vente {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: transparent; border: none; color: var(--text-3);
+      font-size: 11px; cursor: pointer; padding: 2px 4px; margin-left: auto;
+    }
+    .btn-annuler-vente:hover { color: #e74c3c; }
+    .btn-annuler-vente mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .annulation-panel {
+      margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+    }
+    .motif-input {
+      width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 8px;
+      border: 1px solid var(--border); background: var(--bg-2); color: var(--text-1);
+      font-size: 13px; margin: 6px 0;
+    }
+    .btn-danger { background: #e74c3c !important; }
   `]
 })
 export class VentesComponent implements OnInit, OnDestroy {
@@ -430,9 +485,14 @@ export class VentesComponent implements OnInit, OnDestroy {
     { value: 'personnalise' as Periode, label: "Dates..." },
   ];
 
-  totalCA = () => this.ventes().reduce((s, v) => s + v.montantTotal, 0);
-  totalMarge = () => this.ventes().reduce((s, v) => s + (v.margeTotale || 0), 0);
-  panierMoyen = () => this.ventes().length ? Math.round(this.totalCA() / this.ventes().length) : 0;
+  // Une vente annulée doit sortir des totaux affichés (CA, marge, panier
+  // moyen) exactement comme elle sort déjà de /ventes/stats côté backend —
+  // elle reste visible dans la liste (barrée, badge "Annulée") mais ne doit
+  // plus compter comme un vrai chiffre d'affaires.
+  private ventesActives = () => this.ventes().filter((v) => v.statut !== 'annule');
+  totalCA = () => this.ventesActives().reduce((s, v) => s + v.montantTotal, 0);
+  totalMarge = () => this.ventesActives().reduce((s, v) => s + (v.margeTotale || 0), 0);
+  panierMoyen = () => this.ventesActives().length ? Math.round(this.totalCA() / this.ventesActives().length) : 0;
 
   // ─── Correction a posteriori (mode de paiement / prix) ─────────────
   private readonly FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
@@ -504,6 +564,45 @@ export class VentesComponent implements OnInit, OnDestroy {
       error: (err) => {
         this.correctionSaving = false;
         this.correctionError = err?.error?.message || 'Erreur réseau';
+      },
+    });
+  }
+
+  // ─── Annulation de vente ────────────────────────────────────────────
+  annulationCibleId: string | null = null;
+  motifAnnulation = '';
+  annulationSaving = false;
+  annulationError = '';
+
+  ouvrirAnnulation(v: Vente): void {
+    this.correctionCible = null; // ferme la correction si ouverte, un seul panneau à la fois
+    this.annulationCibleId = v._id;
+    this.motifAnnulation = '';
+    this.annulationError = '';
+  }
+
+  fermerAnnulation(): void {
+    this.annulationCibleId = null;
+    this.annulationError = '';
+  }
+
+  confirmerAnnulation(v: Vente): void {
+    this.annulationSaving = true;
+    this.annulationError = '';
+    this.api.patch(`ventes/${v._id}/annuler`, { motif: this.motifAnnulation }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.annulationSaving = false;
+        if (res?.success && res.data) {
+          this.ventes.update((liste) => liste.map((x) => x._id === v._id ? res.data : x));
+          this.annulationCibleId = null;
+          this.snack.open('✓ Vente annulée, stock restauré', '✕', { duration: 3000 });
+        } else {
+          this.annulationError = res?.message || 'Erreur';
+        }
+      },
+      error: (err) => {
+        this.annulationSaving = false;
+        this.annulationError = err?.error?.message || 'Erreur réseau';
       },
     });
   }
