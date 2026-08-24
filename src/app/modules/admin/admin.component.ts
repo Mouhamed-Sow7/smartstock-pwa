@@ -2,6 +2,7 @@ import { Component, OnInit, ChangeDetectorRef, signal, computed } from '@angular
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { environment } from '../../../environments/environment';
 
@@ -22,7 +23,7 @@ interface AbonnementARelancer {
 @Component({
   selector: 'app-admin',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [CommonModule, FormsModule, MatIconModule, RouterLink],
   template: `
 <div class="adm">
 
@@ -229,6 +230,14 @@ interface AbonnementARelancer {
     <!-- ── OUTILS ── -->
     <section *ngIf="tab==='outils'">
       <h3>Outils</h3>
+
+      <div class="tool-card">
+        <h4><mat-icon>qr_code_scanner</mat-icon>Portail d'indexation</h4>
+        <p>Scanner en rafale pour rattraper une boutique sans cahier de stock, en s'appuyant sur les codes-barres déjà connus d'autres boutiques.</p>
+        <a class="btn-primary" routerLink="/admin/indexation" style="text-decoration:none;display:inline-flex;">
+          <mat-icon>qr_code_scanner</mat-icon> Ouvrir le portail
+        </a>
+      </div>
 
       <div class="tool-card">
         <h4><mat-icon>key</mat-icon>Reset mot de passe par email</h4>

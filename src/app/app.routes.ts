@@ -20,6 +20,11 @@ export const routes: Routes = [
       import('./modules/admin/admin.component').then((m) => m.AdminComponent),
   },
   {
+    path: 'admin/indexation',
+    loadComponent: () =>
+      import('./modules/admin/indexation/indexation.component').then((m) => m.IndexationComponent),
+  },
+  {
     path: 'patron',
     loadChildren: () => import('./modules/patron/patron.module').then((m) => m.PatronModule),
     canActivate: [authGuard],
