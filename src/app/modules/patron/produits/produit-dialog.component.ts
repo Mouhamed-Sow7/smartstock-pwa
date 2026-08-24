@@ -2,7 +2,8 @@ import { Component, inject, OnInit, ChangeDetectorRef, NgZone, signal } from '@a
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
-import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { ConfirmDialogComponent } from '../../../shared/components/confirm-dialog/confirm-dialog.component';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -398,6 +399,7 @@ export class ProduitDialogComponent implements OnInit {
   isLoading = false;
   data = inject<ProduitDialogData>(MAT_DIALOG_DATA);
   dialogRef = inject<MatDialogRef<ProduitDialogComponent>>(MatDialogRef);
+  private matDialog = inject(MatDialog);
   private fb = inject(FormBuilder);
   private produitService = inject(ProduitService);
   private snackBar = inject(MatSnackBar);
@@ -499,6 +501,41 @@ export class ProduitDialogComponent implements OnInit {
       this.snackBar.open('Indiquez combien d\'unités détail contient une unité gros', 'OK', { duration: 3500 });
       return;
     }
+    // Switch séparé → lié sur un produit qui avait déjà du stock gros réel :
+    // sans fusion explicite, ce stockGros devient silencieusement orphelin
+    // (plus lu par aucune logique de vente une fois en mode "lié"). On
+    // demande confirmation et on fusionne stock = stock + stockGros*uniteParGros
+    // avant de sauvegarder, plutôt que de laisser la quantité disparaître.
+    const modeStockOriginal = this.data.isEdit ? (this.data.produit?.modeStock || 'separe') : 'separe';
+    const stockGrosOriginal = this.data.isEdit ? (this.data.produit?.stockGros || 0) : 0;
+    const passageVersLie = modeStockOriginal !== 'lie' && modeStock === 'lie';
+    if (passageVersLie && stockGrosOriginal > 0 && uniteParGros > 0) {
+      const stockActuel = this.form.get('stock')?.value || 0;
+      const stockFusionne = stockActuel + stockGrosOriginal * uniteParGros;
+      const ref = this.matDialog.open(ConfirmDialogComponent, {
+        data: {
+          title: 'Fusionner le stock gros existant ?',
+          message: `Ce produit a encore ${stockGrosOriginal} unité(s) en stock gros séparé. `
+            + `En passant en stock lié, ce stock ne sera plus compté à part : `
+            + `voulez-vous le fusionner dans le stock détail unique ? `
+            + `Nouveau stock = ${stockActuel} + (${stockGrosOriginal} × ${uniteParGros}) = ${stockFusionne}. `
+            + `Si vous annulez, ces ${stockGrosOriginal} unité(s) resteront enregistrées mais ne seront plus prises en compte.`,
+          confirmText: 'Fusionner',
+          cancelText: 'Ignorer (risque de perte)',
+        },
+      });
+      ref.afterClosed().subscribe((fusionner: boolean) => {
+        if (fusionner) {
+          this.form.patchValue({ stock: stockFusionne, stockGros: 0 });
+        }
+        this.enregistrer();
+      });
+      return;
+    }
+    this.enregistrer();
+  }
+
+  private enregistrer(): void {
     this.isLoading = true;
     const produit: Produit = {
       ...this.form.value,
