@@ -499,7 +499,15 @@ export class PanierComponent implements OnInit, OnDestroy {
 
   readonly modes: { value: ModePaiement; label: string; svg: SafeHtml }[];
   constructor(private pos: PosService, private router: Router, sanitizer: DomSanitizer, public i18n: I18nService) {
-    this.modes = this._rawModes.map(m => ({ ...m, svg: sanitizer.bypassSecurityTrustHtml(m.svg) }));
+    // Masqué le 24/08/2026, lié au masquage de l'onglet "Prêts" (même
+    // décision : les épiceries/supermarchés utilisant SmartStock ne
+    // pratiquent pas la vente à crédit dans la pratique). Définition et
+    // logique de paiement 'credit' laissées intactes (backend, snapshot
+    // vente, reprise de solde à l'annulation...) — juste retirée du
+    // sélecteur de mode de paiement affiché à l'agent.
+    this.modes = this._rawModes
+      .filter(m => m.value !== 'credit')
+      .map(m => ({ ...m, svg: sanitizer.bypassSecurityTrustHtml(m.svg) }));
   }
 
   ngOnInit(): void {
