@@ -33,9 +33,23 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
       <button mat-icon-button (click)="theme.toggle()" style="color:var(--text-2)" [title]="theme.isDark() ? 'Mode clair' : 'Mode sombre'">
         <mat-icon>{{ theme.isDark() ? 'light_mode' : 'dark_mode' }}</mat-icon>
       </button>
-      <button mat-icon-button (click)="logout()" style="color:var(--text-2)">
+      <button mat-icon-button (click)="confirmerLogout()" style="color:var(--text-2); margin-left:10px" title="Se déconnecter">
         <mat-icon>logout</mat-icon>
       </button>
+    </div>
+
+    <!-- Confirmation de déconnexion — évite qu'un tap accidentel (icône
+         juste à côté du thème/compte) déconnecte l'utilisateur sans prévenir -->
+    <div class="logout-confirm-backdrop" *ngIf="logoutConfirmVisible()" (click)="logoutConfirmVisible.set(false)">
+      <div class="logout-confirm-card" (click)="$event.stopPropagation()">
+        <mat-icon class="logout-confirm-icon">logout</mat-icon>
+        <p class="logout-confirm-title">Se déconnecter ?</p>
+        <p class="logout-confirm-sub">Vous devrez ressaisir votre mot de passe pour vous reconnecter.</p>
+        <div class="logout-confirm-actions">
+          <button class="logout-confirm-btn logout-confirm-non" (click)="logoutConfirmVisible.set(false)">Non</button>
+          <button class="logout-confirm-btn logout-confirm-oui" (click)="logout()">Oui, déconnexion</button>
+        </div>
+      </div>
     </div>
 
     <!-- Bandeau sync -->
@@ -232,6 +246,30 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
     .main-content.with-abo-banner { top: calc(var(--safe-top) + var(--topbar-h) + 33px); }
     .main-content.with-banner.with-abo-banner { top: calc(var(--safe-top) + var(--topbar-h) + 66px); }
 
+    .logout-confirm-backdrop {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,.55);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px;
+    }
+    .logout-confirm-card {
+      background: var(--navy-card); border: 1px solid var(--navy-border);
+      border-radius: 16px; padding: 24px 20px; max-width: 320px; width: 100%;
+      text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.35);
+    }
+    .logout-confirm-icon {
+      color: var(--text-3); font-size: 30px; width: 30px; height: 30px; margin-bottom: 8px;
+    }
+    .logout-confirm-title { font-size: 16px; font-weight: 700; color: var(--text-1); margin: 0 0 6px; }
+    .logout-confirm-sub { font-size: 12px; color: var(--text-3); margin: 0 0 18px; }
+    .logout-confirm-actions { display: flex; gap: 10px; }
+    .logout-confirm-btn {
+      flex: 1; padding: 10px; border-radius: 10px; border: none;
+      font-size: 13px; font-weight: 600; cursor: pointer;
+    }
+    .logout-confirm-non { background: var(--navy-light); color: var(--text-1); border: 1px solid var(--navy-border); }
+    .logout-confirm-oui { background: #e74c3c; color: #fff; }
+
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -250,7 +288,11 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
       -webkit-backdrop-filter: blur(16px);
       border-top: 1px solid var(--navy-border);
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      /* 4 colonnes : Dashboard/Produits/Agents/Ventes -- Prêts masqué
+         (1287441). Si un jour réactivé, remettre repeat(5, 1fr) en même
+         temps que le lien plus haut, sinon même trou visible qu'avant ce
+         correctif. */
+      grid-template-columns: repeat(4, 1fr);
       z-index: 100;
     }
     .bottom-nav a {
@@ -329,7 +371,11 @@ export class PatronLayoutComponent {
     });
   }
 
+  logoutConfirmVisible = signal(false);
+  confirmerLogout() { this.logoutConfirmVisible.set(true); }
+
   logout() {
+    this.logoutConfirmVisible.set(false);
     this.auth.logout();
     this.router.navigate(['/login']);
   }
