@@ -85,11 +85,17 @@ import { AbonnementService } from '../../../core/services/abonnement.service';
         <mat-icon>receipt_long</mat-icon>
         <span>Ventes</span>
       </a>
+      <!-- Onglet "Prêts" masqué le 24/08/2026 : les épiceries/supermarchés
+           utilisant SmartStock ne pratiquent pas la vente à crédit/prêt
+           client dans la pratique — page et route conservées intactes,
+           juste retirées de la nav, réactivable en décommentant ce bloc. -->
+      <!--
       <a routerLink="/patron/prets" routerLinkActive="active" class="relances-link">
         <span class="relances-badge" *ngIf="clients.pretsNonRembourses() > 0">{{ clients.pretsNonRembourses() }}</span>
         <mat-icon>checklist</mat-icon>
         <span>Prêts</span>
       </a>
+      -->
     </nav>
   `,
   styles: [`
