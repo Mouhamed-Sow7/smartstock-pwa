@@ -30,7 +30,7 @@ export class RapportService {
    * -- voir AgentHistoriqueComponent pour la vraie pagination "charger
    * plus"), on boucle ici en transparence sur les pages successives pour
    * reconstituer l'ensemble complet, sans rien changer côté composant. */
-  getVentes(debut: string, fin: string, boutiqueId?: string, agentId?: string): Observable<any> {
+  getVentes(debut: string, fin: string, boutiqueId?: string, agentId?: string, produit?: string): Observable<any> {
     return new Observable((subscriber) => {
       const toutesLesVentes: any[] = [];
       const chargerPage = (page: number) => {
@@ -39,6 +39,7 @@ export class RapportService {
         // Le backend ignore/écrase ce paramètre pour un agent (il est forcé sur
         // son propre id côté serveur) — utile seulement pour le filtre patron.
         if (agentId) url += `&agentId=${agentId}`;
+        if (produit && produit.trim()) url += `&produit=${encodeURIComponent(produit.trim())}`;
         this.api.get(url).subscribe({
           next: (res: any) => {
             toutesLesVentes.push(...(res.data ?? []));

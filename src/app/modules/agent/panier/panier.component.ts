@@ -52,7 +52,19 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
             <button class="ctrl-btn" (click)="decrement(item)">
               <mat-icon>remove</mat-icon>
             </button>
-            <span class="item-qty">{{ item.quantite }}</span>
+            <span class="item-qty" *ngIf="cleQuantiteEnEdition !== ligneCle(item)" (click)="ouvrirEditionQuantite(item)">{{ item.quantite }}</span>
+            <input
+              #qtyInput
+              *ngIf="cleQuantiteEnEdition === ligneCle(item)"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              class="qty-edit-input"
+              [(ngModel)]="quantiteEditValeur"
+              (keyup.enter)="validerEditionQuantite(item)"
+              (blur)="validerEditionQuantite(item)"
+              name="qtyEdit"
+            />
             <button class="ctrl-btn accent" (click)="increment(item)">
               <mat-icon>add</mat-icon>
             </button>
@@ -243,7 +255,9 @@ type ModePaiement = 'especes' | 'wave' | 'orange_money' | 'free_money' | 'credit
     .ctrl-btn:hover { background: rgba(255,255,255,.12); }
     .ctrl-btn.accent { background: var(--accent-lite); border-color: rgba(0,184,148,.3); color: var(--accent); }
     .ctrl-btn.danger { background: rgba(225,112,85,.1); border-color: rgba(225,112,85,.3); color: var(--danger); }
-    .item-qty { color: var(--text-1); font-size: 15px; font-weight: 700; min-width: 24px; text-align: center; }
+    .item-qty { color: var(--text-1); font-size: 15px; font-weight: 700; min-width: 24px; text-align: center; cursor: pointer; }
+    .qty-edit-input { width: 48px; text-align: center; font-size: 15px; font-weight: 700; border: 1px solid var(--primary); border-radius: 6px; padding: 4px 2px; -moz-appearance: textfield; }
+    .qty-edit-input::-webkit-outer-spin-button, .qty-edit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
     /* Footer */
     .panier-footer {
@@ -377,6 +391,8 @@ export class PanierComponent implements OnInit, OnDestroy {
   clientNom = '';
   cleEnEdition: string | null = null;
   prixEditValeur: number | null = null;
+  cleQuantiteEnEdition: string | null = null;
+  quantiteEditValeur: number | null = null;
   showConfirmation = false;
   private destroy$ = new Subject<void>();
 
@@ -496,6 +512,22 @@ export class PanierComponent implements OnInit, OnDestroy {
   increment(item: CartItem): void { this.pos.addToCart(item.produit, item.typeVente); }
   decrement(item: CartItem): void { this.pos.decrementItem(item.produit._id, item.typeVente); }
   remove(item: CartItem): void    { this.pos.removeItem(item.produit._id, item.typeVente); }
+
+  /** Saisie directe de la quantité au clavier (ex: taper "45" plutôt que
+   * cliquer 45 fois sur +) — clic sur le chiffre ouvre l'input. */
+  ouvrirEditionQuantite(item: CartItem): void {
+    this.cleQuantiteEnEdition = this.ligneCle(item);
+    this.quantiteEditValeur = item.quantite;
+  }
+
+  validerEditionQuantite(item: CartItem): void {
+    if (this.cleQuantiteEnEdition !== this.ligneCle(item)) return;
+    this.cleQuantiteEnEdition = null;
+    const quantite = this.quantiteEditValeur;
+    this.quantiteEditValeur = null;
+    if (quantite === null || !Number.isFinite(quantite)) return;
+    this.pos.setQuantity(item.produit._id, item.typeVente, quantite);
+  }
 
   /** Clé unique de ligne (même logique que PosService.cleLigne, dupliquée
    * ici volontairement car privée côté service — un même produit peut avoir

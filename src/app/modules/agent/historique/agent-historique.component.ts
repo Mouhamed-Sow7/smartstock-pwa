@@ -40,6 +40,18 @@ const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
           <mat-icon [class.spin]="_isLoading">refresh</mat-icon>
         </button>
       </div>
+      <div class="recherche-produit">
+        <mat-icon>search</mat-icon>
+        <input
+          type="text"
+          [(ngModel)]="rechercheProduit"
+          (keyup.enter)="charger()"
+          [placeholder]="i18n.lang() === 'ar' ? 'ابحث عن منتج في المبيعات...' : 'Chercher un produit dans les ventes...'"
+        />
+        <button class="clear-recherche" *ngIf="rechercheProduit" (click)="rechercheProduit=''; charger()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
       <div class="sub" *ngIf="!_isLoading && !_error">{{ _ventes.length }} {{ i18n.lang() === 'ar' ? 'عملية بيع' : 'vente(s)' }}</div>
 
       <div class="loader" *ngIf="_isLoading">
@@ -175,6 +187,10 @@ const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
   styles: [`
     .historique-page { max-width: 600px; margin: 0 auto; }
     .histo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .recherche-produit { display: flex; align-items: center; gap: 8px; background: var(--surface-2, #f0f0f4); border-radius: 10px; padding: 8px 12px; margin: 8px 0 12px; }
+    .recherche-produit mat-icon { color: var(--text-2); font-size: 20px; width: 20px; height: 20px; }
+    .recherche-produit input { flex: 1; border: none; background: transparent; outline: none; font-size: 14px; color: var(--text-1); }
+    .clear-recherche { background: none; border: none; padding: 2px; display: flex; color: var(--text-2); }
     h1 { font-size: 22px; font-weight: 700; color: var(--text-1); margin: 0; }
     .reload-btn {
       width: 36px; height: 36px; border-radius: 10px; border: none;
@@ -278,6 +294,7 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
   _error = false;
   _page = 1;
   _hasMore = false;
+  rechercheProduit = '';
   private readonly LIMIT = 30;
 
   modesPaiement = MODES_PAIEMENT;
@@ -412,7 +429,10 @@ export class AgentHistoriqueComponent implements OnInit, OnDestroy {
     const user = this.auth.getUser();
     const userId = user?._id || user?.id;
     const base = userId ? `ventes?agentId=${userId}` : 'ventes?';
-    const path = `${base}&page=${page}&limit=${this.LIMIT}`;
+    const filtreProduit = this.rechercheProduit.trim()
+      ? `&produit=${encodeURIComponent(this.rechercheProduit.trim())}`
+      : '';
+    const path = `${base}&page=${page}&limit=${this.LIMIT}${filtreProduit}`;
 
     if (append) { this._isLoadingMore = true; } else { this._isLoading = true; this._error = false; }
     this.cdr.detectChanges();

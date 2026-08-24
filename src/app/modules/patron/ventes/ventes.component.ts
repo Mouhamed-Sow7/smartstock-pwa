@@ -64,6 +64,20 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
         </div>
       </div>
 
+      <!-- Recherche par produit — pour vérifier si une vente d'un produit précis a eu lieu -->
+      <div class="recherche-produit-ventes">
+        <mat-icon>search</mat-icon>
+        <input
+          type="text"
+          [(ngModel)]="rechercheProduit"
+          (keyup.enter)="charger()"
+          placeholder="Chercher un produit vendu (sur la période sélectionnée)..."
+        />
+        <button class="clear-recherche" *ngIf="rechercheProduit" (click)="rechercheProduit=''; charger()">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+
       <!-- KPIs -->
       <div class="kpi-row" *ngIf="!isLoading() && ventes().length > 0">
         <div class="kpi">
@@ -214,6 +228,19 @@ type Periode = 'aujourd_hui' | 'semaine' | 'mois' | 'mois_dernier' | 'annee' | '
       padding: 12px;
       margin-bottom: 16px;
     }
+    .recherche-produit-ventes {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--navy-card);
+      border: 1px solid var(--navy-border);
+      border-radius: 10px;
+      padding: 8px 12px;
+      margin-bottom: 16px;
+    }
+    .recherche-produit-ventes mat-icon { color: var(--text-2); font-size: 20px; width: 20px; height: 20px; }
+    .recherche-produit-ventes input { flex: 1; border: none; background: transparent; outline: none; font-size: 14px; color: var(--text-1); }
+    .recherche-produit-ventes .clear-recherche { background: none; border: none; padding: 2px; display: flex; color: var(--text-2); }
     .periode-tabs {
       display: flex;
       gap: 6px;
@@ -474,6 +501,7 @@ export class VentesComponent implements OnInit, OnDestroy {
   boutiqueSelectId = '';   // '' = toutes les boutiques
   boutiques = signal<any[]>([]);
   agentSelectId = '';      // '' = tous les agents
+  rechercheProduit = '';
   agents = signal<any[]>([]);
 
   periodes = [
@@ -627,7 +655,7 @@ export class VentesComponent implements OnInit, OnDestroy {
     const { debut, fin } = this.getRange();
     if (!debut || !fin) return;
     this.isLoading.set(true);
-    this.rapport.getVentes(debut, fin, this.boutiqueSelectId || undefined, this.agentSelectId || undefined).pipe(
+    this.rapport.getVentes(debut, fin, this.boutiqueSelectId || undefined, this.agentSelectId || undefined, this.rechercheProduit || undefined).pipe(
       timeout(15000),
       retry({ count: 3, delay: 4000 }),
       takeUntil(this.destroy$),

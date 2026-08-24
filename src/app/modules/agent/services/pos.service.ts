@@ -175,6 +175,31 @@ export class PosService {
     this.persisterPanier(cart);
   }
 
+  /** Fixe directement la quantité d'une ligne (saisie manuelle au clavier,
+   * ex: "45" en une fois plutôt que 45 taps sur le bouton +) — même
+   * vérification de stock max que addToCart, pour ne jamais dépasser le
+   * disponible. quantite<=0 retire la ligne, comme decrementItem. */
+  setQuantity(produitId: string, typeVente: 'detail' | 'gros', quantite: number): void {
+    if (!Number.isFinite(quantite)) return;
+    const idx = this.cartSnapshot.findIndex((i) => i.produit?._id === produitId && i.typeVente === typeVente);
+    if (idx < 0) return;
+    if (quantite <= 0) {
+      this.removeItem(produitId, typeVente);
+      return;
+    }
+    const produit = this.cartSnapshot[idx].produit;
+    const stockDispo = this.stockDisponiblePourType(produit, typeVente);
+    const quantiteFinale = Math.min(Math.floor(quantite), stockDispo);
+    if (quantiteFinale < Math.floor(quantite)) {
+      this.snack.open(`Stock max atteint (${stockDispo} unité${stockDispo > 1 ? 's' : ''})`, '✕', {
+        duration: 3000, panelClass: 'snack-warn',
+      });
+    }
+    const cart = this.cartSnapshot.map((i, j) => j === idx ? { ...i, quantite: quantiteFinale } : i);
+    this.cartSubject.next(cart);
+    this.persisterPanier(cart);
+  }
+
   removeItem(produitId: string, typeVente: 'detail' | 'gros' = 'detail'): void {
     const cart = this.cartSnapshot.filter((i) => !(i.produit?._id === produitId && i.typeVente === typeVente));
     this.cartSubject.next(cart);
