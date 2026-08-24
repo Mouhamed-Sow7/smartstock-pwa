@@ -529,7 +529,10 @@ export class VentesComponent implements OnInit, OnDestroy {
     { valeur: 'wave', labelFr: 'Wave' },
     { valeur: 'orange_money', labelFr: 'Orange Money' },
     { valeur: 'free_money', labelFr: 'Free Money' },
-    { valeur: 'credit', labelFr: 'Crédit' },
+    // Crédit masqué le 24/08/2026, jamais utilisé en pratique (idem
+    // 1287441/6534836 -- onglet Prêts + carte panier). Logique de vente à
+    // crédit intacte côté backend, juste retirée des choix proposés ici.
+    // { valeur: 'credit', labelFr: 'Crédit' },
   ];
   correctionCible: { venteId: string; type: 'mode' | 'prix'; ligneIndex?: number } | null = null;
   nouveauMode = '';

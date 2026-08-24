@@ -24,7 +24,9 @@ const MODES_PAIEMENT: { valeur: string; labelFr: string; labelAr: string }[] = [
   { valeur: 'wave', labelFr: 'Wave', labelAr: 'Wave' },
   { valeur: 'orange_money', labelFr: 'Orange Money', labelAr: 'Orange Money' },
   { valeur: 'free_money', labelFr: 'Free Money', labelAr: 'Free Money' },
-  { valeur: 'credit', labelFr: 'Crédit', labelAr: 'دين' },
+  // Crédit masqué le 24/08/2026, jamais utilisé en pratique (idem
+  // ventes.component.ts patron) — backend intact, juste retiré des choix.
+  // { valeur: 'credit', labelFr: 'Crédit', labelAr: 'دين' },
 ];
 const FENETRE_CORRECTION_MS = 24 * 60 * 60 * 1000;
 
