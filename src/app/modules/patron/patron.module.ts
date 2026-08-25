@@ -48,6 +48,11 @@ const routes: Routes = [
         loadComponent: () => import('./ventes/ventes.component').then((m) => m.VentesComponent),
       },
       {
+        path: 'fournisseurs',
+        loadComponent: () =>
+          import('./fournisseurs/fournisseurs.component').then((m) => m.FournisseursComponent),
+      },
+      {
         path: 'prets',
         loadComponent: () =>
           import('../../shared/components/prets-clients/prets-clients.component').then(

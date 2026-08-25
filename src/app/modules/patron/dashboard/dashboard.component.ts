@@ -126,6 +126,12 @@ import { AuthService } from '../../../core/services/auth.service';
           </div>
           <span>Péremption <span class="badge" *ngIf="alertesExpiration > 0">{{ alertesExpiration }}</span></span>
         </a>
+        <a class="shortcut-card" routerLink="/patron/fournisseurs">
+          <div class="sc-icon" style="--sc: #fdcb6e;">
+            <mat-icon>local_shipping</mat-icon>
+          </div>
+          <span>Fournisseurs</span>
+        </a>
       </div>
 
       <!-- Méthodes paiement -->
