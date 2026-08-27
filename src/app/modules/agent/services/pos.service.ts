@@ -347,6 +347,46 @@ export class PosService {
     const ticket = this.lastTicketSubject.value;
     if (!ticket) return;
 
+    const modeLabel: Record<string, string> = {
+      especes: 'Espèces', wave: 'Wave', orange_money: 'Orange Money', free_money: 'Free Money', credit: 'Crédit'
+    };
+
+    // Version Electron (smartstock-desktop) : impression silencieuse via le
+    // pont IPC exposé par preload.js -- window.smartstockDesktop n'existe
+    // QUE dans le wrapper desktop (contextBridge), jamais dans un navigateur
+    // ou la PWA installée, donc ce test suffit à distinguer les deux sans
+    // configuration supplémentaire. Voir smartstock-desktop/src/preload.js
+    // et imprimante-thermique.js/imprimante-standard.js pour le contrat
+    // exact de contenuTicket attendu par les deux drivers.
+    const desktop = (window as any).smartstockDesktop;
+    if (desktop?.estElectron) {
+      const contenuTicket = {
+        boutique: shopName,
+        numeroTicket: ticket.numeroTicket,
+        date: new Date(ticket.createdAt).toLocaleString('fr-FR'),
+        lignes: ticket.items.map((item) => ({
+          nom: item.produit?.nom || 'Produit',
+          quantite: item.quantite,
+          prixUnitaire: item.prix,
+          total: item.prix * item.quantite,
+        })),
+        total: ticket.total,
+        modePaiement: (modeLabel[ticket.modePaiement] || ticket.modePaiement) + (ticket.clientNom ? ' — ' + ticket.clientNom : ''),
+      };
+      desktop.imprimerTicket(contenuTicket).then((res: any) => {
+        // Impression silencieuse (silent:true côté Electron) : aucun retour
+        // visuel natif contrairement à window.print() -- sans ce message,
+        // un échec (imprimante hors ligne, non configurée) passerait
+        // totalement inaperçu pour l'agent.
+        if (!res?.success) {
+          this.snack.open(res?.message || "Erreur d'impression", 'Fermer', { duration: 4500 });
+        }
+      }).catch(() => {
+        this.snack.open("Erreur d'impression", 'Fermer', { duration: 4500 });
+      });
+      return;
+    }
+
     const itemsHtml = ticket.items
       .map(
         (item) => `
@@ -357,10 +397,6 @@ export class PosService {
         </tr>`,
       )
       .join('');
-
-    const modeLabel: Record<string, string> = {
-      especes: 'Espèces', wave: 'Wave', orange_money: 'Orange Money', free_money: 'Free Money', credit: 'Crédit'
-    };
 
     const html = `<!DOCTYPE html>
 <html>
